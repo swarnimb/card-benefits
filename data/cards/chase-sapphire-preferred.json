@@ -1,0 +1,99 @@
+{
+  "bankName": "Chase",
+  "cardName": "Sapphire Preferred",
+  "cardType": "visa",
+  "annualFee": 95,
+  "imageColor": "#1a1f71",
+  "benefits": [
+    {
+      "name": "5X on Chase Travel",
+      "description": "Earn 5 points per $1 on travel purchased through Chase Travel.",
+      "type": "points_multiplier",
+      "trackingType": "display_only",
+      "category": "travel",
+      "rate": 5.0,
+      "rateType": "multiplier"
+    },
+    {
+      "name": "3X on Dining",
+      "description": "Earn 3 points per $1 on dining at restaurants, takeout, and eligible delivery services.",
+      "type": "points_multiplier",
+      "trackingType": "display_only",
+      "category": "dining",
+      "rate": 3.0,
+      "rateType": "multiplier"
+    },
+    {
+      "name": "3X on Online Groceries",
+      "description": "Earn 3 points per $1 on online grocery purchases (excludes Target, Walmart, wholesale clubs).",
+      "type": "points_multiplier",
+      "trackingType": "display_only",
+      "category": "groceries",
+      "rate": 3.0,
+      "rateType": "multiplier"
+    },
+    {
+      "name": "3X on Streaming",
+      "description": "Earn 3 points per $1 on select streaming services.",
+      "type": "points_multiplier",
+      "trackingType": "display_only",
+      "category": "streaming",
+      "rate": 3.0,
+      "rateType": "multiplier"
+    },
+    {
+      "name": "2X on Travel",
+      "description": "Earn 2 points per $1 on all other travel purchases.",
+      "type": "points_multiplier",
+      "trackingType": "display_only",
+      "category": "travel",
+      "rate": 2.0,
+      "rateType": "multiplier"
+    },
+    {
+      "name": "5X on Lyft",
+      "description": "Earn 5 points per $1 on Lyft rides through 9/30/2027.",
+      "type": "points_multiplier",
+      "trackingType": "display_only",
+      "category": "transit",
+      "rate": 5.0,
+      "rateType": "multiplier"
+    },
+    {
+      "name": "1X Base Rate",
+      "description": "Earn 1 point per $1 on all other purchases.",
+      "type": "points_multiplier",
+      "trackingType": "display_only",
+      "category": "general",
+      "rate": 1.0,
+      "rateType": "multiplier"
+    },
+    {
+      "name": "$50 Hotel Credit",
+      "description": "Up to $50 per year in statement credits for hotel stays booked through Chase Travel.",
+      "type": "statement_credit",
+      "trackingType": "trackable",
+      "category": "travel",
+      "capAmount": 50.0,
+      "capPeriod": "annual",
+      "resetMonth": 1
+    },
+    {
+      "name": "DashPass Membership",
+      "description": "Complimentary DashPass: $0 delivery fees and reduced service fees on DoorDash orders through 12/31/2027.",
+      "type": "perk",
+      "trackingType": "display_only",
+      "category": "dining"
+    },
+    {
+      "name": "$10 DoorDash Credit",
+      "description": "$10 monthly credit for non-restaurant purchases on DoorDash through 12/31/2027.",
+      "type": "statement_credit",
+      "trackingType": "display_only",
+      "category": "dining",
+      "capAmount": 10.0,
+      "capPeriod": "monthly",
+      "resetMonth": 1
+    }
+  ]
+}

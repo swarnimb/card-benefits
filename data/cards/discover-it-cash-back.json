@@ -1,0 +1,44 @@
+{
+  "bankName": "Discover",
+  "cardName": "it Cash Back",
+  "cardType": "visa",
+  "annualFee": 0,
+  "imageColor": "#ff6000",
+  "benefits": [
+    {
+      "name": "5% Rotating Categories",
+      "description": "Earn 5% cash back on up to $1,500 in purchases in rotating quarterly categories when activated.",
+      "type": "cashback",
+      "trackingType": "display_only",
+      "category": "general",
+      "rate": 0.05,
+      "rateType": "percentage",
+      "capAmount": 1500.0,
+      "capPeriod": "quarterly",
+      "resetMonth": 1
+    },
+    {
+      "name": "1% Base Rate",
+      "description": "Earn 1% cash back on all other purchases automatically.",
+      "type": "cashback",
+      "trackingType": "display_only",
+      "category": "general",
+      "rate": 0.01,
+      "rateType": "percentage"
+    },
+    {
+      "name": "Cashback Match",
+      "description": "Discover automatically matches all the cash back you earn at the end of your first year.",
+      "type": "perk",
+      "trackingType": "display_only",
+      "category": "general"
+    },
+    {
+      "name": "No Annual Fee",
+      "description": "No annual fee, ever.",
+      "type": "perk",
+      "trackingType": "display_only",
+      "category": "general"
+    }
+  ]
+}

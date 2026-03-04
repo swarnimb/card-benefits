@@ -1,0 +1,26 @@
+# dependencies
+node_modules
+
+# next.js
+.next
+out
+
+# env files
+.env
+.env*.local
+
+# prisma
+/src/generated/prisma
+prisma/*.db
+prisma/*.db-journal
+
+# sqlite
+*.db
+*.db-journal
+
+# claude
+.claude/
+
+# misc
+*.tsbuildinfo
+next-env.d.ts

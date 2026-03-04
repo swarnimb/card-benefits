@@ -1,0 +1,52 @@
+{
+  "bankName": "Chase",
+  "cardName": "Freedom Unlimited",
+  "cardType": "visa",
+  "annualFee": 0,
+  "imageColor": "#1a3c6e",
+  "benefits": [
+    {
+      "name": "5% on Chase Travel",
+      "description": "Earn 5% cash back on travel purchased through Chase Travel.",
+      "type": "cashback",
+      "trackingType": "display_only",
+      "category": "travel",
+      "rate": 0.05,
+      "rateType": "percentage"
+    },
+    {
+      "name": "3% on Dining",
+      "description": "Earn 3% cash back on dining at restaurants and takeout.",
+      "type": "cashback",
+      "trackingType": "display_only",
+      "category": "dining",
+      "rate": 0.03,
+      "rateType": "percentage"
+    },
+    {
+      "name": "3% on Drugstore",
+      "description": "Earn 3% cash back on drugstore purchases.",
+      "type": "cashback",
+      "trackingType": "display_only",
+      "category": "drugstore",
+      "rate": 0.03,
+      "rateType": "percentage"
+    },
+    {
+      "name": "1.5% Base Rate",
+      "description": "Earn 1.5% cash back on all other purchases.",
+      "type": "cashback",
+      "trackingType": "display_only",
+      "category": "general",
+      "rate": 0.015,
+      "rateType": "percentage"
+    },
+    {
+      "name": "DashPass Membership",
+      "description": "Complimentary DoorDash DashPass subscription through 12/31/2027.",
+      "type": "perk",
+      "trackingType": "display_only",
+      "category": "dining"
+    }
+  ]
+}

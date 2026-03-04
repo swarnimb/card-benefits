@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model AppState {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
+
+model Card {
+  id         String    @id @default(cuid())
+  bankName   String
+  cardName   String
+  cardType   String // visa, mastercard, amex
+  annualFee  Float
+  imageColor String // hex color for card display
+  benefits   Benefit[]
+  userCards  UserCard[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([bankName, cardName])
+}
+
+model Benefit {
+  id           String   @id @default(cuid())
+  cardId       String
+  card         Card     @relation(fields: [cardId], references: [id])
+  name         String // "Dining Cashback", "Travel Credit"
+  description  String
+  type         String // cashback, points_multiplier, statement_credit, perk
+  trackingType String // trackable, display_only
+  category     String? // dining, travel, groceries, gas, streaming, etc.
+  rate         Float? // 0.05 for 5%, 3.0 for 3X points
+  rateType     String? // percentage, multiplier
+  capAmount    Float? // null = uncapped
+  capPeriod    String? // monthly, quarterly, annual
+  resetMonth   Int? // 1=Jan for annual, 1/4/7/10 for quarterly
+  externalUrl  String? // link to merchant/bank page
+  createdAt    DateTime @default(now())
+}
+
+model UserCard {
+  id                    String        @id @default(cuid())
+  cardId                String        @unique
+  card                  Card          @relation(fields: [cardId], references: [id])
+  pointBalance          Float?
+  pointBalanceUpdatedAt DateTime?
+  transactions          Transaction[]
+  importBatches         ImportBatch[]
+  createdAt             DateTime      @default(now())
+}
+
+model Transaction {
+  id               String      @id @default(cuid())
+  userCardId       String
+  userCard         UserCard    @relation(fields: [userCardId], references: [id], onDelete: Cascade)
+  date             DateTime
+  merchant         String
+  description      String
+  amount           Float
+  bankCategory     String? // from CSV if available
+  assignedCategory String // final category (bank or LLM)
+  importBatchId    String
+  importBatch      ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  createdAt        DateTime    @default(now())
+
+  @@index([userCardId, date])
+  @@index([userCardId, assignedCategory])
+}
+
+model ImportBatch {
+  id               String        @id @default(cuid())
+  userCardId       String
+  userCard         UserCard      @relation(fields: [userCardId], references: [id], onDelete: Cascade)
+  fileName         String
+  transactionCount Int
+  dateRangeStart   DateTime
+  dateRangeEnd     DateTime
+  transactions     Transaction[]
+  importedAt       DateTime      @default(now())
+}
