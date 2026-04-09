@@ -20,6 +20,17 @@ prisma/*.db-journal
 
 # claude
 .claude/
+.playwright-mcp/
+
+# Claude framework — never commit
+CLAUDE.md
+manifest.md
+profile.md
+content/
+docs/testing-setup.md
+docs/session-log.md
+docs/session-handoff.md
+docs/framework-issues.md
 
 # misc
 *.tsbuildinfo

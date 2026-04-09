@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { NavWrapper } from "@/components/shared/nav-wrapper";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Card Benefits Tracker",
-  description: "Track and maximize your credit card benefits",
+  title: "CardMaxxer",
+  description: "Never miss a benefit reset or leave money on the table.",
 };
 
 export const viewport: Viewport = {
@@ -30,12 +29,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <main className="pb-20">{children}</main>
-        <NavWrapper />
+        <main>{children}</main>
       </body>
     </html>
   );

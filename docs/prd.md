@@ -1,302 +1,281 @@
-# PRD: Card Benefits Tracker — MVP
+# PRD: CardMaxxer
 
-## Problem Statement
-Multi-card credit card holders lose value because checking benefits requires navigating each bank's app through multiple screens. Benefits expire unused, reward caps go untracked, and there's no single view across cards. The friction of checking outweighs the perceived value of optimizing.
-
-## Target User
-A person with 2+ credit cards who wants to see all benefits in one place and understand how much of each benefit they've used. Starting scope: personal use, portfolio project.
-
-## User Story
-As a multi-card holder, I want to see all my credit card benefits in one dashboard and track my usage against them, so that I stop leaving money on the table.
+> Produced by `@plan` — 2026-04-07
+> Source: `docs/kickoff-brief.md`, `docs/design-decisions.md`, `docs/assumptions.md`
 
 ---
 
-## Feature 1: First-Time Experience
+## Product Goal
+
+A personal dashboard where Swarnim tracks all credit card benefits in one place — never missing a reset, never leaving a credit unused.
+
+**Platform:** Mobile-first web app (375px minimum). Desktop supported.
+**Deployment:** Local machine + Tailscale. No cloud hosting.
+**Users:** Single user (Swarnim) in MVP. Auth architected for multi-user later.
+
+---
+
+## Feature 1: Authentication
+
+Single user, local deployment. NextAuth credentials provider (email + password from `.env`).
 
 ### User Flow
-1. User opens app for the first time
-2. Walkthrough tutorial (3 screens max, skippable):
-   - Screen 1: Value prop — "All your card benefits, one place"
-   - Screen 2: What tracking looks like — mock dashboard preview
-   - Screen 3: CTA — "Add your cards to get started"
-3. Card selection screen:
-   - Search bar to find cards by name or bank
-   - Cards grouped by bank
-   - Multi-select — user picks all cards they hold
-   - Clear indicator of how many cards are in the database ("Showing 10 of 10 available cards — more coming soon")
-4. For each selected card, prompt user to optionally enter current reward points/miles balance
-5. User lands on dashboard with selected cards
 
-### Business Logic
-- Tutorial shown only on first visit (flag in local storage or DB)
-- Card selection requires at least 1 card to proceed
-- Selected cards saved to user profile
-- Points balance entry is optional — can be skipped and entered later
-
-### Acceptance Criteria
-- [ ] Given a first-time user, when they open the app, then they see the tutorial
-- [ ] Given the tutorial, when user clicks skip, then they go directly to card selection
-- [ ] Given card selection, when user searches, then results filter in real-time
-- [ ] Given card selection, when user selects 1+ cards and confirms, then they see optional points balance entry
-- [ ] Given points balance entry, when user skips, then they land on dashboard with no balance shown
-- [ ] Given points balance entry, when user enters a value, then dashboard shows that as the starting balance
+1. Navigate to app URL → if unauthenticated → `/login`
+2. Email + password form → submit → session created → redirect to `/overview`
+3. Sign out available in Admin space → clears session → redirects to `/login`
 
 ### Edge Cases
-- No search results: Show "Card not found yet — we're adding more cards regularly"
-- User tries to proceed with 0 cards: Disable continue button
 
-### Out of Scope
-- User accounts / authentication (local app, single user)
-- Adding custom cards not in the database
-
----
-
-## Feature 2: Card Benefits Dashboard
-
-### User Flow
-1. User sees their primary card with all benefits listed
-2. Swipe left/right to switch between cards
-3. Each card view shows:
-   - Card name, bank, and card art/color
-   - Balance and credit limit (secondary, smaller)
-   - Recent transactions summary (secondary, collapsible)
-   - **All benefits and rewards (primary, prominent):**
-     - Trackable benefits: show utilization (e.g., "$340 / $1,500 dining cashback used")
-     - Non-trackable benefits: show as available with description and link to merchant/bank if applicable
-   - Points/miles balance: user-entered starting balance + estimated earnings from transactions
-4. User can tap any benefit to open benefit detail modal
-
-### Benefit Detail Modal
-- Small modal overlay (not a full page)
-- Shows: benefit description, utilization breakdown (which transactions matched), period dates, cap details
-- If applicable: clickable link to bank rewards page or merchant page
-- Not every benefit needs a link — only show when relevant (e.g., a dining cashback benefit doesn't need a link, but "DoorDash DashPass membership" links to DoorDash)
-- Close via X button or tap outside
-
-### Empty States
-- **No CSV imported (per card):** Show all benefits without utilization data. Soft prompt: "Import transactions to track your progress"
-- **No point balance entered:** Show "—" for points with a tap-to-add prompt
-- **No transactions in current period:** Show 0% utilization with "No matching transactions yet this [period]"
-- **Card just added, no data at all:** Show benefits list (the core value) with prompts for CSV import and points entry
-
-### Business Logic
-- Benefits displayed in two groups: "Tracked" (have utilization data) and "Available" (display-only)
-- Utilization calculated as: matching transactions in current period / benefit cap
-- Period resets handled per benefit (monthly, quarterly, annually)
-- Points estimated from: transaction amount × earning rate per category
-- Point balance = user-entered starting balance + sum of estimated points from all imported transactions after the entry date
-- User can update their point balance at any time from the card view (acts as a re-sync)
+- Wrong credentials → inline error "Invalid credentials"
+- Session expired → redirect to `/login`
+- All routes except `/login` are protected
 
 ### Acceptance Criteria
-- [ ] Given a user with 3 cards, when on dashboard, then they can swipe between all 3
-- [ ] Given a card with tracked benefits, when CSV has been imported, then utilization bars show accurate progress
-- [ ] Given a card with non-trackable benefits, when displayed, then benefit shows as available with description
-- [ ] Given a benefit with a quarterly cap, when a new quarter starts, then utilization resets to 0
-- [ ] Given transactions in dining category, when card earns 3X on dining, then estimated points reflect the multiplier
-- [ ] Given a benefit tapped, when modal opens, then it shows breakdown and applicable links
-- [ ] Given no CSV imported for a card, when dashboard loads, then benefits display with empty state prompts
-- [ ] Given a user-entered point balance of 50,000 and 2,000 estimated earned, when dashboard loads, then points show 52,000
 
-### Edge Cases
-- No CSV imported yet: Show benefits without utilization, prompt to upload CSV for tracking
-- Benefit period just reset: Show "Resets [date]" and 0% utilization
-- Transaction doesn't match any benefit category: Counted toward base rate only
-- User re-syncs point balance: New balance replaces old, future estimates calculate from new baseline + new entry date
+- [ ] Given unauthenticated user, when visiting any route, then redirect to `/login`
+- [ ] Given valid credentials, when submitted, then session JWT created and redirect to `/overview`
+- [ ] Given invalid credentials, when submitted, then inline error shown, no redirect
+- [ ] Session persists across browser refresh (30-day JWT expiry)
+- [ ] Sign out clears session and redirects to `/login`
 
-### Out of Scope
-- Real-time bank data sync
-- Push notifications for expiring benefits
-- Comparing benefits across cards
+### Explicitly Excluded
+
+- OAuth (Google, GitHub) — post-MVP
+- Multi-user invite flow — post-MVP
+- Password reset — handle via `.env` change
 
 ---
 
-## Feature 3: CSV Transaction Import
+## Feature 2: Card Setup — Add Card
 
-### Shared Data Source
-This app shares CSV source files with the Personal Finance Assistant (PFA) project. User downloads bank CSVs once to a designated folder (configurable in settings, e.g., `~/Finance/imports/`). Both apps import from that same folder independently — no shared code or database, just the same files on disk.
+Pre-seeded catalog of known cards. User selects cards from the catalog. Custom card option for cards not in the catalog.
 
-### User Flow
-1. User taps "Import" in bottom nav
-2. App shows files from the default import directory (if configured), or user browses/uploads manually
-3. Selects which card the CSV is for
-4. App auto-detects bank format and parses
-5. Shows preview: "Found 47 transactions from Jan 1 - Jan 31" with duplicate warning if applicable
-6. User confirms import
-7. Dashboard updates with utilization data for that card
+### Catalog (MVP)
 
-### Business Logic
-- CSV parser supports formats for all major US banks. Each bank has a consistent CSV format across its cards. Supported banks for MVP:
-  - Chase (date, description, category, type, amount)
-  - American Express (date, description, amount, extended details, category)
-  - Capital One (transaction date, posted date, card no., description, category, debit, credit)
-  - Citi (status, date, description, debit, credit)
-  - Bank of America (date, description, amount, running balance)
-  - Discover (trans date, post date, description, amount, category)
-  - Wells Fargo (date, amount, description)
-- Bank format auto-detected from CSV column headers
-- Transactions matched to benefit categories using: bank-provided category (if present) + LLM-based categorization of merchant names as fallback
-- Duplicate detection: same date + amount + merchant = likely duplicate, warn user
-- Imported transactions stored in DB, not re-processed on every view
-- Multiple imports accumulate (user can upload monthly)
+| Issuer | Cards |
+|---|---|
+| Chase | Sapphire Preferred, Sapphire Reserve, Freedom Unlimited, Freedom Flex |
+| Amex | Gold, Platinum, Blue Cash Preferred, Blue Cash Everyday |
+| Capital One | Venture X, Venture, Quicksilver |
+| Citi | Strata Premier, Double Cash |
+| Discover | it Cash Back |
+| Wells Fargo | Active Cash |
+
+Custom card: issuer + name text entry. No scrape URL — manual benefit entry only.
+
+### Add Card Flow
+
+1. Admin → "Add Card" → catalog picker (accordion by issuer)
+2. Tap card → confirm → scrape + parse triggered automatically
+3. Review Gate shown → user confirms benefits → card saved
+4. Card appears in Cards space
+
+### Remove Card Flow
+
+1. Admin → card row → "Remove Card"
+2. Confirmation dialog: "Remove [Card Name]? All benefits and usage history will be deleted."
+3. Confirm → card + all benefits + all period history deleted
 
 ### Acceptance Criteria
-- [ ] Given a CSV from any supported bank, when uploaded, then bank format is auto-detected and transactions are correctly parsed
-- [ ] Given a transaction "UBER EATS $34.50", when no bank category provided, then LLM categorizes it as "dining"
-- [ ] Given a previously imported transaction, when same CSV re-uploaded, then duplicates are flagged
-- [ ] Given a successful import, when user returns to dashboard, then utilization reflects imported data
-- [ ] Given an invalid/empty CSV, when uploaded, then user sees clear error message
-- [ ] Given a CSV from an unsupported bank, when uploaded, then user sees "This bank format isn't supported yet" with list of supported banks
 
-### Edge Cases
-- CSV format doesn't match any known bank: Show "This bank format isn't supported yet. Supported banks: [list]"
-- CSV has transactions for wrong date range: Import anyway, utilization calculates per period automatically
-- Merchant name ambiguous (e.g., "AMAZON" could be shopping or groceries): Default to most common category, allow user override in future
-- CSV contains both credits and debits: Parse both — credits may represent benefit reimbursements (e.g., travel credit)
-
-### Out of Scope
-- Automatic CSV fetching from email
-- Real-time transaction import (Plaid)
-- Reward points CSV import (points are calculated, not imported)
+- [ ] User can add any catalog card
+- [ ] User can add a custom card (issuer + name only)
+- [ ] Each card shows "Last verified: [date]" or "Never verified"
+- [ ] Adding a card triggers scrape automatically (not deferred)
+- [ ] Remove requires confirmation dialog before delete
+- [ ] Removing a card cascades: deletes all Benefits + all BenefitPeriods
 
 ---
 
-## Feature 4: Card Benefits Database
+## Feature 3: Benefit Ingestion (Scrape → Parse → Review → Confirm)
 
-### User Flow
-This is not user-facing directly — it powers Features 1-3.
+**Pipeline:** Playwright scrapes card URL → raw text → Claude Haiku `tool_use` → structured draft → Review Gate → user confirms → saved.
 
-### Business Logic
-- Each card in DB has: bank name, card name, annual fee, card type
-- Each benefit has: category, type (cashback/points/credit/perk), rate, cap amount, cap period (monthly/quarterly/annual), reset logic, description
-- Benefits are one of two tracking types:
-  - **Trackable:** Has a rate + category that can be matched against transactions (e.g., "5% on dining up to $1,500/quarter")
-  - **Display-only:** Cannot be derived from transactions (e.g., "Airport lounge access", "Purchase protection"). Shown as available with description and optional external link.
-- MVP: 5-10 popular cards, manually curated with LLM-assisted parsing from public bank webpages
-- Card data is versioned — when benefits change, old data preserved for historical accuracy
+### Step-by-Step
+
+1. Scrape triggered (on add or "Refresh Benefits")
+2. Loading state: "Fetching... → Parsing... → Done" (step labels, not just spinner)
+3. Playwright navigates to card's URL, extracts `document.body.innerText`
+4. Claude Haiku `tool_use` returns structured benefit array
+5. Review Gate displays all parsed benefits, editable inline:
+   - Edit any field: name, description, type, value, resetPeriod, resetAnchor, category
+   - Delete a row (×)
+   - Add manual row ("Add benefit")
+6. User taps "Save [N] benefits" → all written in one DB transaction
+7. `lastVerifiedAt` updated on UserCard
+
+### Failure Handling
+
+- Scrape fails (bot-blocked, timeout): Review Gate opens empty + amber banner ("Scrape failed — add benefits manually below")
+- Parse returns 0 benefits: Review Gate opens empty + amber banner ("No benefits found — add manually or try again")
+- Custom card (no URL): Review Gate opens empty immediately (no scrape attempted)
+
+### Re-scrape Behavior (Q1-A: Replace)
+
+- Same pipeline as initial scrape
+- On confirm: ALL existing benefits for that card deleted and replaced with review gate contents
+- Usage history (BenefitPeriods) deleted with old benefits
+- `lastVerifiedAt` updated
 
 ### Acceptance Criteria
-- [ ] Given a card in the database, when queried, then all benefits returned with complete structured data
-- [ ] Given a trackable benefit, when it has category + rate + cap, then it can be matched against transactions
-- [ ] Given a display-only benefit, when it has description + optional link, then it renders on dashboard
 
-### Edge Cases
-- Bank changes benefit terms mid-quarter: New version applies from effective date, old transactions use old rules
-- Card has a benefit with no cap (e.g., "1X on everything"): Cap stored as null, utilization shown as total earned (no progress bar)
-
-### Out of Scope
-- User-submitted card data
-- Automated scraping pipeline that runs on schedule
-- Cards from non-US banks
+- [ ] Loading state shows named steps (not just spinner)
+- [ ] Review Gate edits are reflected in saved data (not original parsed values)
+- [ ] User can delete any benefit from review gate
+- [ ] User can add a manual benefit row
+- [ ] "Save [N] benefits" disabled when 0 rows
+- [ ] Successful save: all benefits written in one transaction, `lastVerifiedAt` updated
+- [ ] Scrape failure: Review Gate opens with amber error banner, manual entry available
+- [ ] Re-scrape: on confirm, all existing benefits + periods deleted before new ones saved
+- [ ] No benefit ever auto-saved without user confirmation
 
 ---
 
-## Feature 5: Card Management
+## Feature 4: Manual Usage Tracking
 
-### User Flow
-1. User taps "Settings" in bottom nav
-2. Sees list of their currently added cards
-3. Can add new cards (same search + select flow as onboarding)
-4. Can remove a card (with confirmation: "Remove [card name]? This will delete all imported transactions for this card.")
-5. Can tap a card to edit: update point balance, view import history
+### Tracking UI Per Benefit Type
 
-### Business Logic
-- Adding a card: same flow as onboarding card selection, filtered to cards not already added
-- Removing a card: deletes the user-card association AND all imported transactions for that card
-- Point balance: editable at any time, updates the baseline for future estimates
+| Type | UI | Behavior |
+|---|---|---|
+| `credit` | Slider + number input | Drag or type. Save on pointer release / blur. Clamp [0, value]. |
+| `perk` | Slider + number input | Same as credit |
+| `subscription` | Toggle | "Not claimed" / "Claimed". Save on click. |
+| `access` | +/- Counter | Min 0. Max = `value` if set, else uncapped. Save on each tap. |
+
+All writes go through `updateBenefitUsage()` — no direct DB writes elsewhere.
+
+### Period Tracking
+
+- `usedAmount` stored in current open `BenefitPeriod`
+- Period expires → old period closed, new period opened, `usedAmount` resets to 0
+- Period advance is **automatic and silent** — on next API call after reset date (Q2-A)
+- No user action required to trigger reset
+
+### Optimistic Updates
+
+- UI updates immediately on interaction
+- API call runs in background
+- Failure: revert UI + show inline error on affected benefit item
 
 ### Acceptance Criteria
-- [ ] Given a user on settings, when they tap add card, then they see the card selection flow with already-added cards excluded
-- [ ] Given a user removing a card, when they confirm, then the card and its transactions are deleted
-- [ ] Given a user editing point balance, when they save, then dashboard reflects the new baseline immediately
 
-### Edge Cases
-- User removes their last card: Return to card selection flow (same as onboarding)
-- User adds a card they previously removed: Starts fresh, no old transaction data restored
-
-### Out of Scope
-- Reordering cards on dashboard
-- Card nicknames or custom labels
+- [ ] Slider: live preview during drag, DB write on pointer release only
+- [ ] Input: synced with slider, DB write on blur/Enter, clamped to [0, benefit.value]
+- [ ] Toggle: flips 0 ↔ 1, DB write on click
+- [ ] Counter: +/- by 1, DB write on each tap, min 0, max = benefit.value if set
+- [ ] Uncapped access (value = null): no max, shows "N visits" without denominator
+- [ ] All writes go through `updateBenefitUsage()`
+- [ ] Optimistic: UI reflects immediately; reverts on failure with inline error
+- [ ] `resetPeriod: 'once'`: usedAmount never auto-resets
 
 ---
 
-## Feature 6: Navigation
+## Feature 5: Reset Timeline + Expiring Soon Alerts
 
-### Structure
-Bottom navigation bar with 3 tabs:
-- **Dashboard** (home icon) — card benefits dashboard, default view
-- **Import** (upload icon) — CSV transaction import
-- **Settings** (gear icon) — card management, data management
+### Period Boundaries
 
-### Business Logic
-- Active tab highlighted
-- Dashboard is the default/home tab
-- Navigation persists across all views (except modals and tutorial)
-- Bottom nav should be an aesthetic, polished UI component — this is a portfolio piece
+| resetPeriod | resetAnchor | Period |
+|---|---|---|
+| monthly | calendar | 1st → last day of current calendar month |
+| quarterly | calendar | 1st → last day of current calendar quarter |
+| annual | calendar | Jan 1 → Dec 31 of current year |
+| monthly | statement | Last statement day → next statement day − 1 |
+| annual | anniversary | Last anniversary → next anniversary − 1 day |
+| once | any | No period end — usedAmount never resets |
+
+Default anchor: `calendar` (applied when scraper cannot determine anchor type).
+
+### Expiring Soon Definition
+
+A benefit is "expiring soon" if ALL:
+- `isTrackable = true`
+- `resetPeriod ≠ 'once'`
+- `periodEnd` within 7 days of today
+- Unused value > 0:
+  - credit/perk: `usedAmount < benefit.value`
+  - subscription: `usedAmount === 0`
+  - access with cap: `usedAmount < benefit.value`
+  - access uncapped: never expiring
+
+### Where Displayed
+
+- **Overview:** Expiring Soon section at top (amber), sorted by daysUntilReset ASC
+- **Cards space:** Amber "⚠ Resets in N days" label on affected benefit row
+- **Cards space:** Amber `⚠` badge on card in stack if any benefit expiring
 
 ### Acceptance Criteria
-- [ ] Given any screen, when user taps a nav tab, then they navigate to that section
-- [ ] Given the current tab, when displayed, then it is visually highlighted
-- [ ] Given the tutorial/onboarding flow, when active, then bottom nav is hidden
+
+- [ ] Period boundary correct for all 6 combinations
+- [ ] "Expiring soon" only when periodEnd ≤ today + 7 AND unused value > 0
+- [ ] Expiring benefits shown with amber styling in both spaces
+- [ ] "Resets in N days" label is integer day count
+- [ ] `resetPeriod: 'once'` benefits never appear in expiring soon
 
 ---
 
-## Feature 7: Data Management
+## Feature 6: Three Spaces
 
-### User Flow
-1. Accessible from Settings tab
-2. Options:
-   - **Clear transactions for a specific card** — removes imported CSV data for one card, keeps the card and benefits
-   - **Clear all transactions** — removes all imported CSV data across all cards
-   - **Reset point balance for a card** — clears the user-entered balance, resets to unknown
-   - **Reset all data** — removes all cards, transactions, point balances. Returns to onboarding state.
-3. Each destructive action requires confirmation dialog
+### Overview Space
+
+- Aggregates `credit` and `perk` benefits only — subscription + access excluded
+- Grouped by category; per group: total available vs. total used
+- Tap category row → expands to per-card breakdown
+- Expiring Soon section at top (amber) when any benefits resetting within 7 days
+- Empty categories (0 available) not shown
+
+### Cards Space (Apple Wallet Stack)
+
+- Scrollable vertical stack, scroll snap
+- Scroll-driven scale: center card = 1.0 / 1.0; adjacent = 0.92 / 0.75 opacity
+- Tap focused card → card lifts, benefits slide up
+- Benefits grouped per card: Credits → Subscriptions → Access → One-time Perks
+- Tracking UI inline (slider, toggle, counter)
+- Tap expanded card again → collapse
+
+### Admin Space
+
+- Card list: name, issuer, "Last verified", benefit count, "Refresh Benefits", "Remove"
+- "Add Card" → catalog picker
+- Per card: list of benefits (editable), "Add benefit", individual delete
+- Functional over beautiful — forms + lists, less animation than Cards/Overview
 
 ### Acceptance Criteria
-- [ ] Given clear transactions for a card, when confirmed, then only that card's transactions are deleted, benefits remain
-- [ ] Given clear all transactions, when confirmed, then all transaction data is removed, cards and benefits remain
-- [ ] Given reset all data, when confirmed, then app returns to first-time experience
-- [ ] Given any destructive action, when initiated, then a confirmation dialog appears before execution
 
-### Edge Cases
-- Reset all while on dashboard: Redirect to tutorial/onboarding after reset completes
-
----
-
-## MVP Scope Summary
-
-**In:**
-- 5-10 curated cards with structured benefits (covering 7 major US banks)
-- Tutorial + card selection onboarding with optional points balance entry
-- Swipeable dashboard with benefit utilization and empty states
-- Benefit detail modal with applicable external links
-- CSV import with auto-detected bank formats and transaction matching
-- LLM-powered transaction categorization
-- Points tracking: user-entered baseline + transaction-estimated earnings
-- Display-only benefits with descriptions/links
-- Bottom navigation (Dashboard, Import, Settings)
-- Card management (add/remove cards, edit point balance)
-- Data management (clear transactions, reset data)
-
-**Out:**
-- Plaid integration
-- Card recommendation engine
-- User accounts / auth
-- Non-transaction benefit tracking (lounge visits)
-- Automated scraping
-- Push notifications
-- Multi-user support
-
-## Success Metric
-- All benefits for selected cards visible and accurate
-- CSV import correctly calculates utilization for trackable benefits
-- First-time user can go from zero to full dashboard in under 3 minutes
-- Portfolio-ready: clean UI, demonstrable data pipeline, clear architecture
+- [ ] Overview: credit + perk only; subscription + access excluded
+- [ ] Overview: empty categories not shown
+- [ ] Cards: scroll-driven scale + snap works for 1–10 cards
+- [ ] Cards: only one card expanded at a time
+- [ ] Admin: editing a benefit reflects in Cards and Overview immediately after save
+- [ ] Admin: removing a benefit removes it from all spaces
+- [ ] Each space has appropriate empty state
 
 ---
 
-## Change Log
-| Date | Change | Reason |
-|------|--------|--------|
-| 2026-02-07 | Initial PRD created | MVP scoping from brainstorm session |
-| 2026-02-07 | PRD gap review — 7 fixes | Added: card management, navigation, data management, benefit detail modal, empty states, points balance flow, CSV bank formats, data CRUD |
-| 2026-02-07 | Shared data source with PFA | CSV files shared via configurable import directory — same files, independent apps, zero coupling |
+## Feature 7: Period Auto-Reset
+
+When app detects benefit period has ended:
+- Old BenefitPeriod → status set to `'closed'`
+- New BenefitPeriod created → `usedAmount = 0`
+- Detection on API call (lazy) — **no cron job** (Q2-A: silent auto-reset)
+- Closed records never mutated
+
+### Acceptance Criteria
+
+- [ ] When `periodEnd < today`, next API call closes it and opens a new one
+- [ ] New period `usedAmount = 0`
+- [ ] Closed BenefitPeriod records never updated after closing
+- [ ] `resetPeriod: 'once'` periods never auto-close
+
+---
+
+## Out of Scope (MVP)
+
+- CSV transaction import or auto-matching
+- Recommendation engine
+- Native mobile app
+- Plaid / bank API integration
+- LLM optimization suggestions
+- Usage history reports (past-period summary)
+- Multi-user support (architected for, not implemented)
+- Diff view on re-scrape (replace is current behavior — post-MVP)

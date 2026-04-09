@@ -1,88 +1,64 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
 }
 
-model AppState {
-  id    String @id @default(cuid())
-  key   String @unique
-  value String
-}
-
 model Card {
-  id         String    @id @default(cuid())
-  bankName   String
-  cardName   String
-  cardType   String // visa, mastercard, amex
-  annualFee  Float
-  imageColor String // hex color for card display
-  benefits   Benefit[]
-  userCards  UserCard[]
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-
-  @@unique([bankName, cardName])
-}
-
-model Benefit {
-  id           String   @id @default(cuid())
-  cardId       String
-  card         Card     @relation(fields: [cardId], references: [id])
-  name         String // "Dining Cashback", "Travel Credit"
-  description  String
-  type         String // cashback, points_multiplier, statement_credit, perk
-  trackingType String // trackable, display_only
-  category     String? // dining, travel, groceries, gas, streaming, etc.
-  rate         Float? // 0.05 for 5%, 3.0 for 3X points
-  rateType     String? // percentage, multiplier
-  capAmount    Float? // null = uncapped
-  capPeriod    String? // monthly, quarterly, annual
-  resetMonth   Int? // 1=Jan for annual, 1/4/7/10 for quarterly
-  externalUrl  String? // link to merchant/bank page
-  createdAt    DateTime @default(now())
+  id           String     @id @default(cuid())
+  issuer       String     // "Chase" | "Amex" | "Capital One" etc.
+  name         String     // "Sapphire Preferred"
+  scrapeUrl    String?    // null for custom cards
+  defaultColor String     // issuer color hex
+  userCards    UserCard[]
 }
 
 model UserCard {
-  id                    String        @id @default(cuid())
-  cardId                String        @unique
-  card                  Card          @relation(fields: [cardId], references: [id])
-  pointBalance          Float?
-  pointBalanceUpdatedAt DateTime?
-  transactions          Transaction[]
-  importBatches         ImportBatch[]
-  createdAt             DateTime      @default(now())
+  id              String     @id @default(cuid())
+  userId          String     // from NextAuth JWT sub claim (ADMIN_USER_ID in .env)
+  cardId          String
+  displayOrder    Int        @default(0)
+  lastVerifiedAt  DateTime?
+  statementDay    Int?       // 1-31, for statement resetAnchor
+  anniversaryDate DateTime?  // for anniversary resetAnchor
+  card            Card       @relation(fields: [cardId], references: [id])
+  benefits        Benefit[]
+  createdAt       DateTime   @default(now())
+
+  @@unique([userId, cardId])
+  @@index([userId])
 }
 
-model Transaction {
-  id               String      @id @default(cuid())
-  userCardId       String
-  userCard         UserCard    @relation(fields: [userCardId], references: [id], onDelete: Cascade)
-  date             DateTime
-  merchant         String
-  description      String
-  amount           Float
-  bankCategory     String? // from CSV if available
-  assignedCategory String // final category (bank or LLM)
-  importBatchId    String
-  importBatch      ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
-  createdAt        DateTime    @default(now())
+model Benefit {
+  id          String          @id @default(cuid())
+  userCardId  String
+  name        String
+  description String?
+  type        String          // "credit" | "subscription" | "access" | "perk"
+  value       Float?          // dollar cap or count cap; null = unlimited
+  resetPeriod String          // "monthly" | "quarterly" | "annual" | "once"
+  resetAnchor String          @default("calendar")
+  category    String          // "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"
+  isTrackable Boolean         @default(true)
+  userCard    UserCard        @relation(fields: [userCardId], references: [id], onDelete: Cascade)
+  periods     BenefitPeriod[]
+  createdAt   DateTime        @default(now())
 
-  @@index([userCardId, date])
-  @@index([userCardId, assignedCategory])
+  @@index([userCardId])
 }
 
-model ImportBatch {
-  id               String        @id @default(cuid())
-  userCardId       String
-  userCard         UserCard      @relation(fields: [userCardId], references: [id], onDelete: Cascade)
-  fileName         String
-  transactionCount Int
-  dateRangeStart   DateTime
-  dateRangeEnd     DateTime
-  transactions     Transaction[]
-  importedAt       DateTime      @default(now())
+// Append-only. Records with status = 'closed' are NEVER mutated.
+model BenefitPeriod {
+  id          String   @id @default(cuid())
+  benefitId   String
+  periodStart DateTime
+  periodEnd   DateTime?   // null when resetPeriod="once"
+  usedAmount  Float    @default(0)
+  status      String   @default("open") // "open" | "closed"
+  benefit     Benefit  @relation(fields: [benefitId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([benefitId, status])
 }
