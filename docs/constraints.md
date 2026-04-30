@@ -170,6 +170,18 @@
 
 ---
 
+### [CONSTRAINT-14] Plaintext admin password — bcrypt removed
+
+**Decision:** `ADMIN_PASSWORD` in `.env` is stored as plaintext. `src/lib/auth.ts` compares it directly with `===`. bcryptjs dependency removed.
+
+**What it means in practice:** Do not re-introduce bcrypt. Do not store a hash in `.env`. The env var name is `ADMIN_PASSWORD` (not `ADMIN_PASSWORD_HASH`). If login breaks in the future, the env var to check is `ADMIN_PASSWORD`.
+
+**Who decided and when:** Builder (auth debug session), 2026-04-09
+
+**What this closes off:** bcrypt-based password storage. Root cause: Next.js `dotenv-expand` mangles bcrypt hashes — all `$` characters are treated as variable references and expand to empty strings, truncating the 60-char hash. Plaintext is appropriate for a local-only single-user tool where `.env` and the DB are on the same machine.
+
+---
+
 ## Summary Table
 
 | # | Decision | Practical impact | Decided by | Date |
@@ -187,3 +199,4 @@
 | 11 | Prisma 7 — datasource URL in prisma.config.ts | schema.prisma has models only, no url field | @dev (discovered) | 2026-04-07 |
 | 12 | DS-01 relaxed for src/lib/** | JSDoc not required on internal library functions | Builder | 2026-04-08 |
 | 13 | CQ-06: y/m/d exempt in date math helpers | Single-letter date vars allowed in pure date boundary functions | Builder | 2026-04-08 |
+| 14 | Plaintext admin password | ADMIN_PASSWORD in .env; bcrypt removed (dotenv-expand incompatibility) | Builder | 2026-04-09 |

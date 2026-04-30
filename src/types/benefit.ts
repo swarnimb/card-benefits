@@ -1,9 +1,16 @@
+/** The four kinds of card benefit. */
 export type BenefitType = "credit" | "subscription" | "access" | "perk";
 
+/** How often a benefit resets. */
 export type ResetPeriod = "monthly" | "quarterly" | "annual" | "once";
 
+/** What date the reset cycle is anchored to. */
 export type ResetAnchor = "calendar" | "statement" | "anniversary";
 
+/** Whether a benefit value is in dollars or loyalty points. */
+export type ValueUnit = "dollars" | "points";
+
+/** Spending/usage category for grouping benefits in the overview. */
 export type BenefitCategory =
   | "dining"
   | "travel"
@@ -12,6 +19,7 @@ export type BenefitCategory =
   | "lounge"
   | "general";
 
+/** A benefit joined with its current period data — the primary shape used in API responses and UI. */
 export interface BenefitWithPeriod {
   id: string;
   userCardId: string;
@@ -19,6 +27,7 @@ export interface BenefitWithPeriod {
   description: string | null;
   type: BenefitType;
   value: number | null;
+  valueUnit: ValueUnit;
   resetPeriod: ResetPeriod;
   resetAnchor: ResetAnchor;
   category: BenefitCategory;
@@ -33,12 +42,13 @@ export interface BenefitWithPeriod {
   } | null;
 }
 
-// Returned by the LLM parser — not yet saved to DB
+/** Returned by the LLM parser — not yet saved to DB. Requires user confirmation before persisting. */
 export interface DraftBenefit {
   name: string;
   description: string | null;
   type: BenefitType;
   value: number | null;
+  valueUnit: ValueUnit;
   resetPeriod: ResetPeriod;
   resetAnchor: ResetAnchor;
   category: BenefitCategory;

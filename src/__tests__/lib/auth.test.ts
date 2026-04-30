@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest'
-import bcrypt from 'bcryptjs'
+import { describe, it, expect, beforeAll } from 'vitest'
+import { vi } from 'vitest'
 
 // Hoist mock references so vi.mock factory can close over them
 const { mockAuth } = vi.hoisted(() => ({ mockAuth: vi.fn() }))
@@ -17,12 +17,13 @@ vi.mock('next-auth/providers/credentials', () => ({
   default: vi.fn((config) => config),
 }))
 
-beforeAll(async () => {
-  process.env.ADMIN_PASSWORD_HASH = await bcrypt.hash('correctpassword', 10)
+beforeAll(() => {
+  // CONSTRAINT-14: plaintext password — bcrypt removed due to dotenv-expand incompatibility
+  process.env.ADMIN_PASSWORD = 'correctpassword'
 })
 
 describe('credentials provider', () => {
-  it('returns session token when password matches hash', async () => {
+  it('returns session token when password matches', async () => {
     const { authorizeUser } = await import('@/lib/auth')
     const result = await authorizeUser('test@example.com', 'correctpassword')
     expect(result).toEqual({ id: 'user_test', email: 'test@example.com' })

@@ -12,6 +12,7 @@ function makeBenefit(overrides: Partial<BenefitWithPeriod> = {}): BenefitWithPer
     description: null,
     type: "credit",
     value: 50,
+    valueUnit: "dollars",
     resetPeriod: "monthly",
     resetAnchor: "calendar",
     category: "dining",

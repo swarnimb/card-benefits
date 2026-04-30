@@ -1,13 +1,16 @@
-export type ApiResponse<T> =
-  | { success: true; data: T }
-  | { success: false; error: string };
-
+/** Aggregated overview data: credit categories with per-card breakdowns and expiring benefits. */
 export interface OverviewData {
   categories: {
     category: string;
     totalValue: number;
     totalUsed: number;
     cardCount: number;
+    cards: {
+      cardName: string;
+      cardColor: string;
+      totalValue: number;
+      totalUsed: number;
+    }[];
   }[];
   expiringSoon: {
     benefitId: string;

@@ -33,6 +33,8 @@ vi.mock("playwright", () => {
 import { genericScrape, ScraperError } from "@/lib/scraper/generic";
 import { scrapeCard } from "@/lib/scraper/index";
 
+const REALISTIC_PAGE_TEXT = "Credit Card Benefits and Rewards Summary — Your card includes dining credits, travel perks, and streaming subscriptions.";
+
 describe("genericScrape", () => {
   beforeEach(() => {
     mockGoto.mockReset();
@@ -42,10 +44,10 @@ describe("genericScrape", () => {
 
   it("returns page text on successful navigation", async () => {
     mockGoto.mockResolvedValue(undefined);
-    mockEvaluate.mockResolvedValue("Benefit page content");
+    mockEvaluate.mockResolvedValue(REALISTIC_PAGE_TEXT);
 
     const result = await genericScrape("https://example.com/benefits");
-    expect(result).toBe("Benefit page content");
+    expect(result).toBe(REALISTIC_PAGE_TEXT);
     expect(mockClose).toHaveBeenCalled();
   });
 
@@ -70,13 +72,13 @@ describe("genericScrape", () => {
 describe("scrapeCard", () => {
   beforeEach(() => {
     mockGoto.mockResolvedValue(undefined);
-    mockEvaluate.mockResolvedValue("Benefit text content");
+    mockEvaluate.mockResolvedValue(REALISTIC_PAGE_TEXT);
     mockClose.mockResolvedValue(undefined);
   });
 
   it("dispatches to issuer-specific scraper for known issuer", async () => {
     const result = await scrapeCard("Chase", "https://chase.com/benefits");
-    expect(result).toBe("Benefit text content");
+    expect(result).toBe(REALISTIC_PAGE_TEXT);
     expect(mockGoto).toHaveBeenCalledWith(
       "https://chase.com/benefits",
       expect.objectContaining({ waitUntil: "networkidle" })
@@ -85,7 +87,7 @@ describe("scrapeCard", () => {
 
   it("falls back to genericScrape for unknown issuer", async () => {
     const result = await scrapeCard("Unknown Bank", "https://unknown.com/benefits");
-    expect(result).toBe("Benefit text content");
+    expect(result).toBe(REALISTIC_PAGE_TEXT);
     expect(mockGoto).toHaveBeenCalledWith(
       "https://unknown.com/benefits",
       expect.objectContaining({ waitUntil: "networkidle" })

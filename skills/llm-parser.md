@@ -29,22 +29,25 @@ Parses multiple cards sequentially. Returns all `ParseResult[]` together for a c
 
 ## Benefit Schema (Output Target)
 
+Source of truth: `src/types/benefit.ts` → `DraftBenefit`. Do not use enum values from this file without cross-checking that type.
+
 ```typescript
-type ParsedBenefit = {
-  name: string                  // Short display name (max 40 chars)
-  description: string           // Full description for tooltip/detail view
+// DraftBenefit — matches src/types/benefit.ts exactly
+type DraftBenefit = {
+  name: string                                              // Short display name
+  description: string | null                               // Full description (optional)
   type: 'credit' | 'subscription' | 'access' | 'perk'
-  value: number                 // Dollar amount or count limit (never a string)
-  valueUnit: 'dollars' | 'count' | 'unlimited'
-  resetPeriod: 'monthly' | 'quarterly' | 'yearly' | 'none'
-  resetAnchor: 'calendar' | 'statement_date' | 'anniversary'
-  category: 'travel' | 'dining' | 'streaming' | 'shopping' | 'lifestyle' | 'other'
-  validMerchants: string[]      // Specific merchants only if explicitly restricted
-  notes: string | null          // Caveats, enrollment requirements, conditions
-  confidence: number            // 0.0–1.0 — scored per benefit
-  source: 'llm'
+  value: number | null                                     // Dollar amount or count. null for unlimited.
+  resetPeriod: 'monthly' | 'quarterly' | 'annual' | 'once'  // NOT 'yearly'/'none'
+  resetAnchor: 'calendar' | 'statement' | 'anniversary'     // NOT 'statement_date'
+  category: 'dining' | 'travel' | 'streaming' | 'shopping' | 'lounge' | 'general'  // NOT 'lifestyle'/'other'
+  isTrackable: boolean
+  confidence: number                                       // 0.0–1.0
 }
 ```
+
+Tool schema lives in `src/lib/parser/schema.ts` → `BENEFIT_EXTRACTION_TOOL`.
+Parser implementation: `src/lib/parser/index.ts` → `parseBenefits(rawText: string): Promise<DraftBenefit[]>`.
 
 ---
 
@@ -71,22 +74,13 @@ type ParsedBenefit = {
 - Instruct Claude: `resetPeriod` must be one of the exact enum values — no paraphrasing
 - Include the full tool schema definition as the tool definition in the API call
 
-### Validation pass (after Claude response)
+### Validation (handled by parser)
 
-Before returning `ParseResult`, validate every field:
-
-| Field | Check |
-|---|---|
-| `name` | Non-empty string, ≤40 chars |
-| `value` | Is a number (not NaN, not a string) |
-| `valueUnit` | Exactly one of the allowed enum values |
-| `resetPeriod` | Exactly one of the allowed enum values |
-| `resetAnchor` | Exactly one of the allowed enum values |
-| `category` | Exactly one of the allowed enum values |
-| `confidence` | Number between 0.0 and 1.0 |
-| `validMerchants` | Array (may be empty) |
-
-On validation failure: reject the malformed record loudly — log which field failed and why. Do not silently drop or apply a default. Include failed record in `ParseResult.validation_errors[]`.
+`parseBenefits` in `src/lib/parser/index.ts` handles this. Key behaviours:
+- `stop_reason !== "tool_use"` → throws `ParserError`
+- `resetAnchor` missing → defaults to `"calendar"` (safe default per assumptions)
+- 0 benefits returned → returns `[]` (valid, not an error)
+- API failure → throws `ParserError` with `rawTextPreview` (first 200 chars of rawText)
 
 ---
 

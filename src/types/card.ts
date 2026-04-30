@@ -1,5 +1,6 @@
 import type { BenefitWithPeriod } from "./benefit";
 
+/** Supported card issuers. */
 export type Issuer =
   | "Chase"
   | "Amex"
@@ -9,6 +10,7 @@ export type Issuer =
   | "Wells Fargo"
   | "Other";
 
+/** A card from the static catalog (data/card-catalog.json). */
 export interface CatalogCard {
   id: string;
   issuer: Issuer;
@@ -17,6 +19,7 @@ export interface CatalogCard {
   defaultColor: string;
 }
 
+/** A user's card joined with its catalog card data. */
 export interface UserCardWithCard {
   id: string;
   userId: string;
@@ -29,6 +32,7 @@ export interface UserCardWithCard {
   card: CatalogCard & { id: string };
 }
 
+/** UserCardWithCard extended with current benefits and period data. */
 export interface UserCardWithBenefits extends UserCardWithCard {
   benefits: BenefitWithPeriod[];
 }

@@ -96,6 +96,51 @@
 
 ---
 
+## FB8 — Plaintext Admin Password (bcrypt Dropped)
+
+**Date:** 2026-04-09
+**Architecture section:** `docs/architecture.md` → Security Architecture, Infrastructure + Deployment
+
+**Decided:** The admin password is stored as plaintext in `.env` (`ADMIN_PASSWORD`). bcrypt (`bcryptjs`) was removed. Auth comparison is a direct string equality check in `src/lib/auth.ts`.
+
+**Means for your product:** No change to how login feels. You type your password, it works. Internally, there's no hashing — the value in `.env` is compared directly to what you typed. The `.env` file is gitignored and lives only on your local machine.
+
+**Check before approving:** The root cause was Next.js's `dotenv-expand` package, which processes `.env` at startup. bcrypt hashes contain `$` characters (e.g., `$2a$10$...`), which dotenv-expand treats as variable references and mangles. Attempts to escape (double quotes, single quotes, `$$`) all failed in Next.js 16. Plaintext is the correct solution for a local-only single-user app where the `.env` file and the SQLite DB are on the same filesystem — if an attacker has read access to `.env`, they already own the machine.
+
+**What this closes off:** bcrypt hash-based credential storage. If this app ever becomes multi-user or shared, this decision must be revisited before other users are added.
+
+---
+
+## FB9 — Find-or-Create Card Row Pattern (No Seed Script)
+
+**Date:** 2026-04-09
+**Architecture section:** `docs/architecture.md` → API Routes (UserCards)
+
+**Decided:** When a user adds a catalog card via `POST /api/user-cards`, the route uses `findFirst({ issuer, name })` to locate an existing `Card` row, then creates one if missing. No seed script populates the `Card` table in advance.
+
+**Means for your product:** The first time you add any card, a `Card` row is created on demand. If you add the same card again (e.g., you deleted it and re-add), the existing `Card` row is reused — no duplicate card definitions. The catalog JSON is still the source of truth for issuer/name/color; the DB row is created from it at add-time.
+
+**Check before approving:** The original task spec assumed "Card rows already seeded" but no seed script was ever written. Find-or-create achieves the same result without a migration. If a seed script is ever added later, the find-or-create becomes a no-op (finds existing, skips create) — no conflict.
+
+**What this closes off:** Nothing significant. If the catalog JSON changes (e.g., a card is renamed), existing `Card` DB rows won't auto-update — they'd need a manual migration or delete + re-add.
+
+---
+
+## FB10 — Client Data Fetching Lives in src/hooks/
+
+**Date:** 2026-04-13
+**Architecture section:** `docs/architecture.md` → Directory Structure
+
+**Decided:** Each client-rendered page space has its own data-fetching hook in `src/hooks/`, named `use-[space]-data.ts`. The hook owns: fetching, loading/error state, and optimistic mutations with revert. Pages import the hook and handle UI state only.
+
+**Means for your product:** Pages stay thin (< 200 lines). The fetch + retry + optimistic update logic is tested independently from the UI. When you add a new space (e.g., Overview), create `use-overview-data.ts` — don't put fetch logic directly in the page component.
+
+**Check before approving:** Cards page uses this pattern. Overview and Admin pages should follow it. If you ever want to share data between spaces (e.g., expiring alerts on both Cards and Overview), the hook is the right place to add cross-space caching — not a global store (yet).
+
+**What this closes off:** Inline `useEffect` + `fetch` directly in page components. Any data fetching added to a page component going forward would be a deviation from this pattern.
+
+---
+
 ## FB7 — Playwright as npm Dependency (Local Chromium Required)
 
 **Date:** 2026-04-08
@@ -108,3 +153,33 @@
 **Check before approving:** Have you run `npx playwright install chromium` on your local machine? If not, the scrape button will throw an error the first time it's used.
 
 **What this closes off:** Nothing — Playwright was always the plan (A3 validated). This is the expected implementation path.
+
+---
+
+## FB8 — Benefits GET Route Moved Under User-Cards
+
+**Date:** 2026-04-13
+**Architecture section:** `docs/architecture.md` → Directory Structure, API Routes Summary
+
+**Decided:** `GET /api/benefits/[userCardId]` moved to `GET /api/user-cards/[id]/benefits`. The old route created a Next.js dynamic slug conflict (`[id]` vs `[userCardId]` as siblings under `api/benefits/`) that prevented the app from starting.
+
+**Means for your product:** No user-facing change. The same data is returned from a different URL. The fix was required — without it, the app could not start at all. Tests passed before the fix because they call route handlers directly as functions, bypassing Next.js routing.
+
+**Check before approving:** Already verified — `npm run dev` starts cleanly, all 114 tests pass, all browser flows work.
+
+**What this closes off:** Nothing — this is a routing fix. The API contract is identical, just at a more RESTful path.
+
+---
+
+## FB8 — Value Unit: Dollars vs Points
+
+**Date:** 2026-04-14
+**Architecture section:** `docs/architecture.md` → Data Model (Benefit), Claude Haiku Parser
+
+**Decided:** Added a `valueUnit` field to the Benefit model — either `"dollars"` or `"points"`. The LLM parser now classifies each benefit's value, and the review gate shows a dropdown to correct it. Display renders `$300` for dollars and `75,000 pts` for points.
+
+**Means for your product:** You can now see at a glance which benefits are actual dollar credits (use-it-or-lose-it money) vs loyalty points (nice-to-have but not urgent). This directly affects which benefits the Overview should prioritize showing as "expiring soon."
+
+**Check before approving:** Already applied — DB migration ran, parser updated, review gate shows the dropdown, benefit display formats correctly.
+
+**What this closes off:** Nothing — additive change. Default is `"dollars"` so all existing benefits continue working unchanged.

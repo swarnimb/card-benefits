@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { BenefitPeriod } from "@prisma/client";
 
+/** Thrown when period calculation or creation fails. Includes function name and benefit context. */
 export class PeriodEngineError extends Error {
   fn: string;
   benefitId: string;
@@ -71,6 +72,10 @@ function calcAnniversaryBoundary(
   };
 }
 
+/**
+ * Pure function — computes the current period's start/end dates based on reset rules.
+ * @throws PeriodEngineError if required anchor data (statementDay/anniversaryDate) is missing.
+ */
 export function calculatePeriodBoundary(
   resetPeriod: string,
   resetAnchor: string,
@@ -85,18 +90,19 @@ export function calculatePeriodBoundary(
   }
 
   if (resetAnchor === "statement") {
-    if (!statementDay) throw new Error("calculatePeriodBoundary: statementDay required for statement anchor");
+    if (!statementDay) throw new PeriodEngineError({ message: "statementDay required for statement anchor", fn: "calculatePeriodBoundary", benefitId: "n/a" });
     return calcStatementBoundary(now, statementDay);
   }
 
   if (resetAnchor === "anniversary") {
-    if (!anniversaryDate) throw new Error("calculatePeriodBoundary: anniversaryDate required for anniversary anchor");
+    if (!anniversaryDate) throw new PeriodEngineError({ message: "anniversaryDate required for anniversary anchor", fn: "calculatePeriodBoundary", benefitId: "n/a" });
     return calcAnniversaryBoundary(now, anniversaryDate);
   }
 
-  throw new Error(`calculatePeriodBoundary: unsupported resetPeriod="${resetPeriod}" resetAnchor="${resetAnchor}"`);
+  throw new PeriodEngineError({ message: `unsupported resetPeriod="${resetPeriod}" resetAnchor="${resetAnchor}"`, fn: "calculatePeriodBoundary", benefitId: "n/a" });
 }
 
+/** Returns the current open period for a benefit, creating or rolling over as needed. */
 export async function ensureCurrentPeriod(benefitId: string): Promise<BenefitPeriod> {
   try {
     const now = new Date();

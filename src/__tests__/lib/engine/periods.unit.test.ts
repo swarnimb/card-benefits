@@ -72,16 +72,16 @@ describe("calculatePeriodBoundary — anniversary anchor", () => {
 describe("calculatePeriodBoundary — error cases", () => {
   it("throws when statementDay is missing for statement anchor", () => {
     expect(() => calculatePeriodBoundary("monthly", "statement", new Date(2026, 3, 15)))
-      .toThrow("calculatePeriodBoundary: statementDay required for statement anchor");
+      .toThrow("statementDay required for statement anchor");
   });
 
   it("throws when anniversaryDate is missing for anniversary anchor", () => {
     expect(() => calculatePeriodBoundary("annual", "anniversary", new Date(2026, 3, 15)))
-      .toThrow("calculatePeriodBoundary: anniversaryDate required for anniversary anchor");
+      .toThrow("anniversaryDate required for anniversary anchor");
   });
 
   it("throws for unsupported resetPeriod and resetAnchor combination", () => {
     expect(() => calculatePeriodBoundary("biweekly", "custom", new Date(2026, 3, 15)))
-      .toThrow('calculatePeriodBoundary: unsupported resetPeriod="biweekly" resetAnchor="custom"');
+      .toThrow('unsupported resetPeriod="biweekly" resetAnchor="custom"');
   });
 });

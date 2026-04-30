@@ -35,3 +35,6 @@ docs/framework-issues.md
 # misc
 *.tsbuildinfo
 next-env.d.ts
+
+# dev screenshots at project root (Playwright MCP default save location)
+/*.png

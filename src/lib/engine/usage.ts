@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { ensureCurrentPeriod } from "@/lib/engine/periods";
 import type { BenefitPeriod } from "@prisma/client";
 
+/** Thrown when a usage update fails. Includes benefit ID and attempted amount. */
 export class UsageEngineError extends Error {
   fn: string;
   benefitId: string;
@@ -22,6 +23,7 @@ export class UsageEngineError extends Error {
   }
 }
 
+/** The ONLY function that writes usedAmount to the database. Clamps to [0, benefit.value]. */
 export async function updateBenefitUsage(
   benefitId: string,
   newAmount: number

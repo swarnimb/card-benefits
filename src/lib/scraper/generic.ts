@@ -1,9 +1,10 @@
-import { chromium, errors } from "playwright";
+import { chromium } from "playwright";
 
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-const PAGE_LOAD_TIMEOUT_MS = 30_000; // max wait for networkidle before throwing ScraperError
+const LOAD_TIMEOUT_MS = 45_000;
+const SETTLE_DELAY_MS = 3_000; // wait for JS-rendered content after DOM loads
 
 export class ScraperError extends Error {
   url: string;
@@ -19,6 +20,7 @@ export class ScraperError extends Error {
   }
 }
 
+/** Launches headless Chromium, navigates to the URL, and returns the page's innerText. */
 export async function genericScrape(url: string, issuer = "generic"): Promise<string> {
   const browser = await chromium.launch({ headless: true });
   try {
@@ -26,11 +28,13 @@ export async function genericScrape(url: string, issuer = "generic"): Promise<st
     const page = await context.newPage();
 
     try {
-      await page.goto(url, { timeout: PAGE_LOAD_TIMEOUT_MS, waitUntil: "networkidle" });
+      // Use domcontentloaded — benefit text is in the HTML/SSR content.
+      // networkidle hangs on analytics/tracking scripts that never finish.
+      await page.goto(url, { timeout: LOAD_TIMEOUT_MS, waitUntil: "domcontentloaded" });
+
+      // Give JS a few seconds to render any client-side content
+      await page.waitForTimeout(SETTLE_DELAY_MS);
     } catch (err) {
-      if (err instanceof errors.TimeoutError) {
-        throw new ScraperError({ url, issuer, reason: "timeout" });
-      }
       throw new ScraperError({
         url,
         issuer,
@@ -38,7 +42,12 @@ export async function genericScrape(url: string, issuer = "generic"): Promise<st
       });
     }
 
-    return page.evaluate(() => document.body.innerText);
+    const content = await page.evaluate(() => document.body.innerText);
+    const MIN_CONTENT_LENGTH = 50;
+    if (!content || content.trim().length < MIN_CONTENT_LENGTH) {
+      throw new ScraperError({ url, issuer, reason: "empty_content" });
+    }
+    return content;
   } finally {
     await browser.close();
   }

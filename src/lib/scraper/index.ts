@@ -13,6 +13,7 @@ const ISSUER_SCRAPERS: Record<string, (url: string) => Promise<string>> = {
   Discover: discoverScrape,
 };
 
+/** Dispatches to an issuer-specific scraper or falls back to genericScrape. */
 export async function scrapeCard(issuer: string, url: string): Promise<string> {
   const scraper = ISSUER_SCRAPERS[issuer] ?? genericScrape;
   return scraper(url);

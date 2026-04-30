@@ -38,6 +38,7 @@ model Benefit {
   description String?
   type        String          // "credit" | "subscription" | "access" | "perk"
   value       Float?          // dollar cap or count cap; null = unlimited
+  valueUnit   String          @default("dollars") // "dollars" | "points"
   resetPeriod String          // "monthly" | "quarterly" | "annual" | "once"
   resetAnchor String          @default("calendar")
   category    String          // "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"

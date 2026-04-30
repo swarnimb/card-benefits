@@ -21,6 +21,13 @@
     "defaultColor": "#1a56db"
   },
   {
+    "id": "chase-amazon-prime-visa",
+    "issuer": "Chase",
+    "name": "Amazon Prime Visa",
+    "scrapeUrl": "https://creditcards.chase.com/cash-back-credit-cards/amazon-prime-rewards",
+    "defaultColor": "#1a56db"
+  },
+  {
     "id": "chase-freedom-flex",
     "issuer": "Chase",
     "name": "Freedom Flex",
@@ -59,21 +66,21 @@
     "id": "capital-one-venture-x",
     "issuer": "Capital One",
     "name": "Venture X",
-    "scrapeUrl": "https://creditcards.capitalone.com/venture-x-credit-card",
+    "scrapeUrl": "https://www.capitalone.com/credit-cards/venture-x/",
     "defaultColor": "#9b1c1c"
   },
   {
     "id": "capital-one-venture",
     "issuer": "Capital One",
     "name": "Venture",
-    "scrapeUrl": "https://creditcards.capitalone.com/venture-credit-card",
+    "scrapeUrl": "https://www.capitalone.com/credit-cards/venture/",
     "defaultColor": "#9b1c1c"
   },
   {
     "id": "capital-one-quicksilver",
     "issuer": "Capital One",
     "name": "Quicksilver",
-    "scrapeUrl": "https://creditcards.capitalone.com/quicksilver-credit-card",
+    "scrapeUrl": "https://www.capitalone.com/credit-cards/quicksilver/",
     "defaultColor": "#9b1c1c"
   },
   {
@@ -103,5 +110,19 @@
     "name": "Active Cash",
     "scrapeUrl": "https://creditcards.wellsfargo.com/active-cash-credit-card",
     "defaultColor": "#854d0e"
+  },
+  {
+    "id": "citi-diamond-preferred",
+    "issuer": "Citi",
+    "name": "Diamond Preferred",
+    "scrapeUrl": "https://www.citi.com/credit-cards/citi-diamond-preferred-credit-card",
+    "defaultColor": "#1e40af"
+  },
+  {
+    "id": "capital-one-savor-one",
+    "issuer": "Capital One",
+    "name": "SavorOne",
+    "scrapeUrl": "https://www.capitalone.com/credit-cards/savorone/",
+    "defaultColor": "#9b1c1c"
   }
 ]

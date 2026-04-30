@@ -75,9 +75,9 @@ src/
         [id]/
           route.ts                   ← DELETE, PATCH
           scrape/route.ts            ← POST: scrape + parse → draft
+          benefits/route.ts          ← GET: benefits + current periods
       benefits/
         confirm/route.ts             ← POST: bulk save (replace)
-        [userCardId]/route.ts        ← GET: benefits + current periods
         [id]/
           route.ts                   ← PATCH edit, DELETE remove
           usage/route.ts             ← POST: update usedAmount
@@ -124,8 +124,10 @@ src/
       periods.ts             ← calculatePeriodBoundary() + ensureCurrentPeriod()
       usage.ts               ← updateBenefitUsage()
       expiring.ts            ← isExpiringSoon() + aggregateOverview()
+  hooks/
+    use-cards-data.ts        ← Cards space: fetch cards + benefits, optimistic usage updates
   types/
-    card.ts                  ← Issuer, CatalogCard, UserCardWithCard
+    card.ts                  ← Issuer, CatalogCard, UserCardWithCard, UserCardWithBenefits
     benefit.ts               ← BenefitType, BenefitWithPeriod, DraftBenefit
     api.ts                   ← ApiResponse<T>, OverviewData
 data/
@@ -174,6 +176,7 @@ model Benefit {
   description String?
   type        String          // "credit" | "subscription" | "access" | "perk"
   value       Float?          // dollar cap or count cap; null = unlimited
+  valueUnit   String          @default("dollars") // "dollars" | "points"
   resetPeriod String          // "monthly" | "quarterly" | "annual" | "once"
   resetAnchor String          @default("calendar")
   category    String          // "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"
@@ -279,8 +282,10 @@ async function updateBenefitUsage(benefitId: string, newAmount: number): Promise
 
 - Model: `claude-haiku-4-5-20251001` — never substituted
 - Always uses `tool_use` — never freeform JSON parsing
-- Tool schema fields: name, description, type (enum), value, resetPeriod (enum), resetAnchor (enum), category (enum), isTrackable, confidence
+- Tool schema fields: name, description, type (enum), value, valueUnit (enum: dollars|points), resetPeriod (enum), resetAnchor (enum), category (enum), isTrackable, confidence
 - Missing `resetAnchor` → defaults to `"calendar"`
+- Missing or invalid `valueUnit` → defaults to `"dollars"`
+- Invalid `type` values → clamped to `"perk"`
 - Returns `DraftBenefit[]` — empty array is valid (not an error)
 - Throws `ParserError({ message, rawTextPreview })` on API failures
 
@@ -300,7 +305,7 @@ See `docs/api-spec.md` for full request/response contracts.
 | PATCH | `/api/user-cards/[id]` | Update displayOrder, statementDay, anniversaryDate |
 | DELETE | `/api/user-cards/[id]` | Remove card (cascades) |
 | POST | `/api/user-cards/[id]/scrape` | Scrape + parse → return draft (no DB write) |
-| GET | `/api/benefits/[userCardId]` | Benefits with current period data |
+| GET | `/api/user-cards/[id]/benefits` | Benefits with current period data |
 | POST | `/api/benefits/confirm` | Bulk-save confirmed benefits (replaces all) |
 | PATCH | `/api/benefits/[id]` | Edit a benefit |
 | DELETE | `/api/benefits/[id]` | Remove a benefit |
@@ -315,13 +320,13 @@ All routes: `requireAuth()` called first — 401 if no session.
 
 ```
 # Dev
-next dev -H 0.0.0.0 -p 3000
+next dev -H 0.0.0.0 -p 3002
 
 # Production (local)
-next build && next start -H 0.0.0.0 -p 3000
+next build && next start -H 0.0.0.0 -p 3002
 ```
 
-- Tailscale MagicDNS: `http://[machine-name].ts.net:3000`
+- Tailscale MagicDNS: `http://[machine-name].ts.net:3002`
 - SQLite file: `prisma/dev.db` — local, gitignored
 - Playwright Chromium: `npx playwright install chromium` on first setup
 - No CI/CD, no cloud hosting, no serverless
@@ -329,10 +334,10 @@ next build && next start -H 0.0.0.0 -p 3000
 ### Required .env
 
 ```
-NEXTAUTH_URL=http://[machine-name].ts.net:3000
+NEXTAUTH_URL=http://[machine-name].ts.net:3002
 NEXTAUTH_SECRET=[random string]
 ADMIN_EMAIL=[your email]
-ADMIN_PASSWORD_HASH=[bcrypt hash of your password]
+ADMIN_PASSWORD=[your password — plaintext, see CONSTRAINT-14]
 ADMIN_USER_ID=user_swarnim
 ANTHROPIC_API_KEY=[your key]
 ```
@@ -342,7 +347,7 @@ ANTHROPIC_API_KEY=[your key]
 ## Security Architecture
 
 - All API routes call `requireAuth()` — no public endpoints except `/api/auth/*`
-- Credentials: `bcryptjs.compare(password, ADMIN_PASSWORD_HASH)` — plaintext never stored or logged
+- Credentials: direct string comparison of `ADMIN_PASSWORD` env var — plaintext stored in `.env` (local-only, gitignored; bcrypt dropped due to dotenv-expand incompatibility — see CONSTRAINT-14)
 - JWT strategy: no DB session table; session revocation via `NEXTAUTH_SECRET` rotation
 - `ANTHROPIC_API_KEY` server-side only — never exposed to client
 - Playwright scrapes public URLs only — no credentials passed to browser
