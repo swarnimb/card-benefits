@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { calculatePeriodBoundary } from "@/lib/engine/periods";
+import { deriveTracked, isValidClassification, normalizeClassification } from "@/lib/parser/classification";
 import type { DraftBenefit } from "@/types/benefit";
 
 const VALID_TYPES = new Set(["credit", "subscription", "access", "perk"]);
@@ -27,7 +28,8 @@ function validateBenefits(items: unknown[]): string | null {
     if (!VALID_RESET_PERIODS.has(b.resetPeriod as string)) return `invalid resetPeriod: "${b.resetPeriod}"`;
     if (!VALID_RESET_ANCHORS.has(b.resetAnchor as string)) return `invalid resetAnchor: "${b.resetAnchor}"`;
     if (!VALID_CATEGORIES.has(b.category as string)) return `invalid category: "${b.category}"`;
-    if (typeof b.isTrackable !== "boolean") return "isTrackable must be a boolean";
+    // `tracked` is server-derived from `classification` — never read from the client.
+    if (!isValidClassification(b.classification)) return `Invalid value for field classification: "${b.classification}"`;
   }
   return null;
 }
@@ -41,6 +43,10 @@ async function runConfirmTransaction(
   await prisma.$transaction(async (tx) => {
     await tx.benefit.deleteMany({ where: { userCardId } });
     for (const b of benefits) {
+      // Server is the sole authority for tracked (Decision A / PRD 3.5): derive
+      // from classification, ignore any client-supplied `tracked`. Excluded
+      // benefits are still persisted (tracked=false) — never dropped.
+      const tracked = deriveTracked(b.classification);
       const created = await tx.benefit.create({
         data: {
           userCardId,
@@ -52,10 +58,11 @@ async function runConfirmTransaction(
           resetPeriod: b.resetPeriod,
           resetAnchor: b.resetAnchor,
           category: b.category,
-          isTrackable: b.isTrackable,
+          classification: normalizeClassification(b.classification),
+          tracked,
         },
       });
-      if (b.isTrackable) {
+      if (tracked) {
         // Fall back to calendar if anchor requires data the card doesn't have
         let effectiveAnchor = b.resetAnchor;
         if (effectiveAnchor === "anniversary" && !userCard.anniversaryDate) effectiveAnchor = "calendar";

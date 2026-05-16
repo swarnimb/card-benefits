@@ -92,14 +92,19 @@ const TEXT_CAPTION    = '#6B7280'  // section headers, captions
 
 ### 1. Overview Space
 
-**Purpose:** Aggregated `$Credits` and `One-time Perks` only — grouped by category across all cards.
+> Redesigned 2026-05-16 (Tasks 36–38, urgency-primary). Supersedes the prior
+> category-aggregation spec. See PRD Feature 6 + FB13. Cards/Admin unchanged.
 
-- Layout: vertical list of category cards
-- Each category card: total available (large, `text-3xl`), total used, usage bar
-- Expiring soon: amber badge — "Expires in X days" — appears below the category card
-- `Subscriptions` and `Access` do NOT appear in this space
-- Color palette: neutral (`BG_SURFACE`). Card colors not used here. Amber for expiring only.
-- Empty state: personality — "Nothing expiring soon. You're on top of it."
+**Purpose:** Triage by urgency — "what am I about to lose, and what do I do today?"
+
+- Layout: money-at-risk hero → 3 urgency sections, NOT category cards
+- Hero (`MoneyAtRiskHero`): 56px semibold tabular total, Framer Motion count-up, amber pulse; calm/positive copy when nothing at risk
+- Sections (`UrgencySection`): **Needs attention** (amber, expiring soon, soonest-first) → **On track** (green) → **Done** (muted, collapsed by default)
+- Rows (`OverviewBenefitRow`): benefit type/category/source-card are row-level **metadata only**, never the grouping axis
+- All tracked types appear (credit/subscription/access/perk) — type is not a filter
+- Only `tracked: true`; `tracked: false` never appears anywhere on Overview
+- Palette: artifact tokens in `src/components/overview/tokens.ts` (warm `#0F0E0D`, amber `#F59E0B` single accent, hairline cards). Do not hardcode — import `OV`.
+- Empty state (no tracked benefits): guide to add/scrape a card in Admin — no scary zeros
 
 ### 2. Cards Space (Apple Wallet Stack)
 

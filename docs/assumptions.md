@@ -10,7 +10,7 @@
 
 **Overall:** [x] Complete — all assumptions resolved or accepted
 
-**Last updated:** 2026-04-07
+**Last updated:** 2026-05-13
 
 ---
 
@@ -127,22 +127,17 @@ One design note surfaced: `access` and `perk` type benefits (lounge access, stat
 
 **Category:** Technical feasibility
 
-**Assumption:** Setting `NEXTAUTH_URL` to the local machine's Tailscale hostname allows auth to work correctly when accessing the app from another device (phone, other laptop) via Tailscale.
+**Status:** [~] DROPPED — 2026-05-13
 
-**Why it's critical:** If OAuth redirects fail for Tailscale access, the app is inaccessible from mobile — which is the primary use case.
+**Original assumption:** Setting `NEXTAUTH_URL` to the local machine's Tailscale hostname allows auth to work correctly when accessing the app from another device (phone, other laptop) via Tailscale.
 
-**Resolution approach:** Research
+**Reason for drop:** Tailscale-based remote access has been removed from MVP scope. The app is now desktop-only for the MVP. Remote/mobile access is planned via Vercel deployment in Phase 2 (see A9), not Tailscale. The technical research below is retained for decision trail in case Tailscale is ever revisited, but it is no longer in the implementation path.
 
-**Resolution detail:**
-This is a documented and commonly used pattern. Two requirements:
+**Original research detail (retained):**
 1. `NEXTAUTH_URL` must be set to the Tailscale MagicDNS hostname: `http://[machine-name].ts.net:3000` (not `localhost`)
 2. Next.js dev server must bind to `0.0.0.0` not `127.0.0.1`: run as `next dev -H 0.0.0.0` or set in `next.config.ts`
 
-Both requirements are simple config changes, not code changes. Tailscale MagicDNS provides stable hostnames that don't change between sessions.
-
-**Outcome:** Resolved. Add to `.env`: `NEXTAUTH_URL=http://[machine-name].ts.net:3000`. Update `package.json` dev script to `next dev -H 0.0.0.0`. Document in README setup section.
-
-**Status:** [x] Resolved
+These were validated as simple config changes, not code changes.
 
 ---
 
@@ -217,6 +212,57 @@ Well within the $2/month budget. Even at 10× usage (re-parsing all cards monthl
 
 ---
 
+### A9 — Vercel deployment is feasible as a Phase 2 migration
+
+**Category:** Future architecture
+
+**Assumption:** Once the MVP is validated through personal daily use, the app can be migrated to Vercel for cloud deployment and mobile access — replacing the current local-only architecture.
+
+**Why it's critical:** Vercel has been chosen as the eventual path for remote access (replacing the dropped Tailscale plan in A5). This decision affects which migration work is queued for Phase 2 and which trade-offs are accepted today versus deferred.
+
+**Resolution approach:** Accepted risk + deferred to Phase 2
+
+**Resolution detail:**
+Vercel deployment is non-trivial for the current architecture. Three blockers exist:
+
+1. **Database:** SQLite local file (`prisma/dev.db`) via `better-sqlite3` is incompatible with Vercel's ephemeral filesystem. Migration target: Neon (free Postgres) or Vercel Postgres. Schema is small (4 tables), migration is mechanical via Prisma.
+2. **Scraping:** Playwright + Chromium exceeds Vercel's 250 MB function size limit and 60-second timeout (Pro). Two viable splits:
+   - **Hybrid:** Frontend on Vercel + managed Postgres; scraper stays as a local script writing to Postgres directly
+   - **Browser-as-a-service:** Browserless or BrowserCat (~$10/mo) called from Vercel functions
+   Project conventions currently prohibit Browserless/Lambda — that constraint would need explicit revision in Phase 2.
+3. **Architecture:** Lazy period calculation with write side-effects on GET routes (CONSTRAINT-3) is acceptable on a single-instance local server but causes race conditions across Vercel's concurrent serverless invocations. Migration to event-driven period closure or a Vercel Cron job would be needed.
+
+**Contingency:** If Vercel migration proves too costly or product fit doesn't materialize, the local + desktop deployment continues indefinitely. No MVP value depends on cloud deployment.
+
+**Outcome:** Accepted as Phase 2 work. MVP ships local-only; Vercel migration is queued but not scoped or scheduled. Constraint revision (Browserless allowance, Postgres swap) will be revisited at Phase 2 kickoff.
+
+**Status:** [x] Accepted risk (Phase 2 deferred)
+
+---
+
+### A10 — Claude Haiku reliably classifies benefits into the 5 buckets
+
+**Category:** Service capability
+
+**Assumption:** Claude Haiku reliably classifies benefits into the 5 buckets (discretionary-credit / activation-perk / auto-earn / passive-perk / one-time-bonus).
+
+**Why it's critical:** The classification bucket drives the deterministic `tracked` policy (`src/lib/parser/classification.ts`). If Haiku mis-buckets a benefit, the wrong `tracked` value is persisted — and a recurring use-it-or-lose-it credit wrongly classified as `auto-earn`/`passive-perk` would be excluded from Overview and expiring-soon, silently defeating the product's entire purpose (surfacing benefits the user would otherwise miss).
+
+**Resolution approach:** Accepted risk
+
+**Resolution detail:**
+Classification accuracy cannot be fully validated until real scrapes run across all cards. Spike A4 confirmed Haiku produces zero schema-validation errors and well-calibrated confidence on benefit extraction, so the structured-field mechanism is sound; per-benefit bucketing judgment remains the residual risk.
+
+Contingency: The mandatory review gate shows excluded benefits collapsed ("N auto-excluded — expand to review") so a wrongly-excluded credit is user-rescuable rather than silently lost; ambiguous benefits the LLM cannot confidently bucket default to the conservative trackable bucket (`discretionary-credit`).
+
+**Risk asymmetry (explicit):** The two failure directions are not equally harmful. A false-INCLUSION (a non-trackable benefit wrongly shown as trackable) is low-cost — the user sees one extra row and can ignore or delete it. A false-EXCLUSION (a real recurring credit wrongly hidden) is the harmful direction — it defeats the product's core purpose and the user never knows they missed it. The contingency is designed specifically to mitigate the false-exclusion direction: excluded items remain visible-on-expand (never dropped from the DB) and ambiguity resolves toward trackable, not toward hidden.
+
+**Outcome:** Accepted. The structured-field + deterministic-policy design plus the visible-on-expand review gate makes the harmful failure direction (false-exclusion) user-recoverable. Residual risk is acceptable for a single-user tool with a mandatory review step before any save.
+
+**Status:** [x] Accepted risk
+
+---
+
 ## Summary
 
 | # | Assumption | Category | Approach | Status |
@@ -225,12 +271,14 @@ Well within the $2/month budget. Even at 10× usage (re-parsing all cards monthl
 | A2 | Reset anchor stated in scraped text | Data availability | Accepted risk | ✅ Accepted |
 | A3 | Playwright not blocked by issuers | Service capability | Spike (partial) | ✅ Accepted |
 | A4 | Haiku tool_use accuracy on benefit text | Service capability | Spike | ✅ Resolved |
-| A5 | NextAuth works with Tailscale | Technical feasibility | Research | ✅ Resolved |
+| A5 | NextAuth works with Tailscale | Technical feasibility | Research | [~] DROPPED 2026-05-13 |
 | A6 | Manual update habit forms | User behavior | Accepted risk | ✅ Accepted |
 | A7 | Framer Motion + scroll-snap smooth | Technical feasibility | Deferred | ✅ Accepted |
 | A8 | Claude API cost stays negligible | Cost | Research + Spike | ✅ Resolved |
+| A9 | Vercel deployment as Phase 2 migration | Future architecture | Deferred | ✅ Accepted (Phase 2) |
+| A10 | Haiku reliably classifies into 5 buckets | Service capability | Accepted risk | ✅ Accepted |
 
-**Open count: 0** — `@plan` is unblocked.
+**Open count: 0** — `@plan` remains unblocked. A5 dropped, A9 added (Phase 2), A10 added (Feature 3.5 classification).
 
 ---
 

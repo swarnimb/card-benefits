@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ensureCurrentPeriod } from "@/lib/engine/periods";
-import { aggregateOverview } from "@/lib/engine/expiring";
+import { buildOverviewTriage } from "@/lib/engine/expiring";
 import { toBenefitWithPeriod } from "@/lib/engine/mappers";
 import type { BenefitWithPeriod } from "@/types/benefit";
 import type { UserCardWithBenefits, Issuer } from "@/types/card";
+import type { OverviewData } from "@/types/api";
 
 /** GET /api/overview — Returns aggregated credit categories and expiring-soon alerts. */
 export async function GET(_req: NextRequest) {
@@ -25,7 +26,7 @@ export async function GET(_req: NextRequest) {
     for (const userCard of userCards) {
       const benefitsWithPeriods: BenefitWithPeriod[] = [];
       for (const benefit of userCard.benefits) {
-        const period = benefit.isTrackable ? await ensureCurrentPeriod(benefit.id) : null;
+        const period = benefit.tracked ? await ensureCurrentPeriod(benefit.id) : null;
         benefitsWithPeriods.push(toBenefitWithPeriod(benefit, period));
       }
       cards.push({
@@ -48,8 +49,7 @@ export async function GET(_req: NextRequest) {
       });
     }
 
-    const overview = aggregateOverview(cards);
-    overview.expiringSoon.sort((a, b) => a.periodEnd.getTime() - b.periodEnd.getTime());
+    const overview: OverviewData = buildOverviewTriage(cards);
 
     return NextResponse.json(overview);
   } catch (err) {

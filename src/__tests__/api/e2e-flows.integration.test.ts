@@ -60,7 +60,8 @@ describe("add card flow → card appears after confirm", () => {
         resetPeriod: "annual",
         resetAnchor: "calendar",
         category: "travel",
-        isTrackable: true,
+        classification: "discretionary-credit",
+        tracked: true,
       },
       {
         name: "Lounge Access",
@@ -70,7 +71,8 @@ describe("add card flow → card appears after confirm", () => {
         resetPeriod: "annual",
         resetAnchor: "calendar",
         category: "lounge",
-        isTrackable: false,
+        classification: "passive-perk",
+        tracked: false,
       },
     ];
     const confirmRes = await CONFIRM_BENEFITS(
@@ -117,7 +119,8 @@ describe("usage update → overview totals reflect change", () => {
         resetPeriod: "monthly",
         resetAnchor: "calendar",
         category: "dining",
-        isTrackable: true,
+        classification: "discretionary-credit",
+        tracked: true,
       },
     });
 
@@ -137,11 +140,12 @@ describe("usage update → overview totals reflect change", () => {
     expect(overviewRes.status).toBe(200);
     const overview = await overviewRes.json();
 
-    const diningCategory = overview.categories.find(
-      (c: { category: string }) => c.category === "dining"
+    // Urgency triage: $50 credit with $30 used → $20 unredeemed, surfaced as a row.
+    const rows = [...overview.needsAttention, ...overview.onTrack];
+    const dining = rows.find(
+      (r: { benefitName: string }) => r.benefitName === "Dining Credit"
     );
-    expect(diningCategory).toBeDefined();
-    expect(diningCategory.totalUsed).toBe(30);
-    expect(diningCategory.totalValue).toBe(50);
+    expect(dining).toBeDefined();
+    expect(dining.unusedAmount).toBe(20);
   });
 });

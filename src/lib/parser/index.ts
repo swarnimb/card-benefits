@@ -1,8 +1,36 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { BENEFIT_EXTRACTION_TOOL } from "@/lib/parser/schema";
+import { deriveTracked, normalizeClassification } from "@/lib/parser/classification";
 import type { DraftBenefit } from "@/types/benefit";
 
 const MODEL = "claude-haiku-4-5-20251001"; // CONSTRAINT-09: hardcoded, never substituted
+
+const VALID_TYPES = new Set<DraftBenefit["type"]>([
+  "credit",
+  "subscription",
+  "access",
+  "perk",
+]);
+
+/**
+ * Maps one raw LLM benefit to a DraftBenefit. `tracked` is derived here from
+ * `classification` via deterministic policy — never read from the LLM.
+ */
+function toDraftBenefit(b: RawBenefit): DraftBenefit {
+  return {
+    name: b.name,
+    description: b.description ?? null,
+    type: VALID_TYPES.has(b.type) ? b.type : "perk",
+    value: b.value ?? null,
+    valueUnit: b.valueUnit === "points" ? "points" : "dollars",
+    resetPeriod: b.resetPeriod,
+    resetAnchor: b.resetAnchor ?? "calendar", // default per CONSTRAINT-09 / task spec
+    category: b.category,
+    classification: normalizeClassification(b.classification),
+    tracked: deriveTracked(b.classification),
+    confidence: b.confidence,
+  };
+}
 
 /** Thrown when Claude Haiku benefit parsing fails. Includes a preview of the raw input text. */
 export class ParserError extends Error {
@@ -55,20 +83,7 @@ export async function parseBenefits(rawText: string): Promise<DraftBenefit[]> {
   const { benefits } = toolBlock.input as { benefits?: RawBenefit[] };
   if (!benefits?.length) return [];
 
-  const VALID_TYPES = new Set(["credit", "subscription", "access", "perk"]);
-
-  return benefits.map((b) => ({
-    name: b.name,
-    description: b.description ?? null,
-    type: VALID_TYPES.has(b.type) ? b.type : "perk",
-    value: b.value ?? null,
-    valueUnit: b.valueUnit === "points" ? "points" : "dollars",
-    resetPeriod: b.resetPeriod,
-    resetAnchor: b.resetAnchor ?? "calendar", // default per CONSTRAINT-09 / task spec
-    category: b.category,
-    isTrackable: b.isTrackable,
-    confidence: b.confidence,
-  }));
+  return benefits.map(toDraftBenefit);
 }
 
 type RawBenefit = {
@@ -80,6 +95,6 @@ type RawBenefit = {
   resetPeriod: DraftBenefit["resetPeriod"];
   resetAnchor?: DraftBenefit["resetAnchor"];
   category: DraftBenefit["category"];
-  isTrackable: boolean;
+  classification?: unknown; // raw from LLM; normalized via deriveTracked/normalizeClassification
   confidence: number;
 };

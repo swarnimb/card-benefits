@@ -78,7 +78,8 @@ describe("POST /api/user-cards/[id]/scrape", () => {
       resetPeriod: "annual" as const,
       resetAnchor: "calendar" as const,
       category: "dining" as const,
-      isTrackable: true,
+      classification: "discretionary-credit",
+      tracked: true,
       confidence: 0.95,
     };
     mockScrapeCard.mockResolvedValue("raw page text");

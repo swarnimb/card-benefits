@@ -20,7 +20,8 @@ beforeAll(async () => {
       resetPeriod: "monthly",
       resetAnchor: "calendar",
       category: "dining",
-      isTrackable: true,
+      classification: "discretionary-credit",
+      tracked: true,
     },
   });
   testBenefitId = benefit.id;

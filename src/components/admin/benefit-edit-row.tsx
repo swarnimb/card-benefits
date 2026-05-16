@@ -90,16 +90,21 @@ export function BenefitEditRow({ benefit, onChange, onRemove, showNameError }: B
         <SelectField label="Reset period" value={benefit.resetPeriod} options={RESET_PERIODS} onChange={(v) => update({ resetPeriod: v })} />
         <SelectField label="Category" value={benefit.category} options={CATEGORIES} onChange={(v) => update({ category: v })} />
       </div>
-      <div className="flex gap-2">
+      {/*
+        No tracked/classification control here: `tracked` is server-derived
+        from `classification` (Decision A), and `classification` is not a
+        user-editable enum in MVP (PRD 3.5) — it travels in the payload as
+        parsed. Task 35 owns the excluded-row collapse + classification display.
+      */}
+      <div className="flex items-center justify-between gap-2">
         <SelectField label="Reset anchor" value={benefit.resetAnchor} options={RESET_ANCHORS} onChange={(v) => update({ resetAnchor: v })} />
-        <label className="flex items-center gap-1.5 text-sm">
-          <input
-            type="checkbox"
-            checked={benefit.isTrackable}
-            onChange={(e) => update({ isTrackable: e.target.checked })}
-          />
-          Trackable
-        </label>
+        <span
+          className="text-xs uppercase tracking-wider text-muted-foreground"
+          aria-label="Classification"
+          title="Classification (set automatically — not editable)"
+        >
+          {benefit.classification}
+        </span>
       </div>
     </div>
   );

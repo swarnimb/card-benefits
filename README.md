@@ -1,6 +1,6 @@
 # CardMaxxer
 
-Personal dashboard that scrapes and tracks credit card benefits across all your cards — so you never miss a reset or leave money on the table. Built as a local-first Next.js app, accessible from any device via Tailscale.
+Personal dashboard that scrapes and tracks credit card benefits across all your cards — so you never miss a reset or leave money on the table. Built as a local-first Next.js app for desktop use; Vercel deployment is planned for Phase 2.
 
 ## Setup
 
@@ -25,7 +25,7 @@ See `.env.example` for all required variables:
 - `DATABASE_URL` — SQLite file path
 - `ANTHROPIC_API_KEY` — Claude API key (Haiku model, used for benefit parsing)
 - `NEXTAUTH_SECRET` — Random string for JWT signing
-- `NEXTAUTH_URL` — Base URL (use Tailscale hostname for remote access)
+- `NEXTAUTH_URL` — Base URL (`http://localhost:3002` for local MVP)
 - `ADMIN_EMAIL` — Login email
 - `ADMIN_PASSWORD` — Login password (plaintext, local-only app)
 - `ADMIN_USER_ID` — User identifier for DB scoping
@@ -37,12 +37,6 @@ npm test                  # unit tests
 npm run test:integration  # integration tests (requires DB)
 ```
 
-## Remote Access
+## Mobile / Remote Access
 
-For access from other devices, install [Tailscale](https://tailscale.com/) and run:
-
-```bash
-next start -H 0.0.0.0 -p 3002
-```
-
-Then access via `http://[machine-name].ts.net:3002`.
+Mobile and remote access are deferred to Phase 2 — see `docs/assumptions.md` A9. The MVP is desktop-only; Vercel migration is the planned path for cloud access (requires Postgres migration and external scraping — tracked separately).

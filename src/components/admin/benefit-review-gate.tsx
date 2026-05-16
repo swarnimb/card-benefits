@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { AlertTriangle, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BenefitEditRow } from "./benefit-edit-row";
+import { ExcludedDisclosure, type IndexedBenefit } from "./excluded-disclosure";
 import type { DraftBenefit } from "@/types/benefit";
 
 /** Props for BenefitReviewGate. */
@@ -26,7 +27,8 @@ function makeBlankBenefit(): DraftBenefit {
     resetPeriod: "monthly",
     resetAnchor: "calendar",
     category: "general",
-    isTrackable: true,
+    classification: "discretionary-credit",
+    tracked: true,
     confidence: 1,
   };
 }
@@ -44,8 +46,18 @@ export function BenefitReviewGate({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [triedSave, setTriedSave] = useState(false);
+  const [showExcluded, setShowExcluded] = useState(false);
 
   const errorMessage = scrapeError || parseError;
+
+  // Partition for DISPLAY only. `benefits` always holds every row (tracked +
+  // excluded) so the confirm payload never drops an excluded benefit (A10).
+  const indexed: IndexedBenefit[] = benefits.map((benefit, index) => ({
+    benefit,
+    index,
+  }));
+  const trackedItems = indexed.filter((item) => item.benefit.tracked);
+  const excludedItems = indexed.filter((item) => !item.benefit.tracked);
 
   const updateBenefit = useCallback((index: number, updated: DraftBenefit) => {
     setBenefits((prev) => prev.map((b, i) => (i === index ? updated : b)));
@@ -79,7 +91,11 @@ export function BenefitReviewGate({
         return;
       }
       onSave();
-    } catch {
+    } catch (error) {
+      console.error(
+        `benefits/confirm save failed (userCardId=${userCardId}, ${benefits.length} benefits)`,
+        error
+      );
       setSaveError("Network error — could not save");
     } finally {
       setSaving(false);
@@ -111,7 +127,7 @@ export function BenefitReviewGate({
       )}
 
       <div className="space-y-3">
-        {benefits.map((benefit, index) => (
+        {trackedItems.map(({ benefit, index }) => (
           <BenefitEditRow
             key={index}
             benefit={benefit}
@@ -121,6 +137,17 @@ export function BenefitReviewGate({
           />
         ))}
       </div>
+
+      {excludedItems.length > 0 && (
+        <ExcludedDisclosure
+          items={excludedItems}
+          expanded={showExcluded}
+          onToggle={() => setShowExcluded((v) => !v)}
+          onChange={updateBenefit}
+          onRemove={removeBenefit}
+          showNameError={triedSave}
+        />
+      )}
 
       <Button variant="outline" size="sm" onClick={addBenefit}>
         <Plus className="size-4" />

@@ -33,7 +33,7 @@ export async function GET(
     const benefits = await prisma.benefit.findMany({ where: { userCardId }, orderBy: { createdAt: "asc" } });
     const result: BenefitWithPeriod[] = [];
     for (const benefit of benefits) {
-      const period = benefit.isTrackable ? await ensureCurrentPeriod(benefit.id) : null;
+      const period = benefit.tracked ? await ensureCurrentPeriod(benefit.id) : null;
       result.push(toBenefitWithPeriod(benefit, period));
     }
     result.sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));

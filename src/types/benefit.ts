@@ -1,3 +1,9 @@
+// Single source of truth for the bucket type + tracking policy lives in the
+// parser module. Re-exported here so consumers can import it alongside the
+// other benefit types.
+import type { BenefitClassification } from "@/lib/parser/classification";
+export type { BenefitClassification };
+
 /** The four kinds of card benefit. */
 export type BenefitType = "credit" | "subscription" | "access" | "perk";
 
@@ -31,7 +37,8 @@ export interface BenefitWithPeriod {
   resetPeriod: ResetPeriod;
   resetAnchor: ResetAnchor;
   category: BenefitCategory;
-  isTrackable: boolean;
+  classification: BenefitClassification;
+  tracked: boolean;
   createdAt: Date;
   currentPeriod: {
     id: string;
@@ -52,6 +59,7 @@ export interface DraftBenefit {
   resetPeriod: ResetPeriod;
   resetAnchor: ResetAnchor;
   category: BenefitCategory;
-  isTrackable: boolean;
+  classification: BenefitClassification;
+  tracked: boolean;
   confidence: number;
 }

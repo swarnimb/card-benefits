@@ -1,5 +1,5 @@
 import type { Benefit, BenefitPeriod } from "@prisma/client";
-import type { BenefitWithPeriod, BenefitType, ValueUnit, ResetPeriod, ResetAnchor, BenefitCategory } from "@/types/benefit";
+import type { BenefitWithPeriod, BenefitType, ValueUnit, ResetPeriod, ResetAnchor, BenefitCategory, BenefitClassification } from "@/types/benefit";
 
 /** Maps a Prisma Benefit + optional BenefitPeriod to the API-facing BenefitWithPeriod shape. */
 export function toBenefitWithPeriod(benefit: Benefit, period: BenefitPeriod | null): BenefitWithPeriod {
@@ -14,7 +14,8 @@ export function toBenefitWithPeriod(benefit: Benefit, period: BenefitPeriod | nu
     resetPeriod: benefit.resetPeriod as ResetPeriod,
     resetAnchor: benefit.resetAnchor as ResetAnchor,
     category: benefit.category as BenefitCategory,
-    isTrackable: benefit.isTrackable,
+    classification: benefit.classification as BenefitClassification,
+    tracked: benefit.tracked,
     createdAt: benefit.createdAt,
     currentPeriod: period
       ? { id: period.id, periodStart: period.periodStart, periodEnd: period.periodEnd, usedAmount: period.usedAmount, status: period.status }

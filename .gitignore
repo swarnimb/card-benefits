@@ -38,3 +38,7 @@ next-env.d.ts
 
 # dev screenshots at project root (Playwright MCP default save location)
 /*.png
+
+# Design reference bundle (binary; referenced via design URL + design-overview-artifact memory, not committed)
+docs/claudeDesignUI.zip
+docs/claudeDesignUI_extracted/

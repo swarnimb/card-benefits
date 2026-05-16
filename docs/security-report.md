@@ -28,9 +28,9 @@ bcrypt dropped due to Next.js dotenv-expand incompatibility. `.env` is gitignore
 File: `src/app/api/benefits/confirm/route.ts` — `validateBenefits()`
 `name` and `description` not length-checked before DB write. Missing `name` returns 500 instead of 400. Consistent with LOW-1. Fix if multi-user planned.
 
-### LOW-5 — `value` and `isTrackable` not type-validated in benefit confirm (SEC-02)
+### LOW-5 — `value` and `tracked` not type-validated in benefit confirm (SEC-02)
 File: `src/app/api/benefits/confirm/route.ts` — `validateBenefits()`
-`value` not checked for finite/non-negative. `isTrackable` not checked as boolean. Prisma handles or throws (→ 500). Single-user, auth required — no exploitation path.
+`value` not checked for finite/non-negative. `tracked` not checked as boolean. Prisma handles or throws (→ 500). Single-user, auth required — no exploitation path.
 
 ### LOW-6 — GET /api/benefits/[userCardId] exposes 404 vs 403 distinction (minor enumeration)
 File: `src/app/api/benefits/[userCardId]/route.ts`
@@ -40,13 +40,13 @@ Distinct 404 (not found) and 403 (wrong owner) allows probing for valid userCard
 File: `src/app/api/benefits/[id]/route.ts` — `extractPatchFields()`
 `name` and `description` passed from request body without `typeof === "string"` or max-length check. Non-string value → Prisma throws → generic 500. No data exposure. Consistent with LOW-4.
 
-### LOW-8 — `value` and `isTrackable` not type-validated in PATCH benefit (SEC-02)
+### LOW-8 — `value` and `tracked` not type-validated in PATCH benefit (SEC-02)
 File: `src/app/api/benefits/[id]/route.ts` — `extractPatchFields()`
-`value` not checked for finite/non-negative. `isTrackable` not checked as boolean. Prisma throws → generic 500. Single-user, auth required — no exploitation path. Consistent with LOW-5.
+`value` not checked for finite/non-negative. `tracked` not checked as boolean. Prisma throws → generic 500. Single-user, auth required — no exploitation path. Consistent with LOW-5.
 
 ### LOW-9 — Timing side channel in `authorizeUser()` (auth.ts)
 File: `src/lib/auth.ts`
-Negligible on Tailscale-only deployment. Fix before any public deployment.
+Negligible on local-only desktop deployment. Must be fixed before Phase 2 Vercel migration (see assumptions A9).
 
 ### LOW-10 — POST /usage exposes 404 vs 403 distinction (minor enumeration)
 File: `src/app/api/benefits/[id]/usage/route.ts`

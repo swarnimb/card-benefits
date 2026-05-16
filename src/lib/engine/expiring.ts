@@ -1,10 +1,12 @@
 import type { BenefitWithPeriod } from "@/types/benefit";
 import type { UserCardWithBenefits } from "@/types/card";
-import type { OverviewData } from "@/types/api";
+import type { OverviewBenefit, OverviewData } from "@/types/api";
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /** Returns true if the benefit has unused value and its current period ends within daysThreshold. */
 export function isExpiringSoon(benefit: BenefitWithPeriod, daysThreshold = 7): boolean {
-  if (!benefit.isTrackable) return false;
+  if (!benefit.tracked) return false;
   if (benefit.resetPeriod === "once") return false;
 
   const { currentPeriod } = benefit;
@@ -22,57 +24,81 @@ export function isExpiringSoon(benefit: BenefitWithPeriod, daysThreshold = 7): b
   return false;
 }
 
-type CardBreakdown = { cardName: string; cardColor: string; totalValue: number; totalUsed: number };
-type CategoryEntry = { totalValue: number; totalUsed: number; cardCount: number; cardBreakdowns: Map<string, CardBreakdown> };
-
-function newCategoryEntry(): CategoryEntry {
-  return { totalValue: 0, totalUsed: 0, cardCount: 0, cardBreakdowns: new Map() };
+/** Whole days from now until periodEnd, floored at 0. Null for `once` benefits / no open period. */
+function daysUntilReset(periodEnd: Date | null | undefined, now: number): number | null {
+  if (!periodEnd) return null;
+  return Math.max(0, Math.ceil((periodEnd.getTime() - now) / MS_PER_DAY));
 }
 
-function updateCardBreakdown(entry: CategoryEntry, card: UserCardWithBenefits, value: number, used: number): void {
-  const bd = entry.cardBreakdowns.get(card.id) ?? { cardName: card.card.name, cardColor: card.card.defaultColor, totalValue: 0, totalUsed: 0 };
-  bd.totalValue += value;
-  bd.totalUsed += used;
-  entry.cardBreakdowns.set(card.id, bd);
+/** Unredeemed value this period. 0 for unlimited (value === null) or already-consumed benefits. */
+function unusedValue(benefit: BenefitWithPeriod): number {
+  const used = benefit.currentPeriod?.usedAmount ?? 0;
+  if (benefit.type === "subscription") return used === 0 ? benefit.value ?? 0 : 0;
+  if (benefit.value === null) return 0;
+  return Math.max(0, benefit.value - used);
 }
 
-/** Builds the Overview space data: credit categories with per-card breakdowns + expiring alerts. */
-export function aggregateOverview(cards: UserCardWithBenefits[]): OverviewData {
-  const categoryMap = new Map<string, CategoryEntry>();
-  const expiringSoon: OverviewData["expiringSoon"] = [];
+/** True when no further action is possible this period: cap reached, or subscription already used. */
+function isDone(benefit: BenefitWithPeriod): boolean {
+  const used = benefit.currentPeriod?.usedAmount ?? 0;
+  if (benefit.type === "subscription") return used > 0;
+  if (benefit.value === null) return false; // unlimited — always actionable
+  return used >= benefit.value;
+}
+
+function toOverviewRow(
+  benefit: BenefitWithPeriod,
+  card: UserCardWithBenefits,
+  now: number,
+): OverviewBenefit {
+  return {
+    benefitId: benefit.id,
+    benefitName: benefit.name,
+    cardName: card.card.name,
+    issuer: card.card.issuer,
+    cardColor: card.card.defaultColor,
+    type: benefit.type,
+    category: benefit.category,
+    unusedAmount: unusedValue(benefit),
+    daysUntilReset: daysUntilReset(benefit.currentPeriod?.periodEnd, now),
+  };
+}
+
+/**
+ * Buckets every tracked benefit by urgency (NOT by type/category):
+ * - needsAttention: unused value that resets soon (isExpiringSoon)
+ * - done: cap reached or subscription already used this period
+ * - onTrack: still actionable, not urgent
+ *
+ * tracked:false benefits never enter any bucket. `moneyAtRisk` sums the unredeemed
+ * value across needsAttention and reports the soonest reset among them.
+ */
+export function buildOverviewTriage(cards: UserCardWithBenefits[]): OverviewData {
+  const now = Date.now();
+  const needsAttention: OverviewBenefit[] = [];
+  const onTrack: OverviewBenefit[] = [];
+  const done: OverviewBenefit[] = [];
 
   for (const card of cards) {
     for (const benefit of card.benefits) {
-      if ((benefit.type === "credit" || benefit.type === "perk") && benefit.value !== null) {
-        const entry = categoryMap.get(benefit.category) ?? newCategoryEntry();
-        const used = benefit.currentPeriod?.usedAmount ?? 0;
-        entry.totalValue += benefit.value;
-        entry.totalUsed += used;
-        entry.cardCount += 1;
-        updateCardBreakdown(entry, card, benefit.value, used);
-        categoryMap.set(benefit.category, entry);
-      }
-
-      if (isExpiringSoon(benefit) && benefit.currentPeriod?.periodEnd) {
-        const remaining = benefit.type === "subscription"
-          ? benefit.value ?? 0
-          : (benefit.value ?? 0) - (benefit.currentPeriod.usedAmount);
-        expiringSoon.push({
-          benefitId: benefit.id,
-          benefitName: benefit.name,
-          userCardId: benefit.userCardId,
-          cardName: card.card.name,
-          cardColor: card.card.defaultColor,
-          periodEnd: benefit.currentPeriod.periodEnd,
-          remainingValue: remaining,
-        });
-      }
+      if (!benefit.tracked) continue; // excluded benefits never surface (A10 / CONSTRAINT)
+      const row = toOverviewRow(benefit, card, now);
+      if (isExpiringSoon(benefit)) needsAttention.push(row);
+      else if (isDone(benefit)) done.push(row);
+      else onTrack.push(row);
     }
   }
 
-  const categories = Array.from(categoryMap.entries())
-    .filter(([, v]) => v.totalValue > 0)
-    .map(([category, v]) => ({ category, totalValue: v.totalValue, totalUsed: v.totalUsed, cardCount: v.cardCount, cards: Array.from(v.cardBreakdowns.values()) }));
+  needsAttention.sort((a, b) => (a.daysUntilReset ?? 0) - (b.daysUntilReset ?? 0));
 
-  return { categories, expiringSoon };
+  const totalUnredeemed = needsAttention.reduce((sum, r) => sum + r.unusedAmount, 0);
+  const soonestDaysUntilReset =
+    needsAttention.length > 0 ? needsAttention[0].daysUntilReset : null;
+
+  return {
+    moneyAtRisk: { totalUnredeemed, soonestDaysUntilReset },
+    needsAttention,
+    onTrack,
+    done,
+  };
 }

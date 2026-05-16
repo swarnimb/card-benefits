@@ -58,9 +58,23 @@ export const BENEFIT_EXTRACTION_TOOL = {
               enum: ["dining", "travel", "streaming", "shopping", "lounge", "general"],
               description: "Primary category for the benefit",
             },
-            isTrackable: {
-              type: "boolean",
-              description: "True if the benefit has a dollar amount or usage count that can be tracked",
+            classification: {
+              type: "string",
+              enum: [
+                "discretionary-credit",
+                "activation-perk",
+                "auto-earn",
+                "passive-perk",
+                "one-time-bonus",
+              ],
+              description:
+                "Behavioural bucket for the benefit. " +
+                "discretionary-credit=a recurring dollar credit the user must actively spend to capture (e.g. monthly dining/travel credit). " +
+                "activation-perk=a benefit requiring a one-time or periodic enrollment/activation to use (e.g. quarterly bonus categories, complimentary status to enroll). " +
+                "auto-earn=value accrues automatically with no user action (e.g. base points/miles per dollar). " +
+                "passive-perk=an always-on benefit needing no action and no tracking (e.g. no foreign transaction fees, purchase protection, rental insurance). " +
+                "one-time-bonus=a single non-recurring reward (e.g. welcome/sign-up bonus, anniversary points). " +
+                "If unsure, choose discretionary-credit.",
             },
             confidence: {
               type: "number",
@@ -70,7 +84,7 @@ export const BENEFIT_EXTRACTION_TOOL = {
                 "Use below 0.70 when key details are ambiguous.",
             },
           },
-          required: ["name", "type", "value", "valueUnit", "resetPeriod", "category", "isTrackable", "confidence"],
+          required: ["name", "type", "value", "valueUnit", "resetPeriod", "category", "classification", "confidence"],
         },
       },
     },

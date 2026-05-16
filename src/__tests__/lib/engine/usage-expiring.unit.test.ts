@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isExpiringSoon, aggregateOverview } from "@/lib/engine/expiring";
+import { isExpiringSoon, buildOverviewTriage } from "@/lib/engine/expiring";
 import type { BenefitWithPeriod } from "@/types/benefit";
 import type { UserCardWithBenefits } from "@/types/card";
 
@@ -16,7 +16,8 @@ function makeBenefit(overrides: Partial<BenefitWithPeriod> = {}): BenefitWithPer
     resetPeriod: "monthly",
     resetAnchor: "calendar",
     category: "dining",
-    isTrackable: true,
+    classification: "discretionary-credit",
+    tracked: true,
     createdAt: new Date(),
     currentPeriod: {
       id: "p1",
@@ -67,7 +68,7 @@ describe("isExpiringSoon", () => {
   });
 
   it("returns false when benefit is not trackable", () => {
-    expect(isExpiringSoon(makeBenefit({ isTrackable: false }))).toBe(false);
+    expect(isExpiringSoon(makeBenefit({ tracked: false }))).toBe(false);
   });
 
   it("returns false when period end is beyond the threshold", () => {
@@ -105,39 +106,71 @@ describe("isExpiringSoon", () => {
   });
 });
 
-describe("aggregateOverview", () => {
-  it("sums credits and perks by category, excludes subscription and access", () => {
-    const farFuture = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
-    const period = { id: "p1", periodStart: new Date(), periodEnd: farFuture, usedAmount: 10, status: "open" };
+function periodEndingInDays(days: number, usedAmount = 0) {
+  return {
+    id: `p-${days}`,
+    periodStart: new Date(),
+    periodEnd: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
+    usedAmount,
+    status: "open",
+  };
+}
 
-    const diningCredit = makeBenefit({ id: "b1", type: "credit", value: 50, category: "dining", currentPeriod: period });
-    const diningPerk = makeBenefit({ id: "b2", type: "perk", value: 25, category: "dining", currentPeriod: period });
-    const subscription = makeBenefit({ id: "b3", type: "subscription", value: 15, category: "streaming", currentPeriod: period });
-    const access = makeBenefit({ id: "b4", type: "access", value: null, category: "lounge", currentPeriod: period });
+describe("buildOverviewTriage", () => {
+  it("sums unredeemed into moneyAtRisk and sorts needsAttention by soonest reset", () => {
+    // b1: $40 unused, resets in 5 days. b2: $30 unused, resets in 2 days (more urgent).
+    const b1 = makeBenefit({ id: "b1", value: 50, currentPeriod: periodEndingInDays(5, 10) });
+    const b2 = makeBenefit({ id: "b2", value: 30, currentPeriod: periodEndingInDays(2, 0) });
 
-    const result = aggregateOverview([makeCard("uc1", [diningCredit, diningPerk, subscription, access])]);
+    const { moneyAtRisk, needsAttention, onTrack, done } = buildOverviewTriage([
+      makeCard("uc1", [b1, b2]),
+    ]);
 
-    const dining = result.categories.find((c) => c.category === "dining");
-    expect(dining?.totalValue).toBe(75);
-    expect(dining?.totalUsed).toBe(20);
-    expect(result.categories.find((c) => c.category === "streaming")).toBeUndefined();
-    expect(result.categories.find((c) => c.category === "lounge")).toBeUndefined();
+    expect(needsAttention.map((r) => r.benefitId)).toEqual(["b2", "b1"]); // soonest first
+    expect(moneyAtRisk.totalUnredeemed).toBe(70); // 40 + 30
+    expect(moneyAtRisk.soonestDaysUntilReset).toBe(needsAttention[0].daysUntilReset);
+    expect(moneyAtRisk.soonestDaysUntilReset).toBeGreaterThanOrEqual(0);
+    expect(onTrack).toHaveLength(0);
+    expect(done).toHaveLength(0);
   });
 
-  it("returns empty categories and expiringSoon for no cards", () => {
-    const result = aggregateOverview([]);
-    expect(result.categories).toEqual([]);
-    expect(result.expiringSoon).toEqual([]);
+  it("places fully-used in done and active in onTrack", () => {
+    // Far-future periods so neither is expiring-soon.
+    const fullyUsed = makeBenefit({ id: "used", value: 50, currentPeriod: periodEndingInDays(60, 50) });
+    const active = makeBenefit({ id: "active", value: 50, currentPeriod: periodEndingInDays(60, 10) });
+
+    const { needsAttention, onTrack, done } = buildOverviewTriage([
+      makeCard("uc1", [fullyUsed, active]),
+    ]);
+
+    expect(needsAttention).toHaveLength(0);
+    expect(done.map((r) => r.benefitId)).toEqual(["used"]);
+    expect(onTrack.map((r) => r.benefitId)).toEqual(["active"]);
+    expect(onTrack[0].unusedAmount).toBe(40);
   });
 
-  it("populates expiringSoon for benefits expiring within threshold", () => {
-    const soonEnd = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-    const period = { id: "p1", periodStart: new Date(), periodEnd: soonEnd, usedAmount: 0, status: "open" };
-    const benefit = makeBenefit({ id: "b1", value: 50, currentPeriod: period });
+  it("excludes tracked=false from all buckets", () => {
+    const tracked = makeBenefit({ id: "t", value: 50, currentPeriod: periodEndingInDays(60, 0) });
+    const excluded = makeBenefit({
+      id: "x", value: 999, classification: "auto-earn", tracked: false,
+      currentPeriod: periodEndingInDays(2, 0), // would be needsAttention if tracked
+    });
 
-    const result = aggregateOverview([makeCard("uc1", [benefit])]);
-    expect(result.expiringSoon).toHaveLength(1);
-    expect(result.expiringSoon[0].benefitId).toBe("b1");
-    expect(result.expiringSoon[0].remainingValue).toBe(50);
+    const { moneyAtRisk, needsAttention, onTrack, done } = buildOverviewTriage([
+      makeCard("uc1", [tracked, excluded]),
+    ]);
+
+    const allIds = [...needsAttention, ...onTrack, ...done].map((r) => r.benefitId);
+    expect(allIds).not.toContain("x");
+    expect(allIds).toContain("t");
+    expect(moneyAtRisk.totalUnredeemed).toBe(0); // excluded never contributes
+  });
+
+  it("empty buckets and null soonest when no tracked", () => {
+    const result = buildOverviewTriage([]);
+    expect(result.needsAttention).toEqual([]);
+    expect(result.onTrack).toEqual([]);
+    expect(result.done).toEqual([]);
+    expect(result.moneyAtRisk).toEqual({ totalUnredeemed: 0, soonestDaysUntilReset: null });
   });
 });

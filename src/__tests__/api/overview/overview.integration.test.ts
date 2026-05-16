@@ -51,8 +51,11 @@ function makeRequest() {
   return GET(new NextRequest("http://localhost/api/overview"));
 }
 
+type Row = { benefitId: string; benefitName: string; unusedAmount: number };
+const names = (rows: Row[]) => rows.map((r) => r.benefitName);
+
 describe("GET /api/overview", () => {
-  it("aggregates credits from multiple cards into correct category totals", async () => {
+  it("buckets tracked benefits from multiple cards by urgency", async () => {
     await prisma.benefit.create({
       data: {
         userCardId: userCardAId,
@@ -62,7 +65,8 @@ describe("GET /api/overview", () => {
         resetPeriod: "annual",
         resetAnchor: "calendar",
         category: "dining",
-        isTrackable: true,
+        classification: "discretionary-credit",
+        tracked: true,
       },
     });
     await prisma.benefit.create({
@@ -74,7 +78,8 @@ describe("GET /api/overview", () => {
         resetPeriod: "annual",
         resetAnchor: "calendar",
         category: "dining",
-        isTrackable: true,
+        classification: "discretionary-credit",
+        tracked: true,
       },
     });
 
@@ -82,13 +87,15 @@ describe("GET /api/overview", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
 
-    const dining = data.categories.find((c: { category: string }) => c.category === "dining");
-    expect(dining).toBeDefined();
-    expect(dining.totalValue).toBe(170);
-    expect(dining.cardCount).toBe(2);
+    // Annual/calendar resets are far out → both land in onTrack, none at risk.
+    expect(names(data.onTrack).sort()).toEqual(["Dining Credit A", "Dining Credit B"]);
+    expect(data.needsAttention).toEqual([]);
+    expect(data.moneyAtRisk).toEqual({ totalUnredeemed: 0, soonestDaysUntilReset: null });
+    const total = data.onTrack.reduce((s: number, r: Row) => s + r.unusedAmount, 0);
+    expect(total).toBe(170);
   });
 
-  it("excludes subscription and access benefits from categories", async () => {
+  it("includes subscription and access benefits — type is row metadata, not a filter", async () => {
     await prisma.benefit.createMany({
       data: [
         {
@@ -99,17 +106,19 @@ describe("GET /api/overview", () => {
           resetPeriod: "annual",
           resetAnchor: "calendar",
           category: "lounge",
-          isTrackable: true,
+          classification: "activation-perk",
+          tracked: true,
         },
         {
           userCardId: userCardAId,
           name: "Streaming Sub",
           type: "subscription",
           value: 15,
-          resetPeriod: "monthly",
+          resetPeriod: "annual",
           resetAnchor: "calendar",
           category: "streaming",
-          isTrackable: true,
+          classification: "discretionary-credit",
+          tracked: true,
         },
         {
           userCardId: userCardAId,
@@ -119,7 +128,8 @@ describe("GET /api/overview", () => {
           resetPeriod: "annual",
           resetAnchor: "calendar",
           category: "travel",
-          isTrackable: true,
+          classification: "discretionary-credit",
+          tracked: true,
         },
       ],
     });
@@ -128,13 +138,55 @@ describe("GET /api/overview", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
 
-    const categoryNames = data.categories.map((c: { category: string }) => c.category);
-    expect(categoryNames).not.toContain("lounge");
-    expect(categoryNames).not.toContain("streaming");
-    expect(categoryNames).toContain("travel");
+    const onTrackNames = names(data.onTrack);
+    // Subscription and access are NO LONGER filtered out (PRD F6 urgency-primary).
+    expect(onTrackNames).toContain("Lounge Access");
+    expect(onTrackNames).toContain("Streaming Sub");
+    expect(onTrackNames).toContain("Travel Credit");
   });
 
-  it("returns expiringSoon sorted by periodEnd ASC (most urgent first)", async () => {
+  it("does not include any tracked=false benefit in any bucket", async () => {
+    await prisma.benefit.createMany({
+      data: [
+        {
+          userCardId: userCardAId,
+          name: "Tracked Travel Credit",
+          type: "credit",
+          value: 100,
+          resetPeriod: "annual",
+          resetAnchor: "calendar",
+          category: "travel",
+          classification: "discretionary-credit",
+          tracked: true,
+        },
+        {
+          userCardId: userCardAId,
+          name: "Auto Earn Points",
+          type: "perk",
+          value: 5000,
+          resetPeriod: "annual",
+          resetAnchor: "calendar",
+          category: "shopping",
+          classification: "auto-earn",
+          tracked: false,
+        },
+      ],
+    });
+
+    const res = await makeRequest();
+    expect(res.status).toBe(200);
+    const data = await res.json();
+
+    const allNames = [
+      ...names(data.needsAttention),
+      ...names(data.onTrack),
+      ...names(data.done),
+    ];
+    expect(allNames).toContain("Tracked Travel Credit");
+    expect(allNames).not.toContain("Auto Earn Points");
+  });
+
+  it("sorts needsAttention by soonest reset (most urgent first)", async () => {
     const benefit1 = await prisma.benefit.create({
       data: {
         userCardId: userCardAId,
@@ -144,7 +196,8 @@ describe("GET /api/overview", () => {
         resetPeriod: "monthly",
         resetAnchor: "calendar",
         category: "dining",
-        isTrackable: true,
+        classification: "discretionary-credit",
+        tracked: true,
       },
     });
     const benefit2 = await prisma.benefit.create({
@@ -156,15 +209,16 @@ describe("GET /api/overview", () => {
         resetPeriod: "monthly",
         resetAnchor: "calendar",
         category: "travel",
-        isTrackable: true,
+        classification: "discretionary-credit",
+        tracked: true,
       },
     });
 
-    // Pre-insert open periods with near-future periodEnd to trigger isExpiringSoon (< 7 days)
-    // ensureCurrentPeriod returns an existing open period if periodEnd > now
+    // Pre-insert open periods with near-future periodEnd (< 7 days → expiring soon).
+    // ensureCurrentPeriod returns an existing open period if periodEnd > now.
     const now = new Date();
-    const soonerEnd = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // 2 days — more urgent
-    const laterEnd = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);  // 5 days — less urgent
+    const soonerEnd = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // 2 days
+    const laterEnd = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000); // 5 days
 
     await prisma.benefitPeriod.create({
       data: { benefitId: benefit1.id, periodStart: now, periodEnd: soonerEnd, usedAmount: 0, status: "open" },
@@ -177,11 +231,13 @@ describe("GET /api/overview", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
 
-    const index1 = data.expiringSoon.findIndex((e: { benefitId: string }) => e.benefitId === benefit1.id);
-    const index2 = data.expiringSoon.findIndex((e: { benefitId: string }) => e.benefitId === benefit2.id);
+    const index1 = data.needsAttention.findIndex((r: Row) => r.benefitId === benefit1.id);
+    const index2 = data.needsAttention.findIndex((r: Row) => r.benefitId === benefit2.id);
     expect(index1).toBeGreaterThanOrEqual(0);
     expect(index2).toBeGreaterThanOrEqual(0);
-    expect(index1).toBeLessThan(index2); // benefit1 (2 days) comes before benefit2 (5 days)
+    expect(index1).toBeLessThan(index2); // 2-day before 5-day
+    expect(data.moneyAtRisk.soonestDaysUntilReset).toBeGreaterThanOrEqual(0);
+    expect(data.moneyAtRisk.totalUnredeemed).toBe(100); // 50 + 50 unredeemed
   });
 
   it("returns 401 when not authenticated", async () => {

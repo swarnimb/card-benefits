@@ -59,7 +59,8 @@ async function createBenefit(userCardId: string, overrides: Record<string, unkno
       resetPeriod: "annual",
       resetAnchor: "calendar",
       category: "dining",
-      isTrackable: true,
+      classification: "discretionary-credit",
+      tracked: true,
       ...overrides,
     },
   });
@@ -110,6 +111,54 @@ describe("PATCH /api/benefits/[id]", () => {
       where: { benefitId: benefit.id, status: "open" },
     });
     expect(period?.usedAmount).toBe(0);
+  });
+
+  it("ignores tracked and classification and leaves persisted values unchanged while updating name", async () => {
+    const benefit = await createBenefit(testUserCardId, {
+      classification: "discretionary-credit",
+      tracked: true,
+    });
+
+    const res = await PATCH(
+      new NextRequest(`http://localhost/api/benefits/${benefit.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: "Renamed",
+          tracked: false,
+          classification: "auto-earn",
+          isTrackable: false,
+        }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: benefit.id }) }
+    );
+
+    expect(res.status).toBe(200);
+    const persisted = await prisma.benefit.findUnique({ where: { id: benefit.id } });
+    expect(persisted!.name).toBe("Renamed"); // allowed field applied
+    expect(persisted!.tracked).toBe(true); // Decision A: not user-editable
+    expect(persisted!.classification).toBe("discretionary-credit"); // unchanged
+  });
+
+  it("does not 400 when body has only stripped fields plus a valid field", async () => {
+    const benefit = await createBenefit(testUserCardId);
+
+    const res = await PATCH(
+      new NextRequest(`http://localhost/api/benefits/${benefit.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          tracked: true,
+          classification: "passive-perk",
+          isTrackable: true,
+          name: "Still Valid",
+        }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: benefit.id }) }
+    );
+
+    expect(res.status).toBe(200); // silent strip, no 400 (existing contract)
+    expect((await res.json()).name).toBe("Still Valid");
   });
 
   it("returns 403 for benefit belonging to different user", async () => {

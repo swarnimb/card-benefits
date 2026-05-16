@@ -159,7 +159,8 @@ describe("DELETE /api/user-cards/[id]", () => {
         resetPeriod: "monthly",
         resetAnchor: "calendar",
         category: "dining",
-        isTrackable: true,
+        classification: "discretionary-credit",
+        tracked: true,
       },
     });
     await prisma.benefitPeriod.create({

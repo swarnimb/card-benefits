@@ -41,7 +41,7 @@ type DraftBenefit = {
   resetPeriod: 'monthly' | 'quarterly' | 'annual' | 'once'  // NOT 'yearly'/'none'
   resetAnchor: 'calendar' | 'statement' | 'anniversary'     // NOT 'statement_date'
   category: 'dining' | 'travel' | 'streaming' | 'shopping' | 'lounge' | 'general'  // NOT 'lifestyle'/'other'
-  isTrackable: boolean
+  tracked: boolean
   confidence: number                                       // 0.0–1.0
 }
 ```

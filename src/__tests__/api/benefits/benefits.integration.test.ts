@@ -62,7 +62,7 @@ describe("GET /api/user-cards/[id]/benefits", () => {
             resetPeriod: "annual",
             resetAnchor: "calendar",
             category: "dining",
-            isTrackable: true,
+            classification: "discretionary-credit",
             confidence: 0.95,
           }],
         }),
@@ -81,6 +81,35 @@ describe("GET /api/user-cards/[id]/benefits", () => {
     expect(data[0].name).toBe("Dining Credit");
     expect(data[0].currentPeriod).not.toBeNull();
     expect(data[0].currentPeriod.status).toBe("open");
+  });
+
+  it("returns classification/tracked and null currentPeriod for tracked=false", async () => {
+    await prisma.benefit.create({
+      data: {
+        userCardId: testUserCard.id,
+        name: "Excluded Auto Earn",
+        type: "perk",
+        value: 5000,
+        resetPeriod: "annual",
+        resetAnchor: "calendar",
+        category: "shopping",
+        classification: "auto-earn",
+        tracked: false,
+      },
+    });
+
+    const res = await GET(
+      new NextRequest(`http://localhost/api/benefits/${testUserCard.id}`),
+      { params: Promise.resolve({ id: testUserCard.id }) }
+    );
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    const excluded = data.find((b: { name: string }) => b.name === "Excluded Auto Earn");
+    expect(excluded).toBeDefined(); // excluded benefits still returned, never dropped
+    expect(excluded.classification).toBe("auto-earn");
+    expect(excluded.tracked).toBe(false);
+    expect(excluded.currentPeriod).toBeNull(); // no ensureCurrentPeriod side-effect when untracked
   });
 
   it("returns 403 for card belonging to different user", async () => {
@@ -102,7 +131,8 @@ describe("POST /api/benefits/confirm", () => {
         resetPeriod: "annual",
         resetAnchor: "calendar",
         category: "general",
-        isTrackable: false,
+        classification: "passive-perk",
+        tracked: false,
       },
     });
 
@@ -119,7 +149,7 @@ describe("POST /api/benefits/confirm", () => {
             resetPeriod: "annual",
             resetAnchor: "calendar",
             category: "travel",
-            isTrackable: true,
+            classification: "discretionary-credit",
             confidence: 0.9,
           }],
         }),
@@ -141,6 +171,83 @@ describe("POST /api/benefits/confirm", () => {
 
     const uc = await prisma.userCard.findUnique({ where: { id: testUserCard.id } });
     expect(uc!.lastVerifiedAt).not.toBeNull();
+  });
+
+  function confirmReq(benefits: unknown[]) {
+    return new NextRequest("http://localhost/api/benefits/confirm", {
+      method: "POST",
+      body: JSON.stringify({ userCardId: testUserCard.id, benefits }),
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const baseBenefit = {
+    name: "Sample Benefit",
+    description: null,
+    type: "credit",
+    value: 100,
+    resetPeriod: "annual",
+    resetAnchor: "calendar",
+    category: "travel",
+    confidence: 0.9,
+  };
+
+  it("persists discretionary-credit with tracked=true and an open period", async () => {
+    const res = await CONFIRM(
+      confirmReq([{ ...baseBenefit, name: "Tracked Credit", classification: "discretionary-credit" }])
+    );
+    expect(res.status).toBe(200);
+
+    const b = await prisma.benefit.findFirst({
+      where: { userCardId: testUserCard.id, name: "Tracked Credit" },
+    });
+    expect(b!.classification).toBe("discretionary-credit");
+    expect(b!.tracked).toBe(true);
+
+    const period = await prisma.benefitPeriod.findFirst({ where: { benefitId: b!.id } });
+    expect(period?.status).toBe("open");
+  });
+
+  it("persists auto-earn with tracked=false and no period", async () => {
+    const res = await CONFIRM(
+      confirmReq([{ ...baseBenefit, name: "Auto Earn Points", type: "perk", classification: "auto-earn" }])
+    );
+    expect(res.status).toBe(200);
+
+    const b = await prisma.benefit.findFirst({
+      where: { userCardId: testUserCard.id, name: "Auto Earn Points" },
+    });
+    expect(b).not.toBeNull(); // excluded benefits are persisted, never dropped
+    expect(b!.classification).toBe("auto-earn");
+    expect(b!.tracked).toBe(false);
+
+    const period = await prisma.benefitPeriod.findFirst({ where: { benefitId: b!.id } });
+    expect(period).toBeNull();
+  });
+
+  it("ignores client tracked=true on auto-earn and stores tracked=false", async () => {
+    const res = await CONFIRM(
+      confirmReq([
+        { ...baseBenefit, name: "Spoofed Track", type: "perk", classification: "auto-earn", tracked: true },
+      ])
+    );
+    expect(res.status).toBe(200);
+
+    const b = await prisma.benefit.findFirst({
+      where: { userCardId: testUserCard.id, name: "Spoofed Track" },
+    });
+    expect(b!.tracked).toBe(false); // server re-derives; client value ignored
+
+    const period = await prisma.benefitPeriod.findFirst({ where: { benefitId: b!.id } });
+    expect(period).toBeNull();
+  });
+
+  it("returns 400 when classification is not in the allowlist", async () => {
+    const res = await CONFIRM(
+      confirmReq([{ ...baseBenefit, classification: "lifestyle" }])
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("Invalid value for field classification");
   });
 
   it("returns 400 when benefits array is empty", async () => {
@@ -169,7 +276,7 @@ describe("POST /api/benefits/confirm", () => {
             resetPeriod: "annual",
             resetAnchor: "calendar",
             category: "dining",
-            isTrackable: true,
+            classification: "discretionary-credit",
             confidence: 0.8,
           }],
         }),

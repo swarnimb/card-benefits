@@ -91,7 +91,7 @@ model Benefit {
   resetPeriod String          // "monthly" | "quarterly" | "annual" | "once"
   resetAnchor String          @default("calendar")
   category    String          // "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"
-  isTrackable Boolean         @default(true)
+  tracked     Boolean         @default(false)
   userCard    UserCard        @relation(fields: [userCardId], references: [id], onDelete: Cascade)
   periods     BenefitPeriod[]
   createdAt   DateTime        @default(now())
@@ -214,13 +214,18 @@ prisma.benefit.findMany({
 // Note: periodEnd can be null for 'once' benefits — exclude those
 ```
 
-### Get overview aggregates (by category, across all cards)
+### Get overview triage (by urgency, across all cards)
 ```typescript
-// Filter: type === 'credit' || type === 'perk'
-// Group by benefit.category
-// Per group: totalAvailable = sum(benefit.value), totalUsed = sum(currentPeriod.usedAmount)
-// Exclude categories where totalAvailable === 0
-// Return: OverviewData (see src/types/api.ts)
+// Overview is urgency-primary (PRD F6 / FB13) — NOT category aggregation.
+// buildOverviewTriage() in src/lib/engine/expiring.ts:
+//   - Only tracked === true benefits (all types: credit/subscription/access/perk —
+//     type is row metadata, NOT a filter; the old credit/perk-only filter is gone)
+//   - needsAttention = isExpiringSoon (unused value, resets within 7 days), sorted soonest-first
+//   - done = cap reached / subscription already used this period
+//   - onTrack = still actionable, not urgent
+//   - moneyAtRisk = sum of unused value across needsAttention + soonest daysUntilReset
+// ensureCurrentPeriod() is called only for tracked benefits (CONSTRAINT-03).
+// Return: OverviewData (see src/types/api.ts). aggregateOverview() was removed (FB13).
 ```
 
 ---

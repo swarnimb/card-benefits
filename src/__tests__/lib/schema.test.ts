@@ -39,7 +39,8 @@ describe('schema', () => {
         resetPeriod: 'monthly',
         resetAnchor: 'calendar',
         category: 'dining',
-        isTrackable: true,
+        classification: "discretionary-credit",
+        tracked: true,
       },
     })
     expect(benefit.id).toBeDefined()

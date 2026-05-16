@@ -59,7 +59,8 @@ async function createBenefit(userCardId: string) {
       resetPeriod: "annual",
       resetAnchor: "calendar",
       category: "dining",
-      isTrackable: true,
+      classification: "discretionary-credit",
+      tracked: true,
     },
   });
 }

@@ -183,3 +183,56 @@
 **Check before approving:** Already applied — DB migration ran, parser updated, review gate shows the dropdown, benefit display formats correctly.
 
 **What this closes off:** Nothing — additive change. Default is `"dollars"` so all existing benefits continue working unchanged.
+
+---
+
+## FB11 — Tailscale Dropped, Vercel Queued for Phase 2
+
+**Date:** 2026-05-13
+**Architecture section:** `docs/architecture.md` → Tech Stack, Infrastructure + Deployment
+
+**Decided:** The Tailscale-for-mobile-access plan (originally validated as assumption A5) is removed from MVP scope. MVP runs desktop-only on the local machine. Vercel deployment is queued as Phase 2 work, documented in assumption A9.
+
+**Means for your product:** CardMaxxer is laptop-only until Phase 2. You can't use it on your phone at point-of-purchase or while reviewing statements in bed — those use cases wait for Vercel migration. The mobile-first 375px design work isn't wasted: the layout stays intact and becomes useful when Phase 2 ships. Rationale: validate product fit through personal daily use before paying the cost of cloud migration.
+
+**Check before approving Phase 2 (later — not now):** Three non-trivial blockers exist for Vercel migration. (1) SQLite local file must migrate to Postgres — Neon free tier is the target. (2) Playwright + Chromium exceeds Vercel's 250 MB function size and 60-second timeout — needs either a hybrid split (frontend on Vercel + local scraper writes to Postgres) or browser-as-a-service like Browserless (~$10/mo). (3) GET routes with write side-effects (CONSTRAINT-3, lazy period calc) cause race conditions under Vercel's serverless concurrency — needs event-driven period closure or a Vercel Cron job. The current "no Browserless / no Lambda" project convention also requires explicit revision at Phase 2 kickoff.
+
+**What this closes off:** Real-device mobile validation of A7 (Framer Motion scroll-snap interaction) for MVP. If local + desktop deployment proves sufficient and product fit doesn't manifest, the Vercel migration may never happen — desktop-only is a viable permanent state, not a stepping stone.
+
+---
+
+## FB12 — Benefit Classification: Track Only What You Could Actually Miss
+
+**Date:** 2026-05-15
+**Architecture section:** `docs/architecture.md` → Data Model (Benefit Classification & Tracking), `docs/prd.md` Feature 3.5, assumptions A10
+
+**Decided:** CardMaxxer no longer tracks every benefit it scrapes. Every scraped benefit is sorted into one of five buckets. By default, only two of those buckets are actually tracked: "use-it-or-lose-it credits" (like a $100 spa credit that vanishes if unused) and "things you have to switch on" (like a free DashPass you must activate). The other three — auto-applied earn rates (cash back, points that just happen), always-on perks (lounge access, travel insurance), and one-time signup bonuses — are not tracked.
+
+**Means for your product:** The Overview and "expiring soon" views stay focused on the money you can actually lose by forgetting. You won't see your dashboard cluttered with "you earn 3x points on dining" — that earns itself whether you pay attention or not. The benefits worth chasing don't get buried under the ones that take care of themselves.
+
+Excluded benefits are **not deleted** — they're saved and just hidden. That's a deliberate choice: it keeps the door open to a future "show me everything and let me decide" feature without having to re-scrape every card again. Nothing is thrown away, only filtered from the default view.
+
+The split of responsibility matters: the AI only assigns the bucket (a judgment call — "is this a use-it-or-lose-it credit or an always-on perk?" — which it's genuinely good at). Plain, predictable code then decides tracked yes/no from that bucket. That means if we ever want to change the policy (say, start tracking signup bonuses too), we change a small rule in code — we don't have to re-run or re-prompt the AI over your whole card library.
+
+**Why:** the entire point of this product is catching money you'd otherwise leave on the table. Tracking auto-applied rewards is noise — it buries the credits that actually get missed under a pile of benefits that need no attention. A tracker that flags everything flags nothing.
+
+**Check before approving (the risk we accepted — A10):** The real risk is the AI mis-sorting a genuine use-it-or-lose-it credit into a hidden bucket — and because it's hidden, you'd never know you were losing that money. We accepted this risk with two mitigations. First, the mandatory review screen you see before anything is saved always shows the hidden items collapsed ("N excluded — expand") — they're never invisible, just folded away, so you can always check. Second, anything the AI is unsure about defaults to TRACKED, not hidden. So the dangerous direction — silently hiding real money — is always recoverable, while the harmless direction — showing one extra low-value item — is the only thing that slips through by default.
+
+**What this closes off:** Nothing is permanently closed — excluded benefits are retained, so a future "view all / manually re-include" capability is fully open. What it does set is a default posture: the product opts you out of noise and makes you opt back in, rather than the reverse.
+
+---
+
+## FB13 — Overview Reorganized Around Urgency, Not Benefit Type
+
+**Date:** 2026-05-16
+**Architecture section:** `docs/architecture.md` → Overview space (route, components, `engine/expiring.ts`, `types/api.ts`), `docs/prd.md` Feature 6 (Overview Space)
+
+**Decided:** The Overview screen no longer groups benefits by category ("Dining: $75", "Travel: $200"). It now answers one question on open: *what am I about to lose, and what should I do today?* A money-at-risk headline shows the total unredeemed value that resets soon, then three sections by urgency: **Needs attention** (expiring soon, amber, most-urgent first), **On track** (active, not urgent), and **Done** (used up / nothing to do — collapsed). Benefit type and category are now just small labels on each row, not the organizing principle. The old category-aggregation code and its components were deleted, not kept side-by-side.
+
+**Means for your product:** Opening the app now leads with the dollar figure you're at risk of losing and a deadline, instead of a neutral category breakdown that didn't tell you to act. One real behavior change: subscriptions and access perks (DashPass, lounge credits) now appear on Overview too — previously Overview only showed credits/perks. The Cards tab is unchanged and still organizes by type; Overview is triage, Cards is inventory. That difference is intentional.
+
+**Why:** the previous Overview was skeleton-level — it listed totals but never said "act on this now." Urgency is the only axis that drives the daily behavior this product exists to create.
+
+**Check before approving:** Already applied — Tasks 36–38 shipped, all 38 plan tasks complete. The deferred visual check (does the most urgent action show without scrolling at 375px?) is queued for the `@qa` milestone sign-off.
+
+**What this closes off:** The category-rollup view ("how much dining credit across all cards?") is gone from Overview — it would need rebuilding if wanted later. The old `aggregateOverview` path and `categories`/`expiringSoon` API shape were removed outright (single forward contract, no dual-maintenance), so anything depending on that old shape would need the triage shape instead.

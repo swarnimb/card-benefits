@@ -9,8 +9,8 @@
 
 A personal dashboard where Swarnim tracks all credit card benefits in one place — never missing a reset, never leaving a credit unused.
 
-**Platform:** Mobile-first web app (375px minimum). Desktop supported.
-**Deployment:** Local machine + Tailscale. No cloud hosting.
+**Platform:** Mobile-first web app (375px minimum). MVP runs desktop-only; mobile layout preserved for Phase 2.
+**Deployment:** Local machine, desktop-only for MVP. Vercel migration is Phase 2 (see `docs/assumptions.md` A9).
 **Users:** Single user (Swarnim) in MVP. Auth architected for multi-user later.
 
 ---
@@ -132,6 +132,49 @@ Custom card: issuer + name text entry. No scrape URL — manual benefit entry on
 
 ---
 
+## Feature 3.5: Benefit Classification & Tracking Model
+
+### Problem Statement
+The parser currently surfaces every benefit including auto-applied earn rates (e.g. 10% cash back) and passive entitlements (lounge access, insurance). These cannot be "missed" — they apply automatically or are always available — so tracking them is noise that buries genuinely missable credits. CardMaxxer's entire purpose is surfacing benefits a user would otherwise miss.
+
+### User Story
+As the cardholder, I want the system to automatically decide which benefits are worth tracking, so my dashboard only shows things I could actually miss — without me curating a list.
+
+### Business Logic
+- The Missability Test: track a benefit only if (1) realizing it requires deliberate action (not auto-applied to ambient spend) AND (2) inaction within a window loses the value.
+- Every parsed benefit is classified into exactly one bucket:
+  - `discretionary-credit` — recurring use-it-or-lose-it $ credit (spa, Uber, airline fee). **Tracked by default.**
+  - `activation-perk` — requires enroll/activate/claim, may have a deadline (DashPass, Clear, free-night cert). **Tracked by default.**
+  - `auto-earn` — auto-applied earn rate (cash back, points multiplier). **Excluded.**
+  - `passive-perk` — always-available entitlement (lounge access, insurance, no-FX-fee). **Excluded.**
+  - `one-time-bonus` — signup/min-spend welcome bonus. **Excluded (MVP).**
+- The LLM (Haiku, tool_use) assigns the classification bucket as a structured field. Deterministic application code maps bucket → tracked default. The LLM never decides tracked directly — judgment (classification) and policy (tracked default) are separated so policy can change without re-prompting.
+- Excluded benefits are persisted with tracked = false — never dropped. This preserves a future "view all / manually override" capability without re-scraping.
+- Review gate: shows tracked benefits prominently; excluded benefits collapsed behind a summary ("N auto-excluded as non-trackable — expand to review"). The mandatory review gate / confirm flow is unchanged.
+
+### Acceptance Criteria
+- [ ] Given a scraped page with a cash-back earn rate, when parsed, then it is classified auto-earn and saved with tracked = false.
+- [ ] Given a recurring $ credit, when parsed, then it is classified discretionary-credit and saved with tracked = true.
+- [ ] Given any parse, when the review gate renders, then tracked benefits are prominent and excluded ones collapsed but present.
+- [ ] Given confirmation, when benefits are saved, then excluded benefits persist with tracked = false (not discarded).
+- [ ] The bucket→tracked mapping lives in deterministic code, not the LLM prompt.
+
+### Edge Cases
+- Ambiguous benefit the LLM cannot confidently bucket: default to the most conservative trackable bucket and rely on the review gate (better to show than silently hide). Document the default.
+- Hybrid benefit (cap + auto-apply): classify by primary user action — if any deliberate redemption step exists, treat as discretionary-credit.
+
+### Out of Scope (MVP)
+- User-facing UI to view all benefits and manually toggle tracked (future — see Forward-Dependency).
+- Per-user classification overrides.
+
+### Forward-Dependency (documented risk — not MVP work)
+Constraint 06 (re-scrape deletes and replaces all benefits, no merge) will conflict with the future user-override feature: a re-scrape would wipe manual track/untrack choices. MVP is unaffected (no override UI exists). When the override feature is built, constraint 06 must be revisited to preserve user overrides across re-scrape.
+
+### Success Metric
+After a scrape+confirm, the dashboard shows only missable benefits; zero auto-earn/passive items appear in tracked views, and none are lost from the database.
+
+---
+
 ## Feature 4: Manual Usage Tracking
 
 ### Tracking UI Per Benefit Type
@@ -189,7 +232,7 @@ Default anchor: `calendar` (applied when scraper cannot determine anchor type).
 ### Expiring Soon Definition
 
 A benefit is "expiring soon" if ALL:
-- `isTrackable = true`
+- `tracked = true`
 - `resetPeriod ≠ 'once'`
 - `periodEnd` within 7 days of today
 - Unused value > 0:
@@ -200,7 +243,7 @@ A benefit is "expiring soon" if ALL:
 
 ### Where Displayed
 
-- **Overview:** Expiring Soon section at top (amber), sorted by daysUntilReset ASC
+- **Overview:** Surfaced via the money-at-risk hero plus the 3 urgency sections — expiring-soon benefits appear in "Needs attention" (amber, urgency-sorted); active ones in "On track"; completed/no-action ones in the collapsed "Done" (see Overview Space spec)
 - **Cards space:** Amber "⚠ Resets in N days" label on affected benefit row
 - **Cards space:** Amber `⚠` badge on card in stack if any benefit expiring
 
@@ -218,11 +261,47 @@ A benefit is "expiring soon" if ALL:
 
 ### Overview Space
 
-- Aggregates `credit` and `perk` benefits only — subscription + access excluded
-- Grouped by category; per group: total available vs. total used
-- Tap category row → expands to per-card breakdown
-- Expiring Soon section at top (amber) when any benefits resetting within 7 days
-- Empty categories (0 available) not shown
+_Updated 2026-05-15: Overview redesigned (urgency-primary). Supersedes prior skeleton spec. Single-page consolidation explicitly dropped — three-tab IA retained._
+
+#### Problem Statement
+Current Overview is skeleton-level — it lists benefits flatly without answering the only question that matters on open: "what am I about to lose, and what should I do today?" It feels generic and does not drive action.
+
+#### User Story
+As the cardholder, I want the Overview to immediately show money at risk and what to act on, so I never miss a resetting credit.
+
+#### User Flow
+1. User opens app → lands on Overview (three-tab IA retained; single-page consolidation explicitly dropped).
+2. Sees a money-at-risk hero: total unredeemed trackable value resetting soon, time-framed (e.g. "$340 expiring in 12 days").
+3. Scans "Needs attention" (expiring soon, amber), sorted by urgency.
+4. Below, "On track": active trackable benefits with remaining value/time.
+5. "Done / nothing to do" collapsed by default.
+
+#### Business Logic
+- Overview shows only benefits where tracked = true (see Benefit Classification & Tracking Model).
+- Primary section axis = urgency/state, NOT benefit type. Exactly 3 sections: Needs attention, On track, Done (collapsed).
+- Benefit type (spend-down vs. flip-on), category, and source card are row-level metadata (chip/icon/accent) — never their own sections.
+- Cards tab is unchanged — retains the 4 type-groups ($Credits / Subscriptions / Access / One-time Perks). Overview = triage by urgency; Cards = inventory by type. Intentional difference.
+- Visual system per docs/design-decisions.md (dark #0F0E0D, amber #F59E0B for expiring, Inter, amounts as headline, Framer Motion).
+
+#### Acceptance Criteria
+- [ ] Given tracked benefits with upcoming resets, when Overview loads, then a money-at-risk hero shows total at-risk value with a time frame.
+- [ ] Given a benefit expiring soon, when Overview loads, then it appears in "Needs attention" with amount remaining, deadline, and source card.
+- [ ] Given a fully-used or no-action benefit, when Overview loads, then it is in the collapsed "Done" section.
+- [ ] Given a benefit with tracked = false, when Overview loads, then it does not appear anywhere on Overview.
+- [ ] Overview renders correctly at 375px.
+
+#### Edge Cases
+- No trackable benefits yet: empty state guides user to add/scrape cards (no scary zeros).
+- Nothing expiring soon: "Needs attention" hides; hero reflects calm state.
+- All benefits done this period: hero shows a positive "nothing at risk" state.
+
+#### Out of Scope
+- Single-page wallet-stack consolidation (explicitly dropped this session — three-tab IA retained).
+- Charts/graphs beyond the money-at-risk hero (future).
+- User reordering of sections.
+
+#### Success Metric
+On open, user identifies the single most urgent action in under 5 seconds without scrolling.
 
 ### Cards Space (Apple Wallet Stack)
 
@@ -242,8 +321,7 @@ A benefit is "expiring soon" if ALL:
 
 ### Acceptance Criteria
 
-- [ ] Overview: credit + perk only; subscription + access excluded
-- [ ] Overview: empty categories not shown
+- [ ] Overview shows only benefits where `tracked: true`; organized by urgency (Needs attention / On track / Done), not by benefit type or category. See the Overview Space spec for full acceptance criteria.
 - [ ] Cards: scroll-driven scale + snap works for 1–10 cards
 - [ ] Cards: only one card expanded at a time
 - [ ] Admin: editing a benefit reflects in Cards and Overview immediately after save
