@@ -235,7 +235,9 @@ Excluded benefits are persisted with `tracked = false` — never dropped — so 
 
 Migration: additive at the SQLite column level (add `classification`, `tracked`; drop `isTrackable`) with NO data backfill — but note this is a **coordinated rename** of `isTrackable` → `classification`+`tracked` that must be applied in one sweep across schema, `src/types/benefit.ts`, the parser (`schema.ts`/`index.ts`), the confirm and `[id]` routes, and `src/lib/engine/expiring.ts` (see plan Tasks 29–34). 'Additive' refers only to the DB column operation, not the code surface. Safe defaults: `tracked` defaults to `false`, `classification` defaults to `"one-time-bonus"` (a safe non-trackable bucket — no benefit is wrongly surfaced by the default). Per CONSTRAINT-11, the datasource URL stays in `prisma.config.ts` — no `url` is added to the `datasource db {}` block in `schema.prisma`.
 
-**No backfill script.** Rationale: minimal/no real benefit data exists in `prisma/dev.db`, and CONSTRAINT-06 (re-scrape deletes and replaces ALL benefits for a card — no merge) means the next scrape+confirm of any card writes correct `classification`/`tracked` values for every benefit via the classification module. A backfill would be redundant work that the existing replace-all flow performs correctly on next use.
+~~**No backfill script.** Rationale: minimal/no real benefit data exists in `prisma/dev.db`, and CONSTRAINT-06 (re-scrape deletes and replaces ALL benefits for a card — no merge) means the next scrape+confirm of any card writes correct `classification`/`tracked` values for every benefit via the classification module. A backfill would be redundant work that the existing replace-all flow performs correctly on next use.~~
+
+**Backfill (post-Task 34 reversal):** The no-backfill stance above was reversed on 2026-05-19 when ~33 pre-Task-29 `Benefit` rows were discovered in the live `prisma/dev.db` stuck at the column default (`classification = "one-time-bonus"`, `tracked = false`) — they predated the additive Task 29 migration and never went through a re-scrape. A one-off utility, `scripts/backfill-classification.ts`, was created to re-classify them in place by synthesizing `{name, description}` raw text per benefit, routing it through the canonical `parseBenefits()` (Haiku + tool_use, CONSTRAINT-09) and `deriveTracked()` (the deterministic policy in `src/lib/parser/classification.ts`), then updating only the `classification` and `tracked` columns (CONSTRAINT-07 honored — `usedAmount` and period history untouched). The script supports `--dry-run` and logs per-row results. CONSTRAINT-06 (re-scrape deletes/replaces all benefits — no merge) remains the long-term invariant; the backfill script is a one-off migration, not a recurring path. See `docs/session-log.md` 2026-05-19 for diagnosis details.
 
 #### Field standardization (resolved)
 
@@ -306,12 +308,15 @@ async function updateBenefitUsage(benefitId: string, newAmount: number): Promise
 
 `src/lib/scraper/`
 
-- `genericScrape(url)`: launches headless Chromium, waits `networkidle`, returns `document.body.innerText`
-- `scrapeCard(issuer, url)`: dispatches to issuer-specific scraper or generic fallback
-- Each issuer file: exports `scrape(url)` — re-exports generic unless issuer needs special handling
-- All scrapers use realistic User-Agent (Chrome on macOS)
-- Browser closed in `finally` block — no leaked processes
-- 30-second timeout → throws `ScraperError({ url, issuer, reason })`
+- `genericScrape(url, issuer)`: two-path content extraction pipeline.
+  1. **HTTP fast path** — `fetch(url)` with realistic User-Agent + Accept headers; parse the HTML with `jsdom`; run `@mozilla/readability` to extract the main article text. If the extracted text exceeds ~1.5KB, return it. Sub-second on most marketing pages; no browser launched.
+  2. **Playwright fallback** — when the fast path returns too little (JS-shell-only page, paywall, redirect) or `fetch` fails, launch headless Chromium, navigate with `waitUntil: 'networkidle'` (timeout-tolerant — analytics scripts never settle), auto-scroll to trigger lazy loads, click visible expanders (`[aria-expanded="false"]`, `<summary>`, buttons matching `/show more|see details|view (all )?benefits?|read more|expand/i`), then run Readability on the post-expansion HTML. Falls back to `document.body.innerText` if Readability finds no article.
+- `scrapeCard(issuer, url)`: dispatcher. Currently routes every issuer through `genericScrape`. The `ISSUER_SCRAPERS` map is retained as an empty extension point for future per-bank quirks (e.g., Amex anti-bot stealth, Chase login walls) — populate only when a specific bank cannot be handled by the generic pipeline.
+- All scrapers use a realistic User-Agent (Chrome 124 on macOS) and 1280×800 viewport.
+- Browser closed in `finally` block — no leaked processes.
+- 30-second Playwright nav timeout; 10-second HTTP fast-path timeout.
+- Returns text ≥200 chars or throws `ScraperError({ url, issuer, reason })`.
+- ScraperError → API returns `200 { benefits: [], scrapeError }` so the review gate surfaces manual entry (CONSTRAINT-10).
 
 ---
 

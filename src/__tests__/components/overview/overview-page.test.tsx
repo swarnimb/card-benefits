@@ -4,30 +4,7 @@ import type { OverviewData, OverviewBenefit } from "@/types/api";
 
 afterEach(() => cleanup());
 
-type MotionProps = React.HTMLAttributes<HTMLElement> & {
-  whileTap?: unknown;
-  animate?: unknown;
-  exit?: unknown;
-  initial?: unknown;
-  transition?: unknown;
-};
-
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({ children, whileTap: _w, animate: _a, exit: _e, initial: _i, transition: _t, ...props }: MotionProps) => (
-      <div {...props}>{children}</div>
-    ),
-    span: ({ children, whileTap: _w, animate: _a, exit: _e, initial: _i, transition: _t, ...props }: MotionProps) => (
-      <span {...props}>{children}</span>
-    ),
-  },
-  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  useReducedMotion: () => false,
-  animate: (_from: number, to: number, opts: { onUpdate?: (v: number) => void }) => {
-    opts.onUpdate?.(to);
-    return { stop: () => {} };
-  },
-}));
+vi.mock("framer-motion", () => import("./_mock-framer-motion"));
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (

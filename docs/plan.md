@@ -7,8 +7,8 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-05-15
-**Total tasks:** 38
+**Last Updated:** 2026-05-19
+**Total tasks:** 39
 
 ---
 
@@ -1386,6 +1386,47 @@
 
 ---
 
+## Task 39: Generic scraper redesign — HTTP-first + Playwright fallback with Readability extraction
+
+**Files:**
+- `src/lib/scraper/generic.ts` — modify (full rewrite: two-path pipeline)
+- `src/lib/scraper/index.ts` — modify (empty `ISSUER_SCRAPERS`, retain as extension point)
+- `src/lib/scraper/issuers/amex.ts` — delete
+- `src/lib/scraper/issuers/chase.ts` — delete
+- `src/lib/scraper/issuers/capital-one.ts` — delete
+- `src/lib/scraper/issuers/citi.ts` — delete
+- `src/lib/scraper/issuers/discover.ts` — delete
+- `src/__tests__/lib/scraper/scraper.test.ts` — modify (rewrite for new pipeline; 13 tests)
+- `package.json` — modify (add `@mozilla/readability`, move `jsdom` to `dependencies`)
+- `docs/architecture.md` — modify (rewrite Scraper Architecture section)
+- `docs/known-issues.md` — modify (remove `waitForTimeout` defect entry)
+- `docs/founder-brief.md` — modify (add FB14)
+
+**Functions to implement:**
+- `genericScrape(url: string, issuer?: string): Promise<string>` — two-path: HTTP fast path via `fetch`+`jsdom`+`@mozilla/readability`; on insufficient content, Playwright fallback with auto-scroll, expansion clicks, and Readability on `page.content()`; final innerText fallback before throwing.
+- Private helpers (all <50 lines): `tryHttpFastPath`, `tryPlaywrightFallback`, `extractWithReadability`, `expandCollapsedSections`, `autoScroll`.
+- `scrapeCard(issuer, url)` — unchanged contract; dispatches through empty `ISSUER_SCRAPERS` map (intentional extension point).
+
+**Acceptance criteria:**
+- [x] HTTP fast path returns Readability-extracted text in < 2s when page is server-rendered; Playwright not launched.
+- [x] Playwright fallback triggers when fast-path text < 1500 chars or `fetch` fails.
+- [x] Playwright path tolerates `networkidle` timeout (analytics never settles) and continues.
+- [x] Auto-scroll covers full page; expansion clicks fire for `[aria-expanded="false"]`, visible `<summary>`, and buttons matching the regex (cap 30 clicks).
+- [x] `ScraperError` shape unchanged: `{ url, issuer, reason }`; thrown on final content < 200 chars (CONSTRAINT-10 preserved).
+- [x] `ISSUER_SCRAPERS` empty; 5 issuer files deleted; dispatcher docstring identifies map as extension point.
+- [x] No `page.waitForTimeout` calls remain.
+- [x] Scraping remains synchronous in the API route (CONSTRAINT-02); no queue/worker added.
+- [x] [CQ-01] `generic.ts` < 300 lines; [CQ-02] each function < 50 lines.
+- [x] [EH-02][EH-03] all errors include url + issuer + reason context.
+- [x] `npm test -- --run` shows 0 failures in `scraper.test.ts`; no regressions elsewhere.
+- [x] `npm run build` passes.
+
+**Status:** [x]
+
+**Specialist:** @data
+
+---
+
 ## Completed Tasks
 
 _(none yet)_
@@ -1398,3 +1439,4 @@ _(none yet)_
 |------|--------|--------|
 | 2026-04-07 | Initial plan created | `@plan` — supersedes old CSV-tracker plan |
 | 2026-05-15 | Tasks 29–38 added (28 → 38 total) | `@create-plan` — Benefit Classification & Tracking Model (29–35) + Overview Redesign (36–38) |
+| 2026-05-19 | Task 39 added (38 → 39 total) | Generic scraper redesign — HTTP-first + Playwright fallback with Readability |

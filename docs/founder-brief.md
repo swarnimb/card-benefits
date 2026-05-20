@@ -236,3 +236,20 @@ The split of responsibility matters: the AI only assigns the bucket (a judgment 
 **Check before approving:** Already applied — Tasks 36–38 shipped, all 38 plan tasks complete. The deferred visual check (does the most urgent action show without scrolling at 375px?) is queued for the `@qa` milestone sign-off.
 
 **What this closes off:** The category-rollup view ("how much dining credit across all cards?") is gone from Overview — it would need rebuilding if wanted later. The old `aggregateOverview` path and `categories`/`expiringSoon` API shape were removed outright (single forward contract, no dual-maintenance), so anything depending on that old shape would need the triage shape instead.
+
+---
+
+## FB14 — Generic Scraper, Not Per-Bank Adapters
+
+**Date:** 2026-05-19
+**Architecture section:** `docs/architecture.md` → Scraper Architecture, `docs/plan.md` Task 39
+
+**Decided:** The scraper is one generic pipeline that works for any credit-card marketing URL — not five per-bank scrapers. It tries a fast plain-HTTP fetch first; if that doesn't return enough usable text (the page was a JavaScript shell), it falls back to a real browser, scrolls the page to trigger lazy content, clicks "show more" / "see details" / expandable sections, and only then extracts the article text using Mozilla's Readability library (the same engine behind Firefox's Reader View). The five per-bank scraper files (Amex, Chase, Capital One, Citi, Discover) that previously existed were empty pass-throughs to the generic code — they were deleted as misleading dead code. The dispatcher that used to look up "which scraper for which bank?" is kept, but its lookup map is empty by design — a hook to add bank-specific code later only if a specific bank actually needs it.
+
+**Means for your product:** Adding a new card from a new issuer "just works" — there's no longer a phantom requirement to write a Discover scraper or a Citi scraper before that bank's cards can be scraped. The fast path makes most cards scrape in under two seconds instead of forty. The slow path (Playwright) is reserved for pages that genuinely need a browser, and even there it now actively expands hidden benefit sections instead of grabbing only what was visible on first paint. Failed scrapes still surface as "scrape error → review gate → manual entry" exactly as before; the failure contract is preserved.
+
+**Why:** We had five files pretending to be issuer-specific scrapers, all forwarding to the same generic function. That's not abstraction — it's a lie about complexity. A generic pipeline that's actually good is more honest and more useful than five files that all do the same wrong thing. The empty extension-point map lets us add real per-bank handling the day we find a bank the generic pipeline can't handle — but until that day, it stays empty.
+
+**Check before approving:** Two specific risks are accepted. (1) Amex's bot detection may still defeat the generic pipeline — same risk as before, same mitigation (manual entry via review gate, assumption A3). (2) PDF benefit summaries remain out of scope — if an issuer hides benefits behind a PDF link, the user adds manually. Neither risk is new; both were already documented.
+
+**What this closes off:** The "five issuer files, one per bank" code shape is permanently gone. If a future bank needs special handling, the new shape is "add one entry to the empty `ISSUER_SCRAPERS` map" — a much smaller surface than recreating per-issuer files. The PDF-extraction path remains explicitly out of scope.

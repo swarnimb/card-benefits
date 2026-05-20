@@ -53,7 +53,13 @@ export async function GET(_req: NextRequest) {
 
     return NextResponse.json(overview);
   } catch (err) {
-    console.error("GET /api/overview error:", err);
+    console.error("GET /api/overview error:", {
+      userId,
+      error:
+        err instanceof Error
+          ? { name: err.name, message: err.message, stack: err.stack }
+          : err,
+    });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -1,20 +1,18 @@
 import { genericScrape } from "@/lib/scraper/generic";
-import { scrape as amexScrape } from "@/lib/scraper/issuers/amex";
-import { scrape as chaseScrape } from "@/lib/scraper/issuers/chase";
-import { scrape as capitalOneScrape } from "@/lib/scraper/issuers/capital-one";
-import { scrape as citiScrape } from "@/lib/scraper/issuers/citi";
-import { scrape as discoverScrape } from "@/lib/scraper/issuers/discover";
 
-const ISSUER_SCRAPERS: Record<string, (url: string) => Promise<string>> = {
-  Amex: amexScrape,
-  Chase: chaseScrape,
-  "Capital One": capitalOneScrape,
-  Citi: citiScrape,
-  Discover: discoverScrape,
-};
+/**
+ * Issuer-specific scraper overrides.
+ *
+ * Empty by default — the generic pipeline (HTTP fast path + Playwright with
+ * Readability extraction) handles every issuer in the catalog. Populate this
+ * map only when a specific bank requires special handling (e.g., Amex
+ * anti-bot stealth, Chase login walls). Keeping the map keeps the extension
+ * point alive without claiming the per-issuer logic exists.
+ */
+const ISSUER_SCRAPERS: Record<string, (url: string, issuer: string) => Promise<string>> = {};
 
 /** Dispatches to an issuer-specific scraper or falls back to genericScrape. */
 export async function scrapeCard(issuer: string, url: string): Promise<string> {
   const scraper = ISSUER_SCRAPERS[issuer] ?? genericScrape;
-  return scraper(url);
+  return scraper(url, issuer);
 }
