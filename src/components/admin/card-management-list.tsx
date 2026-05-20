@@ -78,7 +78,14 @@ export function CardManagementList({ cards, onRescrape, onRemove }: CardManageme
 
       <ConfirmDialog
         open={removeTarget !== null}
-        title={`Remove ${removeTarget?.card.name ?? "card"}?`}
+        // NEW-3 fix: include issuer so the title reads e.g. "Remove Amex Blue Cash
+        // Everyday?" or "Remove Discover it Cash Back?" — name alone is awkward
+        // for cards where the brand line is inseparable from the issuer.
+        title={
+          removeTarget
+            ? `Remove ${removeTarget.card.issuer} ${removeTarget.card.name}?`
+            : "Remove card?"
+        }
         description="All benefits and usage history will be deleted."
         confirmLabel="Remove"
         destructive

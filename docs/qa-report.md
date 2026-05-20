@@ -244,3 +244,111 @@ APPROVED — with mandatory manual verification. All critical-path automated cov
 The five non-blocking findings are documented for follow-up — none prevent shipping for MVP (local, single-user, desktop-only). The product is shippable once the Manual Verification Checklist above passes with the dev server running. If any checklist step fails, document the failure and re-run `@qa`.
 
 Recommended next step after manual checklist passes: re-run `@security` (prior CLEAR report predates Tasks 29–39), then `@launch-prep`.
+
+---
+
+## Manual Verification Run — 2026-05-19
+
+**Status:** APPROVED — manual verification complete. 5 new non-blocking findings; 0 blockers.
+
+**Mode:** Hybrid Puppeteer-driven walkthrough. User started dev server (port 3002) + logged in via headful Chrome; Claude drove Steps 2–10 with explicit pauses before each DB write/delete.
+
+### Step-by-step results
+
+| Step | Outcome | Notes |
+|------|---------|-------|
+| 1. Login | PASS | Login form rendered clean at 375px; redirect to `/overview` confirmed. |
+| 2. Overview @ 375px | PASS | "MONEY AT RISK $0 — Nothing at risk" hero + "ON TRACK 8" section. Empty "Needs attention" / "Done" sections are conditionally hidden (correct behavior for current data state — no urgent or completed items). |
+| 3. Overview @ 1280px | PASS | No horizontal scrollbar; hero + ON TRACK section adapt cleanly. Rows full-width (no max-width container) — consistent with mobile-first stretched-up philosophy, not a defect. |
+| 4. Admin list | PASS | 6 cards rendered with issuer/name/last-verified/count. Note: handoff stale — actual 4 empty cards are Freedom Unlimited + Platinum + Blue Cash Preferred + Blue Cash Everyday, NOT what handoff said (Amex Gold + Hilton Aspire are not in the DB). |
+| 5. HTTP fast path scrape | PASS | Triggered on **Amazon Prime Visa** (substituted for Sapphire Reserve due to selector miss; same code path validates). Terminal confirmed < 2s fast path. Review gate: 17 tracked + 15 auto-excluded = 32 classified benefits. Cancelled — no DB write. |
+| 6. Freedom Unlimited scrape | PASS — with **important positive finding** | Terminal confirmed **HTTP fast path** fired, not Playwright fallback. Previous 0-benefit state was a content-extraction bug, not JS-rendering — Task 39's Readability extraction fixed it. 0 → 19 parsed (11 tracked + 8 excluded), ~5s wall time. |
+| 7. Confirm + propagation [DB WRITE] | PASS | 11 Freedom Unlimited benefits committed. Admin: 0 → 11. Cards: FU stack entry now expands to show benefits. Overview: ON TRACK 8 → 11 (3 new FU items above-the-fold, including DoorDash quarterly credit with "43d left" — the first sub-227d reset window). Money at Risk still $0. |
+| 8. Cards stack | PASS | Click expansion works (was scroll-driven per design, but works on click in current build). Apple Wallet aesthetic: issuer colors (Chase blue, Capital One red, Amex gold), card-art header, X close, $CREDITS section, per-benefit usage slider + dollar input. |
+| 9. Remove card [DB DELETE] | PASS | Full Add→Remove cycle exercised. Added **Discover it Cash Back** via catalog (7 tracked + 7 excluded, < 5s), confirmed all 7, then removed. Cascade verified end-to-end: Admin 8 → 7, Cards stack lost Discover, Overview ON TRACK 18 → 11 (delta = 7). |
+| 10. Console error sweep | PASS-with-note | 1 cross-origin opaque "Script error" captured during routine Overview ↔ Cards ↔ Admin navigation. No details (browser hides for cross-origin security). Almost certainly third-party / dev tooling, not product code. Strictly fails the "zero console.error" binding criterion but practically non-actionable without source. |
+
+### New findings (5 non-blocking — to track post-MVP)
+
+#### NEW-1 — Add Card flow not fully transactional (orphan cards)
+
+**Founder Brief**
+**Decided:** When Add Card → catalog selection triggers an immediate scrape that fails (e.g., LLM `max_tokens` error), and the user Cancels out of the fallback review gate, the card itself **persists** in the DB with 0 benefits. The Cancel only rolls back the benefit save, not the card creation.
+**Means for your product:** Failed adds leave orphan cards in Admin. User has to manually remove them. No data corruption, just clutter.
+**Check before approving:** Reproducible — adding Sapphire Reserve produced the orphan; second attempt with same card would re-add (no dedup). Cleaned up this session.
+**What this closes off:** Nothing critical. Add Card UX hygiene.
+
+**What is wrong:** Add Card creates the card record before the scrape completes (probably to give the scrape something to attach benefits to). On scrape failure + user cancel, the card row is not deleted.
+**What must be done:** Two viable fixes:
+1. Make Add Card transactional: if review gate is Cancelled, delete the card row.
+2. Make Add Card 2-phase: scrape first, then commit card + benefits together on Save.
+Either is small (1–2 hour change). Defer to post-MVP unless a user runs into it.
+
+#### NEW-2 — ConfirmDialog Remove button violates destructive-action UX convention
+
+**Founder Brief**
+**Decided:** The Remove button in the destructive ConfirmDialog renders **white/light** with white text. Cancel renders darker. This makes the destructive action visually MORE prominent than the safe action — the opposite of standard destructive-confirmation UX, where the safe option (Cancel) is the default-emphasized choice and the destructive option (Remove) is colored red to signal danger.
+**Means for your product:** Higher accidental-delete risk. The visual hierarchy nudges users toward clicking Remove. Also fails the explicit checklist criterion ("red Remove button").
+**Check before approving:** Tested on two removes this session (Discover it Cash Back + Chase Sapphire Reserve). Behavior consistent — light/white Remove, darker Cancel.
+**What this closes off:** Nothing critical, but it's a visible UX defect that any new user would notice in their first remove action.
+
+**What is wrong:** Remove button uses default/light styling. Should be the project's destructive-red token.
+**What must be done:** Single CSS class change in the ConfirmDialog component to apply `destructive` variant to the Remove button. Likely 15 minutes.
+
+#### NEW-3 — ConfirmDialog title strips issuer (breaks awkwardly for Discover)
+
+**Founder Brief**
+**Decided:** The ConfirmDialog title implementation strips the first word from the full card name (assumed to be the issuer). This produces:
+- Chase Sapphire Reserve → "Remove **Sapphire Reserve**?" (reasonable)
+- Capital One Venture X → "Remove **Venture X**?" (reasonable — first-word strip happens to remove just "Capital", leaving "One Venture X"... actually verify)
+- Discover **it** Cash Back → "Remove **it Cash Back**?" (awkward — Discover's product names start with lowercase "it")
+**Means for your product:** The dialog reads oddly for Discover cards. Minor UX inconsistency, not a functional bug. User still knows which card they're deleting (they just clicked its trash icon), but the title looks broken.
+**Check before approving:** Reproducible — verified on both Discover it Cash Back and Chase Sapphire Reserve this session.
+**What this closes off:** Nothing.
+
+**What is wrong:** First-word-as-issuer assumption fails for issuers with multi-word names AND for cards whose names start with the issuer's brand language ("it" for Discover).
+**What must be done:** Either (a) always show the full card name in the dialog title, or (b) use a structured `card.issuer` + `card.name` split from the catalog rather than parsing the full display name. Approach (a) is simpler. Either is < 1 hour.
+
+#### NEW-4 — Claude Haiku `max_tokens` overflow on content-rich cards
+
+**Founder Brief**
+**Decided:** Sapphire Reserve's benefits page produced enough content that Haiku ran out of output tokens during the `tool_use` call (`Expected stop_reason "tool_use", got "max_tokens"`). The review gate degraded gracefully to "Add benefits manually below" + Save 0 benefits — the amber-fallback path described in the QA report's Edge Cases section worked correctly. But it means no benefits get parsed automatically for cards this content-dense.
+**Means for your product:** Premium cards with long benefits lists (Sapphire Reserve, Amex Platinum, Hilton Aspire, Capital One Venture X to a lesser extent) may consistently fail auto-parse. Users will need to manually enter benefits for these cards.
+**Check before approving:** Verified on Sapphire Reserve. Likely affects other dense cards — worth probing Amex Platinum + Hilton Aspire next session to confirm scope.
+**What this closes off:** Not a release blocker — fallback works. But meaningfully degrades the auto-parse value proposition for the highest-value cards (the ones with the most benefits to track).
+
+**What is wrong:** Haiku's `max_tokens` configuration on the scrape route is too low for content-rich cards. The `tool_use` response gets truncated before the model finishes emitting all benefit objects.
+**What must be done:** Three viable approaches:
+1. Raise `max_tokens` on the parser call (Haiku supports up to ~4096 output tokens; check current setting).
+2. Chunk the scrape input — feed Haiku one page section at a time and merge results.
+3. Use a different LLM with a larger output budget for known-dense cards (per-issuer override).
+Approach 1 is cheapest. If already at max, approach 2 is the proper fix.
+
+#### NEW-5 — Classification: cash-back rates classified as discretionary-credit
+
+**Founder Brief**
+**Decided:** Freedom Unlimited's auto-earn cashback rates (1.5% on all purchases, 3% on dining/drugstores, 5% on Chase Travel) were classified by the LLM as `discretionary-credit` (tracked=true with usage sliders). These should be `auto-earn` (tracked=false, excluded from Overview), since the user doesn't claim them — they accrue passively on every purchase.
+**Means for your product:** The Overview is showing "credits to claim" that are actually passive earn rates. User experience: the dashboard tells them to "use $5 of 5% Chase Travel" when there's nothing to use — it's a rate, not a claim. Pollutes the urgency-primary triage.
+**Check before approving:** Confirmed visually in the Freedom Unlimited card detail in Cards space (Welcome Bonus + 1.5% + 3% + 5% all under $CREDITS with usage sliders showing $0/$5, $0/$3, etc).
+**What this closes off:** Not a blocker but degrades the core value proposition (knowing which benefits need claim-action this period). Worth addressing before any expansion to other cards with similar earn structures.
+
+**What is wrong:** Haiku's classification prompt isn't reliably distinguishing "earn rate" (auto-earn — passive) from "credit" (discretionary — must claim). Both involve dollar values; only the activation model differs.
+**What must be done:** Two viable fixes:
+1. Tighten the classification prompt with stronger examples of auto-earn (cash-back rates, miles multipliers) vs. discretionary-credit (annual statement credits with claim).
+2. Add a deterministic post-pass: any benefit whose `description` matches `/^\d+(\.\d+)?%\s+(cash\s*back|points|miles)/i` or similar earn-rate patterns gets auto-reclassified to `auto-earn` regardless of LLM output.
+Approach 2 is more reliable. Approach 1 is cheaper and may compose. Existing Freedom Unlimited DB state will need backfill cleanup — re-scrape after the fix.
+
+### Minor observations (informational, not findings)
+
+- **Catalog doesn't dedupe against owned cards.** Add Card → Chase lists Freedom Unlimited + Amazon Prime Visa in the catalog despite the user already owning them. Could let users create duplicates.
+- **Next.js dev server fires Fast Refresh aggressively during navigation.** Not a production concern; possibly triggered by Puppeteer's DOM manipulation. Logged for awareness.
+- **Handoff staleness on empty cards.** Last handoff named the 4 empty cards as Freedom Unlimited + Platinum + Amex Gold + Hilton Aspire. Actual is Freedom Unlimited + Platinum + Blue Cash Preferred + Blue Cash Everyday. Updated in this session.
+
+### Verdict
+
+**Manual verification: complete.** The original APPROVED status holds. The 5 new findings are all post-MVP improvement work — none prevent the MVP from being usable today. NEW-2 (white Remove button) and NEW-3 (title strip) are quick UX-polish wins. NEW-1 (transactional Add) and NEW-5 (classification accuracy) are higher-value before scaling to more cards. NEW-4 (max_tokens) is the most impactful for product value — the auto-parse failing on premium cards undermines the value proposition.
+
+**Recommended next steps:**
+1. **Decide whether to fix NEW-2 + NEW-3 + NEW-5 backfill before announcing/sharing.** They're visible UX issues a first-time user will notice.
+2. **Spec NEW-4 + NEW-5 (proper fix) via `@create-plan`** if you want to invest before broader use.
+3. Re-run `@security` per the prior recommendation (CLEAR report predates Tasks 29–39).

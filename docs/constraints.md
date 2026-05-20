@@ -182,6 +182,18 @@
 
 ---
 
+### [CONSTRAINT-15] UI-layer concat preferred over data-layer denormalization
+
+**Decision:** When a display surface needs to render a composite of two normalized fields (e.g., `issuer` + `name`), do it at the UI/render layer via string concatenation. Do not denormalize by duplicating one field into another (e.g., prepending `issuer` into `name` at the data source).
+
+**What it means in practice:** Catalog and DB fields stay normalized — one piece of identifying data per column. UI surfaces that want a composite render it inline: `${card.issuer} ${card.name}`. If a display bug surfaces ("the title is missing the issuer"), the fix is at the JSX call site, not at the data source. The exception is genuinely inseparable brand strings (e.g., Discover's "it" modifier where the brand product line is "Discover it") — handle those as targeted UX polish on the single catalog entry, not as a blanket "every name gets issuer prepended" rewrite.
+
+**Who decided and when:** Builder (Task 41 — pushback on spec-A which proposed denormalizing the catalog), 2026-05-19
+
+**What this closes off:** Storing the same information in two columns to satisfy a render need. Future "field X should show field Y too" requests get a one-line JSX fix, not a schema or data migration. Future `@create-plan` specs that propose data denormalization for display defects should be challenged against this constraint.
+
+---
+
 ## Summary Table
 
 | # | Decision | Practical impact | Decided by | Date |
@@ -200,3 +212,4 @@
 | 12 | DS-01 relaxed for src/lib/** | JSDoc not required on internal library functions | Builder | 2026-04-08 |
 | 13 | CQ-06: y/m/d exempt in date math helpers | Single-letter date vars allowed in pure date boundary functions | Builder | 2026-04-08 |
 | 14 | Plaintext admin password | ADMIN_PASSWORD in .env; bcrypt removed (dotenv-expand incompatibility) | Builder | 2026-04-09 |
+| 15 | UI-layer concat over data denormalization | Composite displays render at JSX layer; columns stay normalized | Builder (Task 41) | 2026-05-19 |

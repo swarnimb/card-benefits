@@ -29,6 +29,24 @@ describe("CardManagementList", () => {
 
     expect(screen.getByText(/Never/)).toBeDefined();
   });
+
+  /**
+   * NEW-3 regression: the remove-confirmation title must include the issuer.
+   * Before the fix, the title was `Remove ${card.name}?` which rendered as
+   * "Remove Sapphire Reserve?" — stripping the issuer that the admin list
+   * row itself displays adjacent to the name. We assert the full string is
+   * present (issuer + name) and the bare-name form is NOT present.
+   */
+  it("shows full card name (issuer + name) in remove confirmation title", () => {
+    render(
+      <CardManagementList cards={CARDS} onRescrape={vi.fn()} onRemove={vi.fn()} />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Sapphire Reserve" }));
+
+    expect(screen.getByText("Remove Chase Sapphire Reserve?")).toBeDefined();
+    expect(screen.queryByText("Remove Sapphire Reserve?")).toBeNull();
+  });
 });
 
 describe("ConfirmDialog", () => {

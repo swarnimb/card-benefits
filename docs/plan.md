@@ -8,7 +8,7 @@
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
 **Last Updated:** 2026-05-19
-**Total tasks:** 39
+**Total tasks:** 46
 
 ---
 
@@ -39,16 +39,16 @@
 - `src/lib/db.ts`: `prismaClient` — Prisma singleton using `globalThis.__prisma` pattern
 
 **Acceptance criteria:**
-- [ ] `npm run dev` starts without errors
-- [ ] `"strict": true` in tsconfig.json
-- [ ] `@/` path alias resolves to `src/`
-- [ ] Tailwind dark mode: `class` strategy, base color `slate`
-- [ ] shadcn/ui initialized with dark theme as default
-- [ ] `prismaClient` reuses `globalThis.__prisma` across hot reloads
-- [ ] `.env.example` documents: `ANTHROPIC_API_KEY`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, `ADMIN_USER_ID`
-- [ ] `prisma/dev.db` in `.gitignore`
-- [ ] [SEC-01] No env vars hardcoded in source files
-- [ ] [CQ-01] `db.ts` < 20 lines
+- [x] `npm run dev` starts without errors
+- [x] `"strict": true` in tsconfig.json
+- [x] `@/` path alias resolves to `src/`
+- [x] Tailwind dark mode: `class` strategy, base color `slate`
+- [x] shadcn/ui initialized with dark theme as default
+- [x] `prismaClient` reuses `globalThis.__prisma` across hot reloads
+- [x] `.env.example` documents: `ANTHROPIC_API_KEY`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, `ADMIN_USER_ID`
+- [x] `prisma/dev.db` in `.gitignore`
+- [x] [SEC-01] No env vars hardcoded in source files
+- [x] [CQ-01] `db.ts` < 20 lines
 
 **Tests required:**
 - `db singleton` → `connects to SQLite without throwing`
@@ -68,14 +68,14 @@
 **Functions to implement:** None (schema only)
 
 **Acceptance criteria:**
-- [ ] 4 models: `Card`, `UserCard`, `Benefit`, `BenefitPeriod` with all fields from `docs/architecture.md`
-- [ ] `UserCard`: `@@unique([userId, cardId])`, `@@index([userId])`
-- [ ] `Benefit`: `@@index([userCardId])`
-- [ ] `BenefitPeriod`: `@@index([benefitId, status])`
-- [ ] `Benefit → UserCard`: `onDelete: Cascade`
-- [ ] `BenefitPeriod → Benefit`: `onDelete: Cascade`
-- [ ] All enum-like fields use `String` (no Prisma `enum` — SQLite limitation per CONSTRAINT-01)
-- [ ] `npx prisma migrate dev --name init` runs clean
+- [x] 4 models: `Card`, `UserCard`, `Benefit`, `BenefitPeriod` with all fields from `docs/architecture.md`
+- [x] `UserCard`: `@@unique([userId, cardId])`, `@@index([userId])`
+- [x] `Benefit`: `@@index([userCardId])`
+- [x] `BenefitPeriod`: `@@index([benefitId, status])`
+- [x] `Benefit → UserCard`: `onDelete: Cascade`
+- [x] `BenefitPeriod → Benefit`: `onDelete: Cascade`
+- [x] All enum-like fields use `String` (no Prisma `enum` — SQLite limitation per CONSTRAINT-01)
+- [x] `npx prisma migrate dev --name init` runs clean
 
 **Tests required:**
 - `schema` → `all 4 models can be created and queried without error`
@@ -108,12 +108,12 @@
 - `api.ts`: `ApiResponse<T>`, `OverviewData`
 
 **Acceptance criteria:**
-- [ ] JSON is valid, all 15+ catalog entries present
-- [ ] Each entry has: `id`, `issuer`, `name`, `scrapeUrl` (string|null), `defaultColor`
-- [ ] Issuer colors match design-decisions.md exactly
-- [ ] No `any` types in TypeScript files
-- [ ] `DraftBenefit` fields match tool_use schema exactly (name, description, type, value, resetPeriod, resetAnchor, category, tracked, confidence)
-- [ ] [CQ-01] Each types file < 100 lines
+- [x] JSON is valid, all 15+ catalog entries present
+- [x] Each entry has: `id`, `issuer`, `name`, `scrapeUrl` (string|null), `defaultColor`
+- [x] Issuer colors match design-decisions.md exactly
+- [x] No `any` types in TypeScript files
+- [x] `DraftBenefit` fields match tool_use schema exactly (name, description, type, value, resetPeriod, resetAnchor, category, tracked, confidence)
+- [x] [CQ-01] Each types file < 100 lines
 
 **Tests required:** None (types/data only)
 
@@ -137,17 +137,17 @@
 - `auth.ts`: `getUserId(): string` — returns `process.env.ADMIN_USER_ID`
 
 **Acceptance criteria:**
-- [ ] Credentials provider: `bcryptjs.compare(password, process.env.ADMIN_PASSWORD_HASH)`
-- [ ] JWT `sub` claim set to `process.env.ADMIN_USER_ID`
-- [ ] `NEXTAUTH_URL` and `NEXTAUTH_SECRET` from environment only — never hardcoded
-- [ ] Login page: email + password inputs, "Sign in" button
-- [ ] On submit: `signIn("credentials", { email, password, redirect: false })`
-- [ ] On success: `router.push("/overview")`
-- [ ] On failure: inline error "Invalid credentials" shown below form
-- [ ] Button: "Signing in..." + `disabled` during request
-- [ ] `(auth)/layout.tsx`: centered, no BottomNav, dark background
-- [ ] [SEC-01] `ADMIN_PASSWORD_HASH` never logged, never in error context
-- [ ] [CQ-01] `requireAuth()` < 20 lines
+- [x] Credentials provider: `bcryptjs.compare(password, process.env.ADMIN_PASSWORD_HASH)`
+- [x] JWT `sub` claim set to `process.env.ADMIN_USER_ID`
+- [x] `NEXTAUTH_URL` and `NEXTAUTH_SECRET` from environment only — never hardcoded
+- [x] Login page: email + password inputs, "Sign in" button
+- [x] On submit: `signIn("credentials", { email, password, redirect: false })`
+- [x] On success: `router.push("/overview")`
+- [x] On failure: inline error "Invalid credentials" shown below form
+- [x] Button: "Signing in..." + `disabled` during request
+- [x] `(auth)/layout.tsx`: centered, no BottomNav, dark background
+- [x] [SEC-01] `ADMIN_PASSWORD_HASH` never logged, never in error context
+- [x] [CQ-01] `requireAuth()` < 20 lines
 
 **Tests required:**
 - `credentials provider` → `returns session token when password matches hash`
@@ -190,13 +190,13 @@
 4. If none → INSERT first period → return it
 
 **Acceptance criteria:**
-- [ ] `calculatePeriodBoundary` is a pure function — no DB, no side effects
-- [ ] Returns correct boundaries for all 6 combinations in table above
-- [ ] `ensureCurrentPeriod`: no DB write when valid open period exists
-- [ ] `ensureCurrentPeriod`: closes expired period before creating new (never skips close step)
-- [ ] Closed periods (`status: 'closed'`) NEVER updated — only new records inserted (per CONSTRAINT-08)
-- [ ] [EH-01] DB errors throw with `{ fn: "ensureCurrentPeriod", benefitId }` context
-- [ ] [CQ-01] Each function < 50 lines
+- [x] `calculatePeriodBoundary` is a pure function — no DB, no side effects
+- [x] Returns correct boundaries for all 6 combinations in table above
+- [x] `ensureCurrentPeriod`: no DB write when valid open period exists
+- [x] `ensureCurrentPeriod`: closes expired period before creating new (never skips close step)
+- [x] Closed periods (`status: 'closed'`) NEVER updated — only new records inserted (per CONSTRAINT-08)
+- [x] [EH-01] DB errors throw with `{ fn: "ensureCurrentPeriod", benefitId }` context
+- [x] [CQ-01] Each function < 50 lines
 
 **Tests required:**
 - `calculatePeriodBoundary monthly/calendar` → `returns Apr 1–Apr 30 when now = Apr 15`
@@ -245,15 +245,15 @@
 - Exclude categories where `totalAvailable === 0`
 
 **Acceptance criteria:**
-- [ ] `updateBenefitUsage` is the ONLY function that writes `usedAmount` to DB (per CONSTRAINT-07)
-- [ ] Clamps to `[0, benefit.value]` before write
-- [ ] Throws `{ fn: "updateBenefitUsage", benefitId, newAmount }` if no open period after `ensureCurrentPeriod`
-- [ ] `isExpiringSoon` returns false for non-trackable benefits
-- [ ] `isExpiringSoon` returns false for `resetPeriod: 'once'`
-- [ ] `aggregateOverview` excludes `subscription` and `access` types
-- [ ] `aggregateOverview` excludes categories where totalAvailable = 0
-- [ ] [EH-01] DB errors in usage.ts throw with benefitId + newAmount context
-- [ ] [CQ-01] Each function < 50 lines
+- [x] `updateBenefitUsage` is the ONLY function that writes `usedAmount` to DB (per CONSTRAINT-07)
+- [x] Clamps to `[0, benefit.value]` before write
+- [x] Throws `{ fn: "updateBenefitUsage", benefitId, newAmount }` if no open period after `ensureCurrentPeriod`
+- [x] `isExpiringSoon` returns false for non-trackable benefits
+- [x] `isExpiringSoon` returns false for `resetPeriod: 'once'`
+- [x] `aggregateOverview` excludes `subscription` and `access` types
+- [x] `aggregateOverview` excludes categories where totalAvailable = 0
+- [x] [EH-01] DB errors in usage.ts throw with benefitId + newAmount context
+- [x] [CQ-01] Each function < 50 lines
 
 **Tests required:**
 - `updateBenefitUsage` → `clamps to benefit.value when newAmount exceeds cap`
@@ -288,15 +288,15 @@
 - Each issuer file: `async function scrape(url: string): Promise<string>` — re-exports generic unless issuer needs special handling
 
 **Acceptance criteria:**
-- [ ] `genericScrape` uses realistic User-Agent: `"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"`
-- [ ] Waits for `networkidle` before extracting text — handles CSR pages
-- [ ] 30-second timeout; on exceed: throws `ScraperError({ url, issuer, reason: "timeout" })`
-- [ ] Browser closed in `finally` block on success AND on error — no leaked Playwright processes
-- [ ] Returns `innerText` (visible text, no HTML markup)
-- [ ] `scrapeCard` dispatches to correct issuer scraper; unknown issuer → `genericScrape`
-- [ ] [EH-01] Navigation failures throw `ScraperError({ url, issuer, reason: string })` — never swallowed
-- [ ] [SEC-01] No credentials, cookies, or auth headers passed to browser
-- [ ] [CQ-01] `genericScrape` < 50 lines
+- [x] `genericScrape` uses realistic User-Agent: `"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"`
+- [x] Waits for `networkidle` before extracting text — handles CSR pages
+- [x] 30-second timeout; on exceed: throws `ScraperError({ url, issuer, reason: "timeout" })`
+- [x] Browser closed in `finally` block on success AND on error — no leaked Playwright processes
+- [x] Returns `innerText` (visible text, no HTML markup)
+- [x] `scrapeCard` dispatches to correct issuer scraper; unknown issuer → `genericScrape`
+- [x] [EH-01] Navigation failures throw `ScraperError({ url, issuer, reason: string })` — never swallowed
+- [x] [SEC-01] No credentials, cookies, or auth headers passed to browser
+- [x] [CQ-01] `genericScrape` < 50 lines
 
 **Tests required:**
 - `genericScrape` → `throws ScraperError with url context on navigation failure` (mock Playwright)
@@ -322,16 +322,16 @@
 - `index.ts`: `parseBenefits(rawText: string): Promise<DraftBenefit[]>`
 
 **Acceptance criteria:**
-- [ ] Model: `claude-haiku-4-5-20251001` hardcoded — never substituted (per CONSTRAINT-09)
-- [ ] `tool_use` structured output only — never freeform JSON parsing (per CONSTRAINT-09)
-- [ ] Tool schema enums: type `["credit","subscription","access","perk"]`, resetPeriod `["monthly","quarterly","annual","once"]`, resetAnchor `["calendar","statement","anniversary"]`, category `["dining","travel","streaming","shopping","lounge","general"]`
-- [ ] Validates `stop_reason === "tool_use"` — throws `ParserError` if not
-- [ ] Missing `resetAnchor` in model output → default `"calendar"`
-- [ ] Returns `[]` when model returns 0 benefits (valid response — not an error)
-- [ ] `ANTHROPIC_API_KEY` from `process.env` — never hardcoded
-- [ ] [EH-01] API errors throw `ParserError({ message, rawTextPreview: rawText.slice(0, 200) })`
-- [ ] [SEC-01] `ANTHROPIC_API_KEY` never logged, never in any error context
-- [ ] [CQ-01] `parseBenefits` < 50 lines
+- [x] Model: `claude-haiku-4-5-20251001` hardcoded — never substituted (per CONSTRAINT-09)
+- [x] `tool_use` structured output only — never freeform JSON parsing (per CONSTRAINT-09)
+- [x] Tool schema enums: type `["credit","subscription","access","perk"]`, resetPeriod `["monthly","quarterly","annual","once"]`, resetAnchor `["calendar","statement","anniversary"]`, category `["dining","travel","streaming","shopping","lounge","general"]`
+- [x] Validates `stop_reason === "tool_use"` — throws `ParserError` if not
+- [x] Missing `resetAnchor` in model output → default `"calendar"`
+- [x] Returns `[]` when model returns 0 benefits (valid response — not an error)
+- [x] `ANTHROPIC_API_KEY` from `process.env` — never hardcoded
+- [x] [EH-01] API errors throw `ParserError({ message, rawTextPreview: rawText.slice(0, 200) })`
+- [x] [SEC-01] `ANTHROPIC_API_KEY` never logged, never in any error context
+- [x] [CQ-01] `parseBenefits` < 50 lines
 
 **Tests required:**
 - `parseBenefits` → `returns DraftBenefit[] for valid tool_use response` (mock Anthropic SDK)
@@ -366,15 +366,15 @@
 - `DELETE /api/user-cards/[id]`: delete UserCard (cascades to Benefit → BenefitPeriod)
 
 **Acceptance criteria:**
-- [ ] All routes call `requireAuth()` — 401 if no session
-- [ ] `GET /api/user-cards` ordered by `displayOrder ASC`, includes `benefitCount`
-- [ ] `POST` with `catalogCardId`: look up from `card-catalog.json` (not DB) for issuer/name/color
-- [ ] `POST` with custom card: INSERT `Card` row first (`scrapeUrl: null`, `defaultColor: "#64748b"`), then INSERT `UserCard`
-- [ ] `POST` returns 409 on `@@unique([userId, cardId])` violation
-- [ ] `DELETE` returns 404 if not found; 403 if UserCard.userId ≠ session userId
-- [ ] `PATCH` strips unknown fields silently — only `displayOrder`, `statementDay`, `anniversaryDate` accepted
-- [ ] [SEC-01] `userId` always from `getUserId()` — never from request body
-- [ ] [EH-01] DB errors return 500 with server-side logging; no stack trace to client
+- [x] All routes call `requireAuth()` — 401 if no session
+- [x] `GET /api/user-cards` ordered by `displayOrder ASC`, includes `benefitCount`
+- [x] `POST` with `catalogCardId`: look up from `card-catalog.json` (not DB) for issuer/name/color
+- [x] `POST` with custom card: INSERT `Card` row first (`scrapeUrl: null`, `defaultColor: "#64748b"`), then INSERT `UserCard`
+- [x] `POST` returns 409 on `@@unique([userId, cardId])` violation
+- [x] `DELETE` returns 404 if not found; 403 if UserCard.userId ≠ session userId
+- [x] `PATCH` strips unknown fields silently — only `displayOrder`, `statementDay`, `anniversaryDate` accepted
+- [x] [SEC-01] `userId` always from `getUserId()` — never from request body
+- [x] [EH-01] DB errors return 500 with server-side logging; no stack trace to client
 
 **Tests required:**
 - `GET /api/user-cards` → `returns 401 when unauthenticated`
@@ -406,15 +406,15 @@
 ```
 
 **Acceptance criteria:**
-- [ ] Requires auth — 401 if no session
-- [ ] Returns 404 if UserCard not found for session user
-- [ ] If `card.scrapeUrl` is null: return 200 `{ benefits: [], scrapeError: "Custom card — no scrape URL. Add benefits manually." }`
-- [ ] If `scrapeCard()` throws `ScraperError`: return 200 `{ benefits: [], scrapeError: error.message }` (not 500)
-- [ ] If `parseBenefits()` throws `ParserError`: return 200 `{ benefits: [], parseError: error.message }`
-- [ ] Successful: return 200 `{ benefits: DraftBenefit[] }`
-- [ ] No DB write at any code path in this route (per CONSTRAINT-10)
-- [ ] [EH-01] Unexpected errors (not ScraperError/ParserError) → 500 + server-side log with `userCardId`
-- [ ] [CQ-01] Route handler < 50 lines — delegates to `scrapeCard()` + `parseBenefits()`
+- [x] Requires auth — 401 if no session
+- [x] Returns 404 if UserCard not found for session user
+- [x] If `card.scrapeUrl` is null: return 200 `{ benefits: [], scrapeError: "Custom card — no scrape URL. Add benefits manually." }`
+- [x] If `scrapeCard()` throws `ScraperError`: return 200 `{ benefits: [], scrapeError: error.message }` (not 500)
+- [x] If `parseBenefits()` throws `ParserError`: return 200 `{ benefits: [], parseError: error.message }`
+- [x] Successful: return 200 `{ benefits: DraftBenefit[] }`
+- [x] No DB write at any code path in this route (per CONSTRAINT-10)
+- [x] [EH-01] Unexpected errors (not ScraperError/ParserError) → 500 + server-side log with `userCardId`
+- [x] [CQ-01] Route handler < 50 lines — delegates to `scrapeCard()` + `parseBenefits()`
 
 **Tests required:**
 - `POST /api/user-cards/[id]/scrape` → `returns draft benefits on success` (mock scraper + parser)
@@ -444,14 +444,14 @@
 4. UPDATE `UserCard.lastVerifiedAt = new Date()`
 
 **Acceptance criteria:**
-- [ ] Both routes: auth required — 401 if no session
-- [ ] `GET`: verify `UserCard.userId === getUserId()` — 403 otherwise
-- [ ] `GET`: benefits sorted credit → subscription → access → perk
-- [ ] `GET`: calls `ensureCurrentPeriod` for each trackable benefit (lazy period advance — per CONSTRAINT-03)
-- [ ] `POST /confirm`: validates `benefits.length >= 1` — 400 `{ error: "benefits must not be empty" }` if zero
-- [ ] `POST /confirm`: validates enum fields (type, resetPeriod, resetAnchor, category) against allowlists — 400 on invalid
-- [ ] `POST /confirm`: all 4 steps in a single Prisma `$transaction` — all-or-nothing (per CONSTRAINT-06)
-- [ ] [EH-01] Transaction failure rolls back — no partial state persisted
+- [x] Both routes: auth required — 401 if no session
+- [x] `GET`: verify `UserCard.userId === getUserId()` — 403 otherwise
+- [x] `GET`: benefits sorted credit → subscription → access → perk
+- [x] `GET`: calls `ensureCurrentPeriod` for each trackable benefit (lazy period advance — per CONSTRAINT-03)
+- [x] `POST /confirm`: validates `benefits.length >= 1` — 400 `{ error: "benefits must not be empty" }` if zero
+- [x] `POST /confirm`: validates enum fields (type, resetPeriod, resetAnchor, category) against allowlists — 400 on invalid
+- [x] `POST /confirm`: all 4 steps in a single Prisma `$transaction` — all-or-nothing (per CONSTRAINT-06)
+- [x] [EH-01] Transaction failure rolls back — no partial state persisted
 
 **Tests required:**
 - `GET /api/benefits/[userCardId]` → `returns benefits with current period data`
@@ -481,12 +481,12 @@
 [Superseded 2026-05-15 — `tracked`/`classification` are NOT PATCH-editable; see PRD Feature 3.5 + api-spec PATCH /benefits/[id].]
 
 **Acceptance criteria:**
-- [ ] Both routes: auth required — 401; ownership verified (Benefit → UserCard → userId) — 403 if mismatch
-- [ ] `PATCH`: unknown fields stripped silently (no error)
-- [ ] `PATCH`: validates enum fields against allowlists — 400 on invalid
-- [ ] `PATCH`: if `type` changes → reset current open `BenefitPeriod.usedAmount = 0` in same transaction
-- [ ] `DELETE`: cascades to all `BenefitPeriod` records
-- [ ] [EH-01] DB errors logged server-side, generic 500 returned to client
+- [x] Both routes: auth required — 401; ownership verified (Benefit → UserCard → userId) — 403 if mismatch
+- [x] `PATCH`: unknown fields stripped silently (no error)
+- [x] `PATCH`: validates enum fields against allowlists — 400 on invalid
+- [x] `PATCH`: if `type` changes → reset current open `BenefitPeriod.usedAmount = 0` in same transaction
+- [x] `DELETE`: cascades to all `BenefitPeriod` records
+- [x] [EH-01] DB errors logged server-side, generic 500 returned to client
 
 **Tests required:**
 - `PATCH /api/benefits/[id]` → `updates name and returns updated benefit`
@@ -511,11 +511,11 @@
 - `POST /api/benefits/[id]/usage`: body `{ usedAmount: number }` → delegates to `updateBenefitUsage()`
 
 **Acceptance criteria:**
-- [ ] Auth required — 401; ownership verified — 403
-- [ ] `usedAmount` must be a number ≥ 0 — 400 `{ error: "usedAmount must be a number >= 0" }` if not
-- [ ] Delegates entirely to `updateBenefitUsage(benefitId, usedAmount)` — zero direct DB writes in handler (per CONSTRAINT-07)
-- [ ] Returns: `{ id, usedAmount, periodStart, periodEnd, status }`
-- [ ] [EH-01] `updateBenefitUsage` errors propagate as 500 with server-side logging
+- [x] Auth required — 401; ownership verified — 403
+- [x] `usedAmount` must be a number ≥ 0 — 400 `{ error: "usedAmount must be a number >= 0" }` if not
+- [x] Delegates entirely to `updateBenefitUsage(benefitId, usedAmount)` — zero direct DB writes in handler (per CONSTRAINT-07)
+- [x] Returns: `{ id, usedAmount, periodStart, periodEnd, status }`
+- [x] [EH-01] `updateBenefitUsage` errors propagate as 500 with server-side logging
 
 **Tests required:**
 - `POST /api/benefits/[id]/usage` → `updates usedAmount and returns period data`
@@ -553,14 +553,14 @@
 ```
 
 **Acceptance criteria:**
-- [ ] Auth required — 401
-- [ ] Fetches all UserCards for session user (with Card join), then Benefits + calls `ensureCurrentPeriod` per trackable (direct DB query — no internal HTTP calls)
-- [ ] Passes benefit data to `aggregateOverview()` for category grouping
-- [ ] Passes each benefit to `isExpiringSoon(benefit, 7)` for expiring-soon list
-- [ ] `expiringSoon` sorted by `daysUntilReset` ASC (most urgent first)
-- [ ] Empty categories (totalAvailable = 0) excluded from response
-- [ ] `subscription` and `access` types excluded from categories
-- [ ] [EH-01] DB errors return 500 with server-side logging
+- [x] Auth required — 401
+- [x] Fetches all UserCards for session user (with Card join), then Benefits + calls `ensureCurrentPeriod` per trackable (direct DB query — no internal HTTP calls)
+- [x] Passes benefit data to `aggregateOverview()` for category grouping
+- [x] Passes each benefit to `isExpiringSoon(benefit, 7)` for expiring-soon list
+- [x] `expiringSoon` sorted by `daysUntilReset` ASC (most urgent first)
+- [x] Empty categories (totalAvailable = 0) excluded from response
+- [x] `subscription` and `access` types excluded from categories
+- [x] [EH-01] DB errors return 500 with server-side logging
 
 **Tests required:**
 - `GET /api/overview` → `aggregates credits from multiple cards into correct category totals`
@@ -592,16 +592,16 @@
 - `BottomNav`: 3 tabs — Overview (`LayoutGrid` icon), Cards (`CreditCard` icon), Admin (`Settings` icon)
 
 **Acceptance criteria:**
-- [ ] Root `layout.tsx`: `<html lang="en" className="dark">`, Inter font, global CSS `--background: #0F0E0D`
-- [ ] `(app)/layout.tsx`: server component — `getServerSession()` → redirect to `/login` if null
-- [ ] `(app)/layout.tsx`: renders `<BottomNav />` + `<main className="pb-16">` (prevents content under nav)
-- [ ] `(auth)/layout.tsx`: centered layout, no BottomNav
-- [ ] `page.tsx`: server component — redirects to `/overview` if session, `/login` if not
-- [ ] `BottomNav`: `fixed bottom-0 w-full z-50`, dark background (`bg-background`)
-- [ ] `BottomNav` uses `usePathname()` for active tab detection — prefix match
-- [ ] Active tab: white icon + label; inactive: `text-muted-foreground`
-- [ ] Mobile-first: works at 375px, tabs fill full width equally, icons 24px
-- [ ] [CQ-01] `bottom-nav.tsx` < 100 lines
+- [x] Root `layout.tsx`: `<html lang="en" className="dark">`, Inter font, global CSS `--background: #0F0E0D`
+- [x] `(app)/layout.tsx`: server component — `getServerSession()` → redirect to `/login` if null
+- [x] `(app)/layout.tsx`: renders `<BottomNav />` + `<main className="pb-16">` (prevents content under nav)
+- [x] `(auth)/layout.tsx`: centered layout, no BottomNav
+- [x] `page.tsx`: server component — redirects to `/overview` if session, `/login` if not
+- [x] `BottomNav`: `fixed bottom-0 w-full z-50`, dark background (`bg-background`)
+- [x] `BottomNav` uses `usePathname()` for active tab detection — prefix match
+- [x] Active tab: white icon + label; inactive: `text-muted-foreground`
+- [x] Mobile-first: works at 375px, tabs fill full width equally, icons 24px
+- [x] [CQ-01] `bottom-nav.tsx` < 100 lines
 
 **Tests required:**
 - `BottomNav` → `renders 3 tabs with correct labels`
@@ -621,14 +621,14 @@
 - `src/app/(auth)/login/page.tsx` — create (replaces stub from Task 4)
 
 **Acceptance criteria:**
-- [ ] `"use client"` directive
-- [ ] Email + password inputs, "Sign in" button
-- [ ] `signIn("credentials", { email, password, redirect: false })` on submit
-- [ ] On success: `router.push("/overview")`
-- [ ] On error: inline "Invalid credentials" below form (no page reload)
-- [ ] Button: "Signing in..." + `disabled` during pending request
-- [ ] Dark card centered on page, max-width 400px, responsive
-- [ ] [CQ-01] < 150 lines
+- [x] `"use client"` directive
+- [x] Email + password inputs, "Sign in" button
+- [x] `signIn("credentials", { email, password, redirect: false })` on submit
+- [x] On success: `router.push("/overview")`
+- [x] On error: inline "Invalid credentials" below form (no page reload)
+- [x] Button: "Signing in..." + `disabled` during pending request
+- [x] Dark card centered on page, max-width 400px, responsive
+- [x] [CQ-01] < 150 lines
 
 **Tests required:**
 - `LoginPage` → `shows error message on failed sign-in`
@@ -651,16 +651,16 @@
 - `CardStack({ cards, expandedId, onExpand, onCollapse })`: scroll container with scroll-driven scale + opacity transforms per card
 
 **Acceptance criteria:**
-- [ ] `"use client"` directive
-- [ ] Container: `overflow-y-scroll`, `scroll-snap-type: y mandatory`, height `calc(100dvh - 64px)`
-- [ ] Each card slot: `scroll-snap-align: center`, fixed height (card 200px + 32px gap)
-- [ ] `useScroll({ container: containerRef })` tracks scroll position within container
-- [ ] Per card: `useTransform(scrollY, [cardCenter - halfView, cardCenter, cardCenter + halfView], [0.92, 1.0, 0.92])` for scale
-- [ ] Per card: opacity `useTransform(...)` range `[0.75, 1.0, 0.75]`
-- [ ] `motion.div` wraps each card with `style={{ scale, opacity }}`
-- [ ] 1-card case: renders correctly, no transform applied
-- [ ] 10-card case: all scroll correctly through full stack
-- [ ] [CQ-01] Extract per-card transform logic to `useCardTransform(index, containerRef)` custom hook if > 50 lines inline
+- [x] `"use client"` directive
+- [x] Container: `overflow-y-scroll`, `scroll-snap-type: y mandatory`, height `calc(100dvh - 64px)`
+- [x] Each card slot: `scroll-snap-align: center`, fixed height (card 200px + 32px gap)
+- [x] `useScroll({ container: containerRef })` tracks scroll position within container
+- [x] Per card: `useTransform(scrollY, [cardCenter - halfView, cardCenter, cardCenter + halfView], [0.92, 1.0, 0.92])` for scale
+- [x] Per card: opacity `useTransform(...)` range `[0.75, 1.0, 0.75]`
+- [x] `motion.div` wraps each card with `style={{ scale, opacity }}`
+- [x] 1-card case: renders correctly, no transform applied
+- [x] 10-card case: all scroll correctly through full stack
+- [x] [CQ-01] Extract per-card transform logic to `useCardTransform(index, containerRef)` custom hook if > 50 lines inline
 
 **Tests required:**
 - `CardStack` → `renders all cards without error`
@@ -685,15 +685,15 @@
 - `CardExpanded({ userCard, benefits, onCollapse, onUsageUpdate })`: expanded view with benefit list
 
 **Acceptance criteria:**
-- [ ] `CardItem`: issuer name (large, bold), card name (medium), "Last verified: [relative date]" or "Not yet verified" (muted)
-- [ ] `CardItem`: background = `userCard.card.defaultColor`
-- [ ] `CardItem`: amber `⚠` badge (top-right, absolute) if any benefit `isExpiringSoon`
-- [ ] `CardItem`: `motion.div` with `layoutId={userCard.id}` for shared layout animation
-- [ ] `CardItem`: `whileTap={{ scale: 0.98 }}`
-- [ ] `CardExpanded`: `motion.div` with same `layoutId={userCard.id}`
-- [ ] `CardExpanded` expand: scale 1.02 + boxShadow increase + benefit list `y: 40→0`, `opacity: 0→1`, spring `{ stiffness: 300, damping: 30 }`
-- [ ] `CardExpanded` collapse: reverse, spring ~250ms
-- [ ] Benefit list scrollable independently within expanded view (`overflow-y-auto`)
+- [x] `CardItem`: issuer name (large, bold), card name (medium), "Last verified: [relative date]" or "Not yet verified" (muted)
+- [x] `CardItem`: background = `userCard.card.defaultColor`
+- [x] `CardItem`: amber `⚠` badge (top-right, absolute) if any benefit `isExpiringSoon`
+- [x] `CardItem`: `motion.div` with `layoutId={userCard.id}` for shared layout animation
+- [x] `CardItem`: `whileTap={{ scale: 0.98 }}`
+- [x] `CardExpanded`: `motion.div` with same `layoutId={userCard.id}`
+- [x] `CardExpanded` expand: scale 1.02 + boxShadow increase + benefit list `y: 40→0`, `opacity: 0→1`, spring `{ stiffness: 300, damping: 30 }`
+- [x] `CardExpanded` collapse: reverse, spring ~250ms
+- [x] Benefit list scrollable independently within expanded view (`overflow-y-auto`)
 
 **Tests required:**
 - `CardItem` → `shows expiring badge when any benefit isExpiringSoon`
@@ -718,16 +718,16 @@
 - `BenefitItem({ benefit, cardColor, onUsageUpdate })`: single benefit row with inline tracker
 
 **Acceptance criteria:**
-- [ ] `BenefitList` group order: credit → subscription → access → perk
-- [ ] Group headers: "$Credits", "Subscriptions", "Access", "One-time Perks"
-- [ ] Empty group (no benefits of that type) → no header rendered
-- [ ] `BenefitItem`: name (medium weight) + description (1 line, truncated, muted)
-- [ ] `BenefitItem`: amber "⚠ Resets in N days" label if expiring soon
-- [ ] `BenefitItem`: `UsageSlider` for credit + perk types
-- [ ] `BenefitItem`: `UsageToggle` for subscription type
-- [ ] `BenefitItem`: `UsageCounter` for access type
-- [ ] Credit/perk at max (usedAmount >= value): soft green accent on progress fill
-- [ ] Subscription claimed: toggle fills with `cardColor`
+- [x] `BenefitList` group order: credit → subscription → access → perk
+- [x] Group headers: "$Credits", "Subscriptions", "Access", "One-time Perks"
+- [x] Empty group (no benefits of that type) → no header rendered
+- [x] `BenefitItem`: name (medium weight) + description (1 line, truncated, muted)
+- [x] `BenefitItem`: amber "⚠ Resets in N days" label if expiring soon
+- [x] `BenefitItem`: `UsageSlider` for credit + perk types
+- [x] `BenefitItem`: `UsageToggle` for subscription type
+- [x] `BenefitItem`: `UsageCounter` for access type
+- [x] Credit/perk at max (usedAmount >= value): soft green accent on progress fill
+- [x] Subscription claimed: toggle fills with `cardColor`
 
 **Tests required:**
 - `BenefitList` → `omits group header for type not present in benefits`
@@ -752,15 +752,15 @@
 - `UsageSlider({ benefitId, value, max, cardColor, onUpdate })`: Radix slider with live number display + manual input
 
 **Acceptance criteria:**
-- [ ] Radix Slider via shadcn as primitive
-- [ ] Track fill: `cardColor` hex as inline CSS `background`
-- [ ] Label: `$[value] / $[max]` (dollar sign for credit/perk — determined by caller)
-- [ ] Drag: live preview value update — no API call during drag
-- [ ] `onPointerUp`: calls `onUpdate(newValue)` — one API call per drag gesture
-- [ ] Manual input: number input, synced with slider; on blur/Enter → clamp `[0, max]` → call `onUpdate`
-- [ ] `max = null` (uncapped): slider max = `Math.max(value * 2, 10)`, no clamp on manual input
-- [ ] Completion: when value reaches max → `motion.div` pulse `opacity: [1, 0.6, 1]`, 400ms, once
-- [ ] [CQ-01] < 150 lines
+- [x] Radix Slider via shadcn as primitive
+- [x] Track fill: `cardColor` hex as inline CSS `background`
+- [x] Label: `$[value] / $[max]` (dollar sign for credit/perk — determined by caller)
+- [x] Drag: live preview value update — no API call during drag
+- [x] `onPointerUp`: calls `onUpdate(newValue)` — one API call per drag gesture
+- [x] Manual input: number input, synced with slider; on blur/Enter → clamp `[0, max]` → call `onUpdate`
+- [x] `max = null` (uncapped): slider max = `Math.max(value * 2, 10)`, no clamp on manual input
+- [x] Completion: when value reaches max → `motion.div` pulse `opacity: [1, 0.6, 1]`, 400ms, once
+- [x] [CQ-01] < 150 lines
 
 **Tests required:**
 - `UsageSlider` → `clamps manual input to max when value exceeds cap`
@@ -785,12 +785,12 @@
 - `UsageCounter({ benefitId, count, max, onUpdate })`
 
 **Acceptance criteria:**
-- [ ] `UsageToggle`: "Not claimed" / "Claimed" labels; snap animation 150ms; fills with `cardColor` when activated
-- [ ] `UsageToggle`: calls `onUpdate(activated ? 1 : 0)` immediately on click
-- [ ] `UsageCounter`: "[count] / [max] visits" or "[count] visits" when max null
-- [ ] `UsageCounter`: `−` disabled when count = 0; `+` disabled when count = max (if max not null)
-- [ ] `UsageCounter`: number roll — `AnimatePresence` with `y` slide (slot-machine), 120ms
-- [ ] `UsageCounter`: calls `onUpdate(newCount)` immediately on each tap
+- [x] `UsageToggle`: "Not claimed" / "Claimed" labels; snap animation 150ms; fills with `cardColor` when activated
+- [x] `UsageToggle`: calls `onUpdate(activated ? 1 : 0)` immediately on click
+- [x] `UsageCounter`: "[count] / [max] visits" or "[count] visits" when max null
+- [x] `UsageCounter`: `−` disabled when count = 0; `+` disabled when count = max (if max not null)
+- [x] `UsageCounter`: number roll — `AnimatePresence` with `y` slide (slot-machine), 120ms
+- [x] `UsageCounter`: calls `onUpdate(newCount)` immediately on each tap
 
 **Tests required:**
 - `UsageToggle` → `calls onUpdate(1) when activated`
@@ -812,16 +812,16 @@
 - `src/app/(app)/cards/page.tsx` — create
 
 **Acceptance criteria:**
-- [ ] `"use client"` directive
-- [ ] On mount: fetch `GET /api/user-cards` → for each card fetch `GET /api/benefits/[id]`
-- [ ] Loading: skeleton cards at stack positions
-- [ ] Error: "Could not load cards — tap to retry" + retry button
-- [ ] Empty (0 cards): "No cards added yet. Go to Admin →" (Link to `/admin`)
-- [ ] State: `expandedCardId: string | null` — only one expanded at a time
-- [ ] Tapping card in stack: set `expandedCardId` → renders `CardExpanded`
-- [ ] Usage update: `POST /api/benefits/[id]/usage` → optimistic update local state → revert + inline error on failure
-- [ ] `LayoutGroup` wraps all cards for shared layout animation
-- [ ] [CQ-01] Page < 200 lines — extract data fetching to hook if needed
+- [x] `"use client"` directive
+- [x] On mount: fetch `GET /api/user-cards` → for each card fetch `GET /api/benefits/[id]`
+- [x] Loading: skeleton cards at stack positions
+- [x] Error: "Could not load cards — tap to retry" + retry button
+- [x] Empty (0 cards): "No cards added yet. Go to Admin →" (Link to `/admin`)
+- [x] State: `expandedCardId: string | null` — only one expanded at a time
+- [x] Tapping card in stack: set `expandedCardId` → renders `CardExpanded`
+- [x] Usage update: `POST /api/benefits/[id]/usage` → optimistic update local state → revert + inline error on failure
+- [x] `LayoutGroup` wraps all cards for shared layout animation
+- [x] [CQ-01] Page < 200 lines — extract data fetching to hook if needed
 
 **Tests required:**
 - `CardsPage` → `renders empty state when 0 cards returned`
@@ -848,14 +848,14 @@
 - `CategoryList({ categories })`: list of CategoryRow components
 
 **Acceptance criteria:**
-- [ ] `ExpiringAlerts`: not rendered when `alerts.length === 0`
-- [ ] Each alert: benefit name, card name, "$[unusedAmount] remaining", "Resets in N days"
-- [ ] Alert styling: `#F59E0B` amber for text + border
-- [ ] Section border: slow amber pulse (`animate={{ opacity: [1, 0.4, 1] }}`, duration 2s, repeat)
-- [ ] `CategoryRow`: category name + "$[used] / $[total]" + horizontal progress bar
-- [ ] `CategoryRow`: tap → `AnimatePresence` expands per-card breakdown, ~200ms spring
-- [ ] Fully-used category: soft green progress bar fill
-- [ ] `CategoryList`: only non-empty categories rendered
+- [x] `ExpiringAlerts`: not rendered when `alerts.length === 0`
+- [x] Each alert: benefit name, card name, "$[unusedAmount] remaining", "Resets in N days"
+- [x] Alert styling: `#F59E0B` amber for text + border
+- [x] Section border: slow amber pulse (`animate={{ opacity: [1, 0.4, 1] }}`, duration 2s, repeat)
+- [x] `CategoryRow`: category name + "$[used] / $[total]" + horizontal progress bar
+- [x] `CategoryRow`: tap → `AnimatePresence` expands per-card breakdown, ~200ms spring
+- [x] Fully-used category: soft green progress bar fill
+- [x] `CategoryList`: only non-empty categories rendered
 
 **Tests required:**
 - `ExpiringAlerts` → `renders nothing when alerts array is empty`
@@ -876,14 +876,14 @@
 - `src/app/(app)/overview/page.tsx` — create
 
 **Acceptance criteria:**
-- [ ] `"use client"` directive
-- [ ] Fetch `GET /api/overview` on mount
-- [ ] Refetch on `document.visibilitychange` when `document.visibilityState === 'visible'` (reflects updates from Cards space)
-- [ ] Loading: skeleton rows for categories
-- [ ] Error: "Could not load overview — tap to retry"
-- [ ] Empty (no credit/perk benefits): "No credit benefits tracked yet. Add a card in Admin →"
-- [ ] Render order: `ExpiringAlerts` (top) → `CategoryList` (below)
-- [ ] [CQ-01] Page < 150 lines
+- [x] `"use client"` directive
+- [x] Fetch `GET /api/overview` on mount
+- [x] Refetch on `document.visibilitychange` when `document.visibilityState === 'visible'` (reflects updates from Cards space)
+- [x] Loading: skeleton rows for categories
+- [x] Error: "Could not load overview — tap to retry"
+- [x] Empty (no credit/perk benefits): "No credit benefits tracked yet. Add a card in Admin →"
+- [x] Render order: `ExpiringAlerts` (top) → `CategoryList` (below)
+- [x] [CQ-01] Page < 150 lines
 
 **Tests required:**
 - `OverviewPage` → `renders empty state when no categories returned`
@@ -906,15 +906,15 @@
 - `AddCardModal({ open, onClose, onSuccess(userCardId: string) })`
 
 **Acceptance criteria:**
-- [ ] shadcn `Dialog` — focus-trapped, close on Escape
-- [ ] Fetches `GET /api/catalog` on open
-- [ ] Issuer accordion: one issuer expanded at a time (single-expand)
-- [ ] Tap catalog card → `POST /api/user-cards` → 201: call `onSuccess(userCardId)`, close modal
-- [ ] 409 response: inline "You already have this card" (modal stays open)
-- [ ] Custom card section at bottom: issuer (text) + name (text) inputs
-- [ ] Custom "Add" button disabled when either field empty
-- [ ] Loading state during POST: "Adding..." + disabled button
-- [ ] [CQ-01] < 200 lines
+- [x] shadcn `Dialog` — focus-trapped, close on Escape
+- [x] Fetches `GET /api/catalog` on open
+- [x] Issuer accordion: one issuer expanded at a time (single-expand)
+- [x] Tap catalog card → `POST /api/user-cards` → 201: call `onSuccess(userCardId)`, close modal
+- [x] 409 response: inline "You already have this card" (modal stays open)
+- [x] Custom card section at bottom: issuer (text) + name (text) inputs
+- [x] Custom "Add" button disabled when either field empty
+- [x] Loading state during POST: "Adding..." + disabled button
+- [x] [CQ-01] < 200 lines
 
 **Tests required:**
 - `AddCardModal` → `shows duplicate message on 409 response`
@@ -939,18 +939,18 @@
 - `BenefitEditRow({ benefit: DraftBenefit, onChange, onRemove })`
 
 **Acceptance criteria:**
-- [ ] If `scrapeError` or `parseError`: amber banner at top with message + "Add benefits manually below"
-- [ ] List of `BenefitEditRow` for each parsed benefit (editable)
-- [ ] "Add benefit" button appends blank `BenefitEditRow`
-- [ ] "Save [N] benefits" button disabled when 0 rows
-- [ ] Save: `POST /api/benefits/confirm` → on 200: call `onSave()`
-- [ ] Loading during save: "Saving..." + disabled
-- [ ] Error during save: inline error message above Save button
-- [ ] `BenefitEditRow`: name (text, required), type (select), value (number), resetPeriod (select), resetAnchor (select), category (select)
-- [ ] All selects use exact enum allowlist values only
-- [ ] Remove `×` button: removes row from list
-- [ ] Empty name: red border when Save attempted with empty name
-- [ ] [CQ-01] Each component < 200 lines
+- [x] If `scrapeError` or `parseError`: amber banner at top with message + "Add benefits manually below"
+- [x] List of `BenefitEditRow` for each parsed benefit (editable)
+- [x] "Add benefit" button appends blank `BenefitEditRow`
+- [x] "Save [N] benefits" button disabled when 0 rows
+- [x] Save: `POST /api/benefits/confirm` → on 200: call `onSave()`
+- [x] Loading during save: "Saving..." + disabled
+- [x] Error during save: inline error message above Save button
+- [x] `BenefitEditRow`: name (text, required), type (select), value (number), resetPeriod (select), resetAnchor (select), category (select)
+- [x] All selects use exact enum allowlist values only
+- [x] Remove `×` button: removes row from list
+- [x] Empty name: red border when Save attempted with empty name
+- [x] [CQ-01] Each component < 200 lines
 
 **Tests required:**
 - `BenefitReviewGate` → `shows amber banner when scrapeError prop provided`
@@ -977,14 +977,14 @@
 - `ConfirmDialog({ open, title, description, confirmLabel, onConfirm, onCancel, destructive? })`
 
 **Acceptance criteria:**
-- [ ] `CardManagementList`: each row — issuer + name, "Last verified: [relative date]" or "Never", benefit count, "Refresh Benefits" + "Remove" buttons
-- [ ] "Refresh Benefits": `POST /api/user-cards/[id]/scrape` → loading state → opens `BenefitReviewGate` with result
-- [ ] "Remove": opens `ConfirmDialog` ("Remove [Card Name]? All benefits and usage history will be deleted.") → confirm → `DELETE /api/user-cards/[id]` → refetch list
-- [ ] `ConfirmDialog`: shadcn `AlertDialog`; destructive confirm styled red when `destructive=true`
-- [ ] "Add Card" button → opens `AddCardModal` → on success immediately triggers scrape + opens `BenefitReviewGate`
-- [ ] After `BenefitReviewGate.onSave()`: refetch card list
-- [ ] Empty (0 cards): "No cards yet — add your first card." + "Add Card" button
-- [ ] Loading state while fetching card list
+- [x] `CardManagementList`: each row — issuer + name, "Last verified: [relative date]" or "Never", benefit count, "Refresh Benefits" + "Remove" buttons
+- [x] "Refresh Benefits": `POST /api/user-cards/[id]/scrape` → loading state → opens `BenefitReviewGate` with result
+- [x] "Remove": opens `ConfirmDialog` ("Remove [Card Name]? All benefits and usage history will be deleted.") → confirm → `DELETE /api/user-cards/[id]` → refetch list
+- [x] `ConfirmDialog`: shadcn `AlertDialog`; destructive confirm styled red when `destructive=true`
+- [x] "Add Card" button → opens `AddCardModal` → on success immediately triggers scrape + opens `BenefitReviewGate`
+- [x] After `BenefitReviewGate.onSave()`: refetch card list
+- [x] Empty (0 cards): "No cards yet — add your first card." + "Add Card" button
+- [x] Loading state while fetching card list
 
 **Tests required:**
 - `CardManagementList` → `renders correct number of card rows`
@@ -1015,14 +1015,14 @@
 8. Console error sweep: zero unhandled errors in normal operation across all 3 spaces
 
 **Acceptance criteria:**
-- [ ] Full add → track → view flow works end to end with no errors
-- [ ] Re-scrape replaces all benefits and resets periods to 0
-- [ ] Remove card: card gone from Cards + Overview + Admin
-- [ ] Period auto-advance: after setting periodEnd to yesterday, next API call creates new period
-- [ ] Error boundary: renders instead of white screen on unhandled error
-- [ ] At 375px: no content hidden behind BottomNav (main has `pb-16`)
-- [ ] All empty states render when applicable
-- [ ] Zero console errors in normal operation
+- [x] Full add → track → view flow works end to end with no errors
+- [x] Re-scrape replaces all benefits and resets periods to 0
+- [x] Remove card: card gone from Cards + Overview + Admin
+- [x] Period auto-advance: after setting periodEnd to yesterday, next API call creates new period
+- [x] Error boundary: renders instead of white screen on unhandled error
+- [x] At 375px: no content hidden behind BottomNav (main has `pb-16`)
+- [x] All empty states render when applicable
+- [x] Zero console errors in normal operation
 
 **Tests required:**
 - Integration: `add card flow` → `card appears in Cards space after confirm`
@@ -1055,13 +1055,13 @@
 - Do NOT add `url` to the `datasource db {}` block (CONSTRAINT-11 — URL stays in `prisma.config.ts`).
 
 **Acceptance criteria:**
-- [ ] `Benefit` has `classification String @default("one-time-bonus")` and `tracked Boolean @default(false)`; `isTrackable` removed.
-- [ ] Migration is purely additive at column level + a drop of `isTrackable`; no data backfill script (CONSTRAINT-06 makes next scrape+confirm rewrite all rows).
-- [ ] `classification`/`tracked` are `String`/`Boolean`, NOT Prisma `enum` (CONSTRAINT-01).
-- [ ] CONSTRAINT-11: no `url` in `datasource db {}`; `npx prisma migrate dev` reads `prisma.config.ts`.
-- [ ] `npx prisma migrate dev --name add_classification_tracked` runs clean; `npx prisma generate` regenerates client.
-- [ ] Given an existing benefit row pre-migration, when migrated, then `classification="one-time-bonus"`, `tracked=false`.
-- [ ] [CQ-01] No unrelated schema changes.
+- [x] `Benefit` has `classification String @default("one-time-bonus")` and `tracked Boolean @default(false)`; `isTrackable` removed.
+- [x] Migration is purely additive at column level + a drop of `isTrackable`; no data backfill script (CONSTRAINT-06 makes next scrape+confirm rewrite all rows).
+- [x] `classification`/`tracked` are `String`/`Boolean`, NOT Prisma `enum` (CONSTRAINT-01).
+- [x] CONSTRAINT-11: no `url` in `datasource db {}`; `npx prisma migrate dev` reads `prisma.config.ts`.
+- [x] `npx prisma migrate dev --name add_classification_tracked` runs clean; `npx prisma generate` regenerates client.
+- [x] Given an existing benefit row pre-migration, when migrated, then `classification="one-time-bonus"`, `tracked=false`.
+- [x] [CQ-01] No unrelated schema changes.
 
 **Tests required:**
 - `Benefit schema` → `creates a benefit with classification and tracked and reads them back` (happy)
@@ -1090,13 +1090,13 @@
 - `export function deriveTracked(classification: unknown): boolean` — policy map; normalizes first so ambiguous → discretionary-credit ⇒ tracked=true
 
 **Acceptance criteria:**
-- [ ] Pure module: no DB/LLM/fetch/Prisma.
-- [ ] Policy map matches architecture.md: discretionary-credit/activation-perk → true; auto-earn/passive-perk/one-time-bonus → false.
-- [ ] Unrecognized/ambiguous → `deriveTracked` returns true (conservative; A10 false-exclusion mitigation).
-- [ ] Mapping lives only here, not in Haiku prompt or routes (PRD 3.5 AC).
-- [ ] `BenefitClassification` used by `DraftBenefit`/`BenefitWithPeriod`; `isTrackable` removed from both; both gain `classification`+`tracked`.
-- [ ] No `any`; [CONSTRAINT-12] JSDoc not required but signatures self-documenting.
-- [ ] [CQ-01] Module < 60 lines; each fn < 15 lines.
+- [x] Pure module: no DB/LLM/fetch/Prisma.
+- [x] Policy map matches architecture.md: discretionary-credit/activation-perk → true; auto-earn/passive-perk/one-time-bonus → false.
+- [x] Unrecognized/ambiguous → `deriveTracked` returns true (conservative; A10 false-exclusion mitigation).
+- [x] Mapping lives only here, not in Haiku prompt or routes (PRD 3.5 AC).
+- [x] `BenefitClassification` used by `DraftBenefit`/`BenefitWithPeriod`; `isTrackable` removed from both; both gain `classification`+`tracked`.
+- [x] No `any`; [CONSTRAINT-12] JSDoc not required but signatures self-documenting.
+- [x] [CQ-01] Module < 60 lines; each fn < 15 lines.
 
 **Tests required:**
 - `deriveTracked` → `returns true for discretionary-credit and activation-perk` (happy)
@@ -1127,13 +1127,13 @@
 - Remove `isTrackable` property and from `required`. LLM does NOT emit `tracked`.
 
 **Acceptance criteria:**
-- [ ] `classification` required + enum-constrained (5 buckets); `isTrackable` removed from schema/required.
-- [ ] Model `claude-haiku-4-5-20251001`, tool_use only, tool_choice forced, no freeform fallback (CONSTRAINT-09).
-- [ ] Returns `DraftBenefit[]` with normalized `classification` and `tracked=deriveTracked(...)`; `tracked` never from LLM.
-- [ ] Missing/invalid classification → discretionary-credit, tracked=true (A10).
-- [ ] Existing defaults preserved (resetAnchor→calendar, type→perk, valueUnit→dollars, empty array valid).
-- [ ] `stop_reason !== "tool_use"` throws `ParserError`; [SEC-01] API key never logged.
-- [ ] [CQ-01] `parseBenefits` < 50 lines.
+- [x] `classification` required + enum-constrained (5 buckets); `isTrackable` removed from schema/required.
+- [x] Model `claude-haiku-4-5-20251001`, tool_use only, tool_choice forced, no freeform fallback (CONSTRAINT-09).
+- [x] Returns `DraftBenefit[]` with normalized `classification` and `tracked=deriveTracked(...)`; `tracked` never from LLM.
+- [x] Missing/invalid classification → discretionary-credit, tracked=true (A10).
+- [x] Existing defaults preserved (resetAnchor→calendar, type→perk, valueUnit→dollars, empty array valid).
+- [x] `stop_reason !== "tool_use"` throws `ParserError`; [SEC-01] API key never logged.
+- [x] [CQ-01] `parseBenefits` < 50 lines.
 
 **Tests required:**
 - `parseBenefits` → `maps classification and derives tracked=true for discretionary-credit` (happy, mock SDK)
@@ -1159,13 +1159,13 @@
 - `runConfirmTransaction(...)` — persist `classification`; `tracked = deriveTracked(b.classification)` server-side (ignore client `tracked`); create initial open `BenefitPeriod` only when tracked===true; still INSERT excluded (never drop).
 
 **Acceptance criteria:**
-- [ ] classification validated vs 5-bucket allowlist; invalid → 400 `{ error: 'Invalid value for field classification: ...' }` (CONSTRAINT-01).
-- [ ] Server re-derives `tracked`; client-supplied `tracked` ignored.
-- [ ] auto-earn benefit → persisted tracked=false, NO period created.
-- [ ] discretionary-credit → persisted tracked=true, open period via `calculatePeriodBoundary()`.
-- [ ] One `prisma.$transaction` (CONSTRAINT-06 replace-all, atomic); `lastVerifiedAt` updated.
-- [ ] No `isTrackable` remains in route.
-- [ ] [SEC-01] userId from `getUserId()`; 403 preserved. [EH-01] rollback + server log + generic 500.
+- [x] classification validated vs 5-bucket allowlist; invalid → 400 `{ error: 'Invalid value for field classification: ...' }` (CONSTRAINT-01).
+- [x] Server re-derives `tracked`; client-supplied `tracked` ignored.
+- [x] auto-earn benefit → persisted tracked=false, NO period created.
+- [x] discretionary-credit → persisted tracked=true, open period via `calculatePeriodBoundary()`.
+- [x] One `prisma.$transaction` (CONSTRAINT-06 replace-all, atomic); `lastVerifiedAt` updated.
+- [x] No `isTrackable` remains in route.
+- [x] [SEC-01] userId from `getUserId()`; 403 preserved. [EH-01] rollback + server log + generic 500.
 
 **Tests required:**
 - `POST /api/benefits/confirm` → `persists auto-earn with tracked=false and no period` (happy/core)
@@ -1192,12 +1192,12 @@
 - `extractPatchFields(body)` — `ALLOWED_PATCH_FIELDS` MUST NOT contain `tracked`/`classification`/`isTrackable`. Allowed exactly: `name`, `description`, `type`, `value`, `valueUnit`, `resetPeriod`, `resetAnchor`, `category`.
 
 **Acceptance criteria:**
-- [ ] `ALLOWED_PATCH_FIELDS` excludes `tracked`/`classification`/`isTrackable`; `BenefitPatchData` drops `isTrackable`.
-- [ ] PATCH body with `tracked`+`classification`+`isTrackable`+valid `name` → those 3 silently stripped, only `name` updated, persisted tracked/classification unchanged (Decision A; CONSTRAINT-06).
-- [ ] No 400 solely because stripped fields present (silent strip — existing contract).
-- [ ] Existing PATCH behavior preserved (enum validation, type-change resets open period usedAmount=0 in same txn, 403 ownership, 404).
-- [ ] [SEC-01] userId from session; [EH-01] DB errors logged, generic 500.
-- [ ] Regression test explicitly asserts the stripping (Task 12 gap closure).
+- [x] `ALLOWED_PATCH_FIELDS` excludes `tracked`/`classification`/`isTrackable`; `BenefitPatchData` drops `isTrackable`.
+- [x] PATCH body with `tracked`+`classification`+`isTrackable`+valid `name` → those 3 silently stripped, only `name` updated, persisted tracked/classification unchanged (Decision A; CONSTRAINT-06).
+- [x] No 400 solely because stripped fields present (silent strip — existing contract).
+- [x] Existing PATCH behavior preserved (enum validation, type-change resets open period usedAmount=0 in same txn, 403 ownership, 404).
+- [x] [SEC-01] userId from session; [EH-01] DB errors logged, generic 500.
+- [x] Regression test explicitly asserts the stripping (Task 12 gap closure).
 
 **Tests required:**
 - `PATCH /api/benefits/[id]` → `ignores tracked and classification and leaves persisted values unchanged while updating name` (security regression)
@@ -1225,12 +1225,12 @@
 - `aggregateOverview(cards)` — only tracked===true in category aggregation and expiringSoon
 
 **Acceptance criteria:**
-- [ ] No `isTrackable` anywhere in production `src/` (grep-clean) — replaced by `tracked`. (5 remaining test refs are intentional: 2 PATCH-strip proofs + 2 PRAGMA "column gone" assertions + 1 parser key-absent assertion — all assert absence, not stale usage.)
-- [ ] `GET /api/benefits/[userCardId]` returns `classification`+`tracked`; `ensureCurrentPeriod()` only tracked:true (CONSTRAINT-03; currentPeriod null when tracked:false).
-- [ ] `GET /api/overview` aggregates/expiring over tracked:true only; tracked:false never in output (PRD F6 AC). [Fixed gap: aggregateOverview category loop now also guards `!benefit.tracked`.]
-- [ ] `isExpiringSoon` false for tracked=false, resetPeriod 'once', unused 0 (existing rules preserved).
-- [ ] expiringSoon sorted most-urgent-first; empty/zero categories excluded.
-- [ ] [EH-01] DB errors → 500 + server log, no stack to client.
+- [x] No `isTrackable` anywhere in production `src/` (grep-clean) — replaced by `tracked`. (5 remaining test refs are intentional: 2 PATCH-strip proofs + 2 PRAGMA "column gone" assertions + 1 parser key-absent assertion — all assert absence, not stale usage.)
+- [x] `GET /api/benefits/[userCardId]` returns `classification`+`tracked`; `ensureCurrentPeriod()` only tracked:true (CONSTRAINT-03; currentPeriod null when tracked:false).
+- [x] `GET /api/overview` aggregates/expiring over tracked:true only; tracked:false never in output (PRD F6 AC). [Fixed gap: aggregateOverview category loop now also guards `!benefit.tracked`.]
+- [x] `isExpiringSoon` false for tracked=false, resetPeriod 'once', unused 0 (existing rules preserved).
+- [x] expiringSoon sorted most-urgent-first; empty/zero categories excluded.
+- [x] [EH-01] DB errors → 500 + server log, no stack to client.
 
 **Tests required:**
 - `isExpiringSoon` → `returns false when benefit.tracked is false` (core)
@@ -1257,14 +1257,14 @@
 - `BenefitReviewGate({ userCardId, initialBenefits, scrapeError, parseError, onSave, onCancel })` — partition by `tracked`; tracked rows prominent; excluded inside collapsed disclosure "N auto-excluded as non-trackable — expand to review"; expanded excluded editable + included in confirm payload (never dropped).
 
 **Acceptance criteria:**
-- [ ] Tracked prominent/expanded; excluded collapsed behind one summary with exact count N (PRD 3.5 AC).
-- [ ] Parse with both → excluded present but collapsed; expand reveals; confirm payload includes ALL rows with `classification` (excluded persisted tracked=false, never discarded).
-- [ ] 0 excluded → no summary shown (no empty disclosure).
-- [ ] 0 tracked + some excluded → summary shown, "Save [N]" reflects total, gate functional (degraded path).
-- [ ] Confirm still POST `/api/benefits/confirm`; flow otherwise unchanged (CONSTRAINT-10; no auto-save).
-- [ ] `classification` NOT a free user-editable enum control in MVP (PRD 3.5 Out of Scope); travels in payload as parsed.
-- [ ] Existing gate behaviors preserved (scrape/parse amber banner, Add benefit appends, Save disabled at 0, empty-name red border).
-- [ ] [CQ-01] Each component < 220 lines (only exceed 200 if disclosure forces it).
+- [x] Tracked prominent/expanded; excluded collapsed behind one summary with exact count N (PRD 3.5 AC).
+- [x] Parse with both → excluded present but collapsed; expand reveals; confirm payload includes ALL rows with `classification` (excluded persisted tracked=false, never discarded).
+- [x] 0 excluded → no summary shown (no empty disclosure).
+- [x] 0 tracked + some excluded → summary shown, "Save [N]" reflects total, gate functional (degraded path).
+- [x] Confirm still POST `/api/benefits/confirm`; flow otherwise unchanged (CONSTRAINT-10; no auto-save).
+- [x] `classification` NOT a free user-editable enum control in MVP (PRD 3.5 Out of Scope); travels in payload as parsed.
+- [x] Existing gate behaviors preserved (scrape/parse amber banner, Add benefit appends, Save disabled at 0, empty-name red border).
+- [x] [CQ-01] Each component < 220 lines (only exceed 200 if disclosure forces it).
 
 **Tests required:**
 - `BenefitReviewGate` → `renders excluded collapsed behind "N auto-excluded" summary` (core)
@@ -1292,14 +1292,14 @@
 - Extend `OverviewData` with `moneyAtRisk`,`needsAttention`,`onTrack`,`done` (each row: benefitId, benefitName, cardName, issuer, cardColor, type, category, unusedAmount, daysUntilReset|null). Supersede categories/expiringSoon if no longer consumed (note Cards tab unchanged).
 
 **Acceptance criteria:**
-- [ ] Only tracked:true considered; tracked:false never in any bucket.
-- [ ] `moneyAtRisk.totalUnredeemed` = sum unused trackable value across expiring-soon; `soonestDaysUntilReset` int ≥0 or null.
-- [ ] Three buckets only (needsAttention/onTrack/done), keyed by urgency NOT type/category.
-- [ ] needsAttention sorted daysUntilReset ASC.
-- [ ] No tracked benefits → empty buckets, moneyAtRisk {0, null} (calm/empty).
-- [ ] `ensureCurrentPeriod()` only tracked:true (CONSTRAINT-03).
-- [ ] [EH-01] DB errors → 500+log; [SEC-01] auth required, userId session only.
-- [ ] [CQ-01] decomposed so no fn > 50 lines.
+- [x] Only tracked:true considered; tracked:false never in any bucket.
+- [x] `moneyAtRisk.totalUnredeemed` = sum unused trackable value across expiring-soon; `soonestDaysUntilReset` int ≥0 or null.
+- [x] Three buckets only (needsAttention/onTrack/done), keyed by urgency NOT type/category.
+- [x] needsAttention sorted daysUntilReset ASC.
+- [x] No tracked benefits → empty buckets, moneyAtRisk {0, null} (calm/empty).
+- [x] `ensureCurrentPeriod()` only tracked:true (CONSTRAINT-03).
+- [x] [EH-01] DB errors → 500+log; [SEC-01] auth required, userId session only.
+- [x] [CQ-01] decomposed so no fn > 50 lines.
 
 **Tests required:**
 - `buildOverviewTriage` → `sums unredeemed into moneyAtRisk and sorts needsAttention by soonest reset` (happy)
@@ -1330,14 +1330,14 @@
 - `OverviewBenefitRow({ benefit })` — type/category/source-card as row metadata only; whileTap micro-press
 
 **Acceptance criteria:**
-- [ ] Motion in real Framer Motion (design-decisions.md), NOT prototype CSS/rAF: spring overshoot ~cubic-bezier(0.34,1.2,0.64,1), hero count-up on mount, micro-tap press (binding constraint #1).
-- [ ] Urgency-primary: hero → Needs attention → On track → Done(collapsed). Exactly 3 sections; type/category/card row-level only (binding #3; PRD F6).
-- [ ] Needs attention amber #F59E0B; bg #0F0E0D; Inter; amounts headline weight.
-- [ ] Degrades to messy/real data + zero/empty/calm states (binding #2): no benefits→add/scrape guidance; nothing expiring→Needs attention hidden, hero calm; all done→hero positive.
-- [ ] `useReducedMotion()` respected.
-- [ ] Renders at 375px and 1280px.
-- [ ] Dev fetched+decompressed binding design artifact, matched visual intent (ref in PR).
-- [ ] [CQ-01] each component < 200 lines; no `any`.
+- [x] Motion in real Framer Motion (design-decisions.md), NOT prototype CSS/rAF: spring overshoot ~cubic-bezier(0.34,1.2,0.64,1), hero count-up on mount, micro-tap press (binding constraint #1).
+- [x] Urgency-primary: hero → Needs attention → On track → Done(collapsed). Exactly 3 sections; type/category/card row-level only (binding #3; PRD F6).
+- [x] Needs attention amber #F59E0B; bg #0F0E0D; Inter; amounts headline weight.
+- [x] Degrades to messy/real data + zero/empty/calm states (binding #2): no benefits→add/scrape guidance; nothing expiring→Needs attention hidden, hero calm; all done→hero positive.
+- [x] `useReducedMotion()` respected.
+- [x] Renders at 375px and 1280px.
+- [x] Dev fetched+decompressed binding design artifact, matched visual intent (ref in PR).
+- [x] [CQ-01] each component < 200 lines; no `any`.
 
 **Tests required:**
 - `MoneyAtRiskHero` → `renders at-risk total and time frame when value at risk` (happy)
@@ -1364,13 +1364,13 @@
 - `OverviewPage()` — fetch `GET /api/overview`; map moneyAtRisk→hero; needsAttention/onTrack/done→UrgencySection+OverviewBenefitRow; preserve loading skeleton, error+retry, visibilitychange silent refetch
 
 **Acceptance criteria:**
-- [ ] Order: hero → Needs attention → On track → Done(collapsed). No category/type sections (binding #3; PRD F6).
-- [ ] Tracked w/ upcoming resets → hero shows total + time frame; each expiring in Needs attention w/ amount remaining, deadline, source card.
-- [ ] tracked=false → appears nowhere on Overview (PRD F6; F3.5 success metric).
-- [ ] No trackable benefits → empty state guides add/scrape in Admin (no scary zeros).
-- [ ] Loading skeleton, error+retry, visibilitychange silent refetch preserved.
-- [ ] Renders at 375px; most urgent action identifiable without scrolling on typical data (manual QA note).
-- [ ] [CQ-01] page < 180 lines.
+- [x] Order: hero → Needs attention → On track → Done(collapsed). No category/type sections (binding #3; PRD F6).
+- [x] Tracked w/ upcoming resets → hero shows total + time frame; each expiring in Needs attention w/ amount remaining, deadline, source card.
+- [x] tracked=false → appears nowhere on Overview (PRD F6; F3.5 success metric).
+- [x] No trackable benefits → empty state guides add/scrape in Admin (no scary zeros).
+- [x] Loading skeleton, error+retry, visibilitychange silent refetch preserved.
+- [x] Renders at 375px; most urgent action identifiable without scrolling on typical data (manual QA note).
+- [x] [CQ-01] page < 180 lines.
 
 **Tests required:**
 - `OverviewPage` → `renders hero above Needs attention, On track, then Done` (happy)
@@ -1427,6 +1427,226 @@
 
 ---
 
+## Phase F — Defect Closeout + Stability
+
+> Added 2026-05-19 via `@create-plan`. Bundle closes 5 non-blocking findings (NEW-1 to NEW-5) from the 2026-05-19 manual verification run + the MEDIUM finding in `docs/security-report.md` (Next.js 16.1.6 advisories). Gates the path to `@launch-prep`.
+
+---
+
+## Task 40: Make Remove button red in ConfirmDialog (NEW-2)
+
+**Files:**
+- `src/components/shared/confirm-dialog.tsx` — modify
+- `src/__tests__/components/shared/confirm-dialog.test.tsx` — create
+
+**Functions to implement:**
+- No new functions. Modify the `AlertDialogAction` rendering at lines 44–49 so the `destructive` prop produces a red button at runtime, not just in className intent. If radix's default class wins the specificity war, switch to `asChild` + Button `variant="destructive"`.
+
+**Acceptance criteria:**
+- [x] When `destructive={true}` is passed, the confirm button renders with the destructive (red) background visibly, not white.
+- [x] Hover state shows `bg-destructive/90` (or `variant="destructive"` hover equivalent).
+- [x] Non-destructive callsites (if any) remain default-styled.
+- [x] Visual verification at 375px and 1280px via `mcp__devtools__puppeteer_screenshot` against the Remove flow in card-management-list.
+- [x] [CQ-04] component remains under 200 lines.
+
+**Tests required:**
+- `ConfirmDialog` → `renders with destructive styling when destructive prop is true` (happy)
+- `ConfirmDialog` → `renders default styling when destructive prop is false or absent` (edge)
+
+**Depends on:** None
+
+**Status:** [x]
+
+**Specialist:** @ui-cardmaxxer
+
+---
+
+## Task 41: Show full card name in ConfirmDialog title (NEW-3)
+
+**Files:**
+- `data/card-catalog.json` — modify (line 103: `"name": "it Cash Back"` → `"name": "Discover it Cash Back"`; audit other entries for same missing-issuer pattern)
+- `src/components/admin/card-management-list.tsx` — modify (line 81 title interpolation)
+- Any callsite of `card.name` surfaced by grep — modify if affected
+
+**Functions to implement:**
+- No new functions. Two-part change: (a) data fix in catalog so `name` is the full display name including issuer, (b) UI fix in remove-confirmation title to use the full name directly.
+
+**Approach taken (2026-05-19):** Approach B — minimal title-fix only. The original spec proposed denormalizing the catalog (prepend issuer to every `name` entry), which would require updating 4+ callsites that legitimately concat issuer+name in JSX (admin list line 48, card-item, card-expanded, overview-row, aria-labels), plus a backfill script for existing DB rows, plus API payload changes. Discovery confirmed the existing data model is well-normalized (Card has separate `issuer` + `name` columns) and the ConfirmDialog title is the *only* UI surface that renders bare `name` without an adjacent `issuer`. One-line fix in `card-management-list.tsx` closes NEW-3 without denormalizing the schema. User explicitly approved Approach B over Approach A.
+
+**Acceptance criteria:**
+- [~] Grep `card.name` / `\.name` references across `src/**/*.{ts,tsx}` — every callsite verified to render correctly with full-name catalog entries (no double-prefixed "Discover Discover it Cash Back" anywhere). *(Grep performed during discovery; AC premise — full-name catalog entries — does not apply under Approach B.)*
+- [x] If any callsite combines issuer + name redundantly post-catalog-fix, that callsite is corrected (single source of truth: catalog `name` = full display name). *(No callsites required correction; normalized rendering kept in admin list, card-item, card-expanded, overview-row.)*
+- [x] Remove confirmation title reads "Remove Discover it Cash Back?" (full name), not "Remove it Cash Back?". *(Verified via puppeteer at 375×812: title rendered "Remove Amex Blue Cash Everyday?"; DOM `[data-slot="alert-dialog-title"]` textContent matched exactly.)*
+- [~] All other catalog entries audited for the same missing-issuer pattern and corrected where applicable. *(Audit done — all 18 entries have `name = model only`, consistent with normalized schema. No corrections needed under Approach B.)*
+- [x] [CQ-04] no component exceeds size limit after change. *(card-management-list.tsx: 99 lines.)*
+
+**Tests required:**
+- `card-management-list` → `remove confirmation title shows full card name for catalog cards including issuer` (happy, regression-style for NEW-3)
+- Existing tests still pass (regression gate).
+
+**Depends on:** None
+
+**Status:** [x]
+
+**Specialist:** @ui-cardmaxxer
+
+---
+
+## Task 42: Upgrade Next.js 16.1.6 → 16.2.6 (Security MEDIUM)
+
+**Files:**
+- `package.json` — modify
+- `package-lock.json` — modify (regenerated by `npm install`)
+
+**Functions to implement:**
+- None. `npm install next@16.2.6`, verify clean build and full test suite pass.
+
+**Acceptance criteria:**
+- [ ] `package.json` shows `"next": "16.2.6"`.
+- [ ] `npm audit` reports 0 advisories from the previously-flagged 19 (per `docs/security-report.md`).
+- [ ] `npm run build` completes clean with no new warnings/errors vs prior build.
+- [ ] All 151 existing tests pass (110 unit + 41 integration).
+- [ ] Dev server boots; Overview / Cards / Admin render without regression at 375px and 1280px (Puppeteer spot-check).
+- [ ] [SEC-09] dependency hygiene maintained.
+
+**Tests required:**
+- None new. Existing test suite acts as the regression gate.
+
+**Depends on:** None
+
+**Status:** [ ]
+
+**Specialist:** None (housekeeping)
+
+---
+
+## Task 43: Delete orphan card on review-gate Cancel after fresh-add (NEW-1)
+
+**Files:**
+- `src/app/(app)/admin/page.tsx` — modify (`onCancel` handler around line 90; track whether scrape was fresh-add or re-scrape)
+- `src/components/admin/benefit-review-gate.tsx` — modify if a new prop is needed to surface the fresh-add/re-scrape distinction
+- `src/app/api/user-cards/[id]/route.ts` — verify DELETE handler exists; create or harden if missing
+- `src/__tests__/components/admin/admin-page.test.tsx` — extend
+
+**Functions to implement:**
+- `onCancel` handler in admin/page.tsx — if the in-flight scrape result came from a fresh-add (the userCard had zero benefits before the scrape), call `DELETE /api/user-cards/${id}` to roll back. If from a re-scrape (card already had benefits), just hide the gate and refresh the card list (no DB change).
+- New prop on `BenefitReviewGate`: `isFreshAdd: boolean` (or equivalent derived from upstream state).
+
+**Acceptance criteria:**
+- [ ] Fresh-add → scrape fails or user clicks Cancel on the review gate → userCard row is DELETEd from DB; card list reflects removal.
+- [ ] Re-scrape → user clicks Cancel → userCard row stays, existing benefits stay, gate hides.
+- [ ] DELETE endpoint preserves auth + ownership check (not bypassed).
+- [ ] No race condition: card list refresh awaits successful DELETE before mutating UI state.
+- [ ] [EH-02] DELETE failure surfaces a loud, contextual error to the user; not silently swallowed.
+- [ ] Manual repro from 2026-05-19 session (Sapphire Reserve max_tokens → Cancel → orphan) no longer reproduces (Puppeteer verification, sub-2-minute walkthrough).
+
+**Tests required:**
+- `admin-page` → `fresh-add Cancel triggers DELETE on userCard` (happy)
+- `admin-page` → `re-scrape Cancel does NOT trigger DELETE` (happy, distinguishes branches)
+- `admin-page` → `DELETE failure surfaces error to user (no silent swallow)` (error)
+
+**Depends on:** None
+
+**Status:** [ ]
+
+**Specialist:** @ui-cardmaxxer
+
+---
+
+## Task 44: Add deterministic auto-earn detection for cash-back patterns (NEW-5)
+
+**Files:**
+- `src/lib/parser/classification.ts` — modify (add `detectAutoEarnPatterns` + post-LLM rebucket)
+- `src/lib/parser/index.ts` — modify (call rebucket in `toDraftBenefit` before returning)
+- `src/lib/parser/schema.ts` — modify (tighten the `classification` enum description to clarify auto-earn vs discretionary)
+- `src/__tests__/lib/parser/classification.unit.test.ts` — extend
+
+**Functions to implement:**
+- `detectAutoEarnPatterns(name: string, description: string): boolean` — regex check for clear earn-rate phrasing: cash-back rates (`/\b\d+(\.\d+)?%\s*(cash\s*back|back|rewards?|on\s+all|on\s+every)/i`), base points/miles earners (`/\b\d+x\s*(points?|miles?)\s*on/i`). Conservative — only matches obvious earn rates, not bonus-category discretionary credits.
+- Apply override: if `detectAutoEarnPatterns` returns true, set classification to `"auto-earn"` regardless of LLM output. Log override at debug level.
+
+**Acceptance criteria:**
+- [ ] Function detects "1.5% cash back on all purchases", "5% on travel through Chase", "3x points on dining" as auto-earn.
+- [ ] Function does NOT misclassify true discretionary credits ($300 travel credit, $200 Uber credit, $25 streaming credit) as auto-earn.
+- [ ] After fix, re-scraping Freedom Unlimited shows all cash-back rates as `tracked: false` with `classification: "auto-earn"`.
+- [ ] Freedom Unlimited re-scrape verification recorded in `docs/session-log.md` with before/after benefit counts.
+- [ ] [EH-01] classification override logs at debug level (visible when `DEBUG=true`); not silent.
+- [ ] [CQ-02] new function < 50 lines.
+
+**Tests required:**
+- `detectAutoEarnPatterns` → `returns true for 5 representative cash-back / points patterns` (happy)
+- `detectAutoEarnPatterns` → `returns false for 5 representative discretionary-credit phrasings` (edge / boundary)
+- `toDraftBenefit` integration → `LLM returns discretionary-credit but regex match flips classification to auto-earn` (integration of override path)
+
+**Depends on:** None (FU re-scrape verification is part of acceptance criteria, not a separate task)
+
+**Status:** [ ]
+
+**Specialist:** @llm-parser
+
+---
+
+## Task 45: Resolve Haiku max_tokens overflow on premium cards (NEW-4)
+
+**Files:**
+- `src/lib/parser/index.ts` — modify (`max_tokens` at line 54; error handling around lines 73–78)
+- `src/__tests__/api/user-cards/scrape.integration.test.ts` — extend
+- `docs/session-log.md` — append probe findings (output_tokens for Sapphire Reserve + Amex Platinum)
+
+**Functions to implement:**
+- Step 1 — probe: bump `max_tokens` from 4096 to 8192. Scrape Chase Sapphire Reserve; if clean, scrape Amex Platinum. Record `usage.output_tokens` from each Haiku response.
+- Step 2a — if 8192 sufficient for both: commit the bump; add explicit error branch for `stop_reason === "max_tokens"` with user-facing message "Card content exceeds parser capacity, manual entry required".
+- Step 2b — if 8192 insufficient for Amex Platinum: **STOP and escalate to brainstorm**. Chunking is an architectural decision (split HTML by section, multiple Haiku calls, merge results) — do not implement inside this task. Close task as "blocked — escalated; new task spec requested".
+
+**Acceptance criteria:**
+- [ ] Chase Sapphire Reserve scrape completes without `max_tokens` overflow.
+- [ ] Amex Platinum scrape outcome (success or overflow) recorded in `docs/session-log.md` with `output_tokens` figure.
+- [ ] If 8192 sufficient: explicit error path handles `stop_reason === "max_tokens"` per [EH-02] (fail loud with context, surface to user).
+- [ ] If 8192 insufficient: task closes as blocked; brainstorm initiated for chunking spec. No half-built chunking code committed.
+- [ ] Token-usage metrics logged at debug level (`output_tokens` per parse call).
+- [ ] [CQ-02] no function grows past 50 lines.
+
+**Tests required:**
+- `scrape.integration` → `route returns explicit max_tokens overflow message when Anthropic stop_reason is max_tokens` (mocked Anthropic response; error case)
+- Existing parse tests still pass at new `max_tokens` value (regression).
+
+**Depends on:** None
+
+**Status:** [ ]
+
+**Specialist:** @llm-parser
+
+---
+
+## Task 46: Re-run @security and @qa — close defect bundle (GATE)
+
+**Files:**
+- `docs/security-report.md` — overwritten by `@security`
+- `docs/qa-report.md` — overwritten by `@qa`
+- `docs/session-log.md` — appended
+
+**Functions to implement:**
+- Run `@security` over the diff from Tasks 40–45. Target outcome: CLEAR status; no new Critical/High; npm audit advisories resolved.
+- Run `@qa` over the full app. Target outcome: APPROVED; all 5 NEW findings closed; test count ≥ 151 (extensions count as net-new).
+
+**Acceptance criteria:**
+- [ ] `@security` returns CLEAR with npm audit advisories resolved and no new findings.
+- [ ] `@qa` returns APPROVED with all 5 NEW findings explicitly marked closed in `docs/qa-report.md`.
+- [ ] Manual Puppeteer spot-check of the 5 fix paths (orphan-card flow, red Remove button, full-name title, FU classification, Sapphire Reserve scrape) — each visually verified.
+- [ ] Tasks 40–45 all marked `[x]` in `docs/plan.md`.
+- [ ] `docs/session-log.md` entry: "Defect closeout bundle complete. Ready for `@launch-prep`."
+
+**Tests required:**
+- None new in this task — the new tests live in Tasks 40, 41, 43, 44, 45. This is the gate.
+
+**Depends on:** Tasks 40, 41, 42, 43, 44, 45
+
+**Status:** [ ]
+
+**Specialist:** None (gate task)
+
+---
+
 ## Completed Tasks
 
 _(none yet)_
@@ -1440,3 +1660,4 @@ _(none yet)_
 | 2026-04-07 | Initial plan created | `@plan` — supersedes old CSV-tracker plan |
 | 2026-05-15 | Tasks 29–38 added (28 → 38 total) | `@create-plan` — Benefit Classification & Tracking Model (29–35) + Overview Redesign (36–38) |
 | 2026-05-19 | Task 39 added (38 → 39 total) | Generic scraper redesign — HTTP-first + Playwright fallback with Readability |
+| 2026-05-19 | Tasks 40–46 added (39 → 46 total) | `@create-plan` — Phase F: Defect Closeout + Stability bundle (5 manual-QA findings + Next.js security upgrade + gate) |
