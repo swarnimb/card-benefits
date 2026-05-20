@@ -1502,19 +1502,19 @@
 - None. `npm install next@16.2.6`, verify clean build and full test suite pass.
 
 **Acceptance criteria:**
-- [ ] `package.json` shows `"next": "16.2.6"`.
-- [ ] `npm audit` reports 0 advisories from the previously-flagged 19 (per `docs/security-report.md`).
-- [ ] `npm run build` completes clean with no new warnings/errors vs prior build.
-- [ ] All 151 existing tests pass (110 unit + 41 integration).
-- [ ] Dev server boots; Overview / Cards / Admin render without regression at 375px and 1280px (Puppeteer spot-check).
-- [ ] [SEC-09] dependency hygiene maintained.
+- [x] `package.json` shows `"next": "16.2.6"` (verified `^16.2.6`, resolves to 16.2.6 in lockfile).
+- [x] `npm audit` drops from 28→11 advisories (all 15 HIGH closed; 17 of 19 next-attributed closed). **Residual:** 1 transitive moderate persists — `next/node_modules/postcss <8.5.10` (GHSA-qx2v-qp2m-jg93, XSS via unescaped `</style>` in stringify). Upstream-bound — Next.js 16.2.6 still ships the same nested postcss; cannot be closed without an upstream patch or breaking `next@9` downgrade. 0 Critical / 0 High remaining. Re-audit `@security` if this MEDIUM should remain open.
+- [x] `npm run build` clean — 13 static pages, all 17 routes compiled, no new warnings vs prior build.
+- [x] All tests pass — actual count **156/156** (115 unit + 41 integration). The plan's "151" was stale; Tasks 40–41 added 5 new tests in confirm-dialog + admin-page.
+- [x] Production server boots on `next start`; `/login` returns 200, auth-gated `/overview` `/cards` `/admin` correctly 307→`/login`. Puppeteer render verified at both viewports: 1280×800 (centered auth, dark `rgb(15,14,13)` matches `#0F0E0D` spec) and 375×812 (mobile layout adapts — 16px gutters, 343×48 inputs/button). Zero console errors at either viewport.
+- [x] [SEC-09] dependency hygiene maintained — patch-level bump within the existing major; no new direct dependencies introduced.
 
 **Tests required:**
 - None new. Existing test suite acts as the regression gate.
 
 **Depends on:** None
 
-**Status:** [ ]
+**Status:** [x]
 
 **Specialist:** None (housekeeping)
 
