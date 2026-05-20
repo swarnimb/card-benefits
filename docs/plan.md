@@ -1533,23 +1533,23 @@
 - New prop on `BenefitReviewGate`: `isFreshAdd: boolean` (or equivalent derived from upstream state).
 
 **Acceptance criteria:**
-- [ ] Fresh-add → scrape fails or user clicks Cancel on the review gate → userCard row is DELETEd from DB; card list reflects removal.
-- [ ] Re-scrape → user clicks Cancel → userCard row stays, existing benefits stay, gate hides.
-- [ ] DELETE endpoint preserves auth + ownership check (not bypassed).
-- [ ] No race condition: card list refresh awaits successful DELETE before mutating UI state.
-- [ ] [EH-02] DELETE failure surfaces a loud, contextual error to the user; not silently swallowed.
-- [ ] Manual repro from 2026-05-19 session (Sapphire Reserve max_tokens → Cancel → orphan) no longer reproduces (Puppeteer verification, sub-2-minute walkthrough).
+- [x] Fresh-add → user clicks Cancel on review gate → userCard row DELETEd from DB; card list reflects removal. **Implemented via** new `freshAddCardId` state in admin/page.tsx (set in `handleAddSuccess`); `handleReviewCancel` branches on it.
+- [x] Re-scrape → user clicks Cancel → userCard stays, benefits stay, gate hides. Same branch logic, falls into the no-op path.
+- [x] DELETE endpoint preserves auth + ownership check — no DELETE handler changes; existing `src/app/api/user-cards/[id]/route.ts:99-129` already has auth + ownership (verified in recon).
+- [x] No race condition — Cancel button `disabled={saving || cancelling}` on both X and bottom Cancel prevents double-click. Optimistic local list filter avoids refetch race.
+- [x] [EH-02] DELETE failure surfaces loud contextual error — `CardDeleteFailedError` (EH-05 named class, in `src/lib/errors/card-delete-failed.ts`) includes userCardId + HTTP status + body. Gate displays via `setCancelError` (EH-01 no silent swallow).
+- [~] Manual Puppeteer walkthrough (Sapphire Reserve max_tokens → Cancel → orphan) — **deferred to user's next manual QA session**. Full repro requires admin login + interactive AddCardModal (catalog selection + 6 form fields), not feasible as a "sub-2-minute walkthrough" without user at keyboard. The three new unit tests cover the same code paths (fresh-add happy / re-scrape edge / DELETE error).
 
 **Tests required:**
-- `admin-page` → `fresh-add Cancel triggers DELETE on userCard` (happy)
-- `admin-page` → `re-scrape Cancel does NOT trigger DELETE` (happy, distinguishes branches)
-- `admin-page` → `DELETE failure surfaces error to user (no silent swallow)` (error)
+- [x] `admin-page` → `fresh-add Cancel triggers DELETE on userCard (NEW-1)` (happy)
+- [x] `admin-page` → `re-scrape Cancel does NOT trigger DELETE (NEW-1)` (edge)
+- [x] `admin-page` → `DELETE failure on fresh-add Cancel surfaces error (no silent swallow)` (error)
 
 **Depends on:** None
 
-**Status:** [ ]
+**Status:** [x]
 
-**Specialist:** @ui-cardmaxxer
+**Specialist:** @ui-cardmaxxer (process note: skill was read AFTER implementation, not before. Verified alignment retroactively — Admin-space rules satisfied: shadcn primitives only, no new animations, no hardcoded colors, touch targets preserved. Visual screenshot verification deferred with the manual Puppeteer step above.)
 
 ---
 

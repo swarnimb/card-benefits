@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AddCardModal } from "@/components/admin/add-card-modal";
 import { BenefitReviewGate } from "@/components/admin/benefit-review-gate";
 import { CardManagementList, type ManagedCard } from "@/components/admin/card-management-list";
+import { CardDeleteFailedError } from "@/lib/errors/card-delete-failed";
 import type { DraftBenefit } from "@/types/benefit";
 
 interface ScrapeResult {
@@ -22,6 +23,10 @@ export default function AdminPage() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [scraping, setScraping] = useState<string | null>(null);
   const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null);
+  // freshAddCardId tracks the userCardId that came from the Add Card flow.
+  // Used by handleReviewCancel to decide whether Cancel rolls back the card
+  // (fresh-add) or just hides the gate (re-scrape of an existing card).
+  const [freshAddCardId, setFreshAddCardId] = useState<string | null>(null);
 
   const fetchCards = useCallback(async () => {
     setLoading(true);
@@ -74,8 +79,42 @@ export default function AdminPage() {
 
   const handleAddSuccess = useCallback((userCardId: string) => {
     setAddModalOpen(false);
+    // Mark this userCard as fresh-add BEFORE the scrape runs. If the user
+    // cancels the review gate, handleReviewCancel will roll back the orphan.
+    setFreshAddCardId(userCardId);
     triggerScrape(userCardId);
   }, [triggerScrape]);
+
+  /**
+   * Review-gate Cancel — branches on fresh-add vs re-scrape (NEW-1).
+   *
+   * Fresh-add (card was just created by Add Card flow): DELETEs the userCard
+   * to roll back the orphan. Throws CardDeleteFailedError on non-OK response
+   * so BenefitReviewGate can surface the failure (no silent swallow).
+   *
+   * Re-scrape (existing card): just hides the gate — DB is untouched.
+   */
+  const handleReviewCancel = useCallback(async () => {
+    if (!scrapeResult) return;
+    const userCardId = scrapeResult.userCardId;
+    const isFreshAdd = freshAddCardId === userCardId;
+
+    if (!isFreshAdd) {
+      setScrapeResult(null);
+      return;
+    }
+
+    const res = await fetch(`/api/user-cards/${userCardId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => "");
+      throw new CardDeleteFailedError(userCardId, res.status, bodyText);
+    }
+    // Optimistic local removal — avoids a refetch race. List is authoritative
+    // on next mount/refresh anyway.
+    setCards((prev) => prev.filter((c) => c.id !== userCardId));
+    setScrapeResult(null);
+    setFreshAddCardId(null);
+  }, [scrapeResult, freshAddCardId]);
 
   if (scrapeResult) {
     return (
@@ -86,8 +125,12 @@ export default function AdminPage() {
           initialBenefits={scrapeResult.benefits}
           scrapeError={scrapeResult.scrapeError}
           parseError={scrapeResult.parseError}
-          onSave={() => { setScrapeResult(null); fetchCards(); }}
-          onCancel={() => setScrapeResult(null)}
+          onSave={() => {
+            setScrapeResult(null);
+            setFreshAddCardId(null);
+            fetchCards();
+          }}
+          onCancel={handleReviewCancel}
         />
       </div>
     );

@@ -14,7 +14,12 @@ export interface BenefitReviewGateProps {
   scrapeError?: string | null;
   parseError?: string | null;
   onSave: () => void;
-  onCancel: () => void;
+  /**
+   * Cancel handler. May be async — the gate awaits it and surfaces any thrown
+   * error in `cancelError` rather than silently swallowing (EH-01). Used by
+   * the admin page to DELETE orphan cards on fresh-add cancel (NEW-1).
+   */
+  onCancel: () => Promise<void> | void;
 }
 
 function makeBlankBenefit(): DraftBenefit {
@@ -47,8 +52,28 @@ export function BenefitReviewGate({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [triedSave, setTriedSave] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
+  // Cancel state — `onCancel` may be async (admin orphan-card rollback).
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const errorMessage = scrapeError || parseError;
+
+  const handleCancelClick = useCallback(async () => {
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      await onCancel();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Cancel failed";
+      console.error(
+        `BenefitReviewGate cancel failed (userCardId=${userCardId})`,
+        error,
+      );
+      setCancelError(message);
+    } finally {
+      setCancelling(false);
+    }
+  }, [onCancel, userCardId]);
 
   // Partition for DISPLAY only. `benefits` always holds every row (tracked +
   // excluded) so the confirm payload never drops an excluded benefit (A10).
@@ -107,9 +132,9 @@ export function BenefitReviewGate({
       <div className="flex justify-between items-center">
         <p className="text-sm font-medium text-muted-foreground">Review Benefits</p>
         <button
-          onClick={onCancel}
-          disabled={saving}
-          className="p-1.5 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
+          onClick={handleCancelClick}
+          disabled={saving || cancelling}
+          className="p-1.5 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           aria-label="Cancel and close"
         >
           <X className="size-4" />
@@ -155,13 +180,18 @@ export function BenefitReviewGate({
       </Button>
 
       {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+      {cancelError && (
+        <p className="text-sm text-destructive" role="alert" data-testid="cancel-error">
+          {cancelError}
+        </p>
+      )}
 
       <div className="flex gap-2">
-        <Button onClick={handleSave} disabled={benefits.length === 0 || saving}>
+        <Button onClick={handleSave} disabled={benefits.length === 0 || saving || cancelling}>
           {saving ? "Saving..." : `Save ${benefits.length} benefit${benefits.length !== 1 ? "s" : ""}`}
         </Button>
-        <Button variant="outline" onClick={onCancel} disabled={saving}>
-          Cancel
+        <Button variant="outline" onClick={handleCancelClick} disabled={saving || cancelling}>
+          {cancelling ? "Cancelling..." : "Cancel"}
         </Button>
       </div>
     </div>
