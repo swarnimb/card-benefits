@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-05-20 (Task 45 partial — code-side complete, live probe pending)
+**Last Updated:** 2026-05-20 (Task 45 fully closed; NEW-6 + NEW-7 surfaced for Task 46 GATE intake)
 **Total tasks:** 46
 
 ---
@@ -1601,10 +1601,10 @@
 - Step 2b — if 8192 insufficient for Amex Platinum: **STOP and escalate to brainstorm**. Chunking is an architectural decision (split HTML by section, multiple Haiku calls, merge results) — do not implement inside this task. Close task as "blocked — escalated; new task spec requested".
 
 **Acceptance criteria:**
-- [ ] Chase Sapphire Reserve scrape completes without `max_tokens` overflow. *(Deferred — needs live dev-server scrape against real Haiku. Probe instructions handed back to user with the implementation commit; outcome recorded here when run.)*
-- [ ] Amex Platinum scrape outcome (success or overflow) recorded in `docs/session-log.md` with `output_tokens` figure. *(Deferred with the bullet above.)*
+- [x] Chase Sapphire Reserve scrape completes without `max_tokens` overflow. *(Probed live 2026-05-20 with `DEBUG=true npm run dev`. Three SR scrapes across two add attempts: `output_tokens=5673`, `5979`, `6203` — all `stop_reason=tool_use`, all comfortably under the 8192 ceiling. The 4096→8192 bump was the right call: 5673 would have overflowed at 4096, which is exactly why the prior session "confirmed SR affected by NEW-4".)*
+- [x] Amex Platinum scrape outcome (success or overflow) recorded in `docs/session-log.md` with `output_tokens` figure. *(Probed live: `output_tokens=33, stop_reason=tool_use, benefits=[]`. **AP is NOT a NEW-4 case** — the prior session's "AP likely affected" claim turns out to be wrong. AP's empty-benefit state is a different bug: Haiku returns valid `{benefits: []}`, meaning either the scraper extracts content with no parseable benefits, or Haiku doesn't recognize benefits in AP's specific page text. Logged separately as **NEW-6** for follow-up investigation; out of NEW-4 scope.)*
 - [x] If 8192 sufficient: explicit error path handles `stop_reason === "max_tokens"` per [EH-02] (fail loud with context, surface to user). *(Code-closed regardless of probe outcome — the new branch in `parseBenefits` throws ParserError with the spec's exact user-facing message; the route already surfaces ParserError as `parseError` in the response. Latent gap fixed in scrape.integration's `vi.mock` factory at the same time — previously `ParserError` was undefined under mock so `instanceof` would throw.)*
-- [~] If 8192 insufficient: task closes as blocked; brainstorm initiated for chunking spec. No half-built chunking code committed. *(Status pending probe. Per the agreed plan: if probe shows 8192 still overflows, the bump + new branch stay in (net-positive: they make the failure mode loud and user-actionable) and a separate chunking task is opened — but no chunking code lands in this task.)*
+- [~] If 8192 insufficient: task closes as blocked; brainstorm initiated for chunking spec. *(Not triggered — 8192 was sufficient for SR. Chunking not needed for NEW-4. AP would also not benefit from chunking since AP isn't hitting max_tokens; AP needs different treatment under NEW-6.)*
 - [x] Token-usage metrics logged at debug level (`output_tokens` per parse call). *(`debugLog` helper added to `parser/index.ts`, gated on `DEBUG=true`; logs `output_tokens=N stop_reason=S` after every Haiku response. EH-01 not silent, EH-02 context.)*
 - [x] [CQ-02] no function grows past 50 lines. *(`parseBenefits` ~50 lines including the new branch; `debugLog` 5 lines.)*
 
@@ -1615,9 +1615,13 @@
 
 **Depends on:** None
 
-**Status:** [x] *(code-side complete; live-probe ACs deferred per user-agreed path. Mark fully `[x]` after probe data lands; convert to `[~]` blocked-and-escalated if branch 2b triggers.)*
+**Status:** [x] *(fully closed 2026-05-20. SR probe confirmed 8192 sufficient. AP turned out to be NEW-6 (different bug, not NEW-4). No chunking task needed.)*
 
 **Specialist:** @llm-parser
+
+**Post-task findings (logged for Task 46 GATE intake):**
+- **NEW-6** — Amex Platinum scrape returns `{benefits: []}` from Haiku (`output_tokens=33, stop_reason=tool_use`). Not a max_tokens issue. Possible root causes: scraper extracts page content with no benefit details (login-walled or marketing page), Readability strips benefit content, or Haiku doesn't see benefits in the specific text. The 3 Amex cards (Platinum, Blue Cash Preferred, Blue Cash Everyday) all sit at 0 benefits in DB — likely all affected by the same bug.
+- **NEW-7** — Task 43 NEW-1 orphan-cancel cleanup is unreachable if user navigates away during the 30–40s fresh-add scrape. AdminPage `freshAddCardId` `useState` is lost on unmount, so when the user returns and triggers Re-scrape, Cancel correctly does nothing (per Task 43 design: re-scrape Cancel is no-op) and the orphan stays. Clean repro of the happy-path fresh-add flow confirmed Task 43 fix WORKS — but this latent UX gap should be surfaced as a separate task. Possible fixes: persist `freshAddCardId` in sessionStorage, disable BottomNav during fresh-add scrape, or accept-and-document.
 
 ---
 
