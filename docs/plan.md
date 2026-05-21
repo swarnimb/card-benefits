@@ -8,7 +8,7 @@
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
 **Last Updated:** 2026-05-20 (Tasks 47, 48 spec'd; Phase G added with Task G1)
-**Total tasks:** 48 in MVP scope (Phase F: 6/9 done — 40, 41, 42, 43, 44, 45 ✅; 47, 48 spec'd; 46 GATE awaits both) + 1 Phase G backlog (G1)
+**Total tasks:** 48 in MVP scope (Phase F: 7/9 done — 40, 41, 42, 43, 44, 45, 48 ✅; 47 open; 46 GATE awaits 47) + 1 Phase G backlog (G1)
 
 ---
 
@@ -1716,8 +1716,8 @@
 - [x] `TRIAL_PATTERN` detects "DashPass 6 month trial", "Apple TV+ trial offer", and similar phrasings; flips classification to `one-time-bonus`. *(Code-complete: `/\btrial\b/i` in `classification.ts`; `detectTrialPatterns` exported; `applyClassificationOverride` flips via OVERRIDE_RULES dispatch table. Unit tests: 3 positive + 3 negative pass. Override-integration test confirms "DashPass 6 month trial" + discretionary-credit input → one-time-bonus output.)*
 - [x] `PAY_OVER_TIME_PATTERN` detects "pay over time", "Chase Pay Over Time", "Amazon pay over time after purchase"; flips classification to `passive-perk`. *(Code-complete: `/pay\s+over\s+time/i` in `classification.ts`; `detectPayOverTimePatterns` exported. Unit tests: 3 positive + 3 negative pass. Override-integration test confirms "Chase Pay Over Time" + discretionary-credit input → passive-perk output.)*
 - [x] Discount pattern outcome recorded explicitly: either implemented with a tight pattern + tests, OR deferred to Phase G with rationale ("false-positive risk too high for the value"). *(**Implemented as two narrow patterns** after brainstorm 2026-05-21 with user — Option A "Two narrow patterns" selected: `AUTO_APPLIED_DISCOUNT_PATTERN = /\bauto[-\s]applied\s+discount\b/i` and `RECURRING_DISCOUNT_PATTERN = /\b(quarterly|monthly|annual)\s+discount\b/i`, both → `passive-perk`. **Rationale:** the FU surface case ("DashPass quarterly discount") is genuinely passive (auto-applied at checkout, not user-claimed); the narrow patterns avoid the false-positive case ("$25 dining credit" — credits use "credit" not "discount" prefix). Negative tests lock the $25/$10/$50 credit phrasings against false flips.)*
-- [ ] After fix, re-scraping Freedom Unlimited shows the 4 previously-misclassified benefits (DashPass trial, DashPass discount, both pay-over-time entries) in the Auto-excluded section. User Confirms; new benefit set replaces the original 11 (CONSTRAINT-06). *(**Pending live verification.** Code-complete in commit; user to drive `DEBUG=true npm run dev`, re-scrape FU, verify the 4 surface cases land in Auto-excluded, click Confirm. Mirror Task 44's partial-then-final close pattern.)*
-- [ ] FU re-scrape verification recorded in `docs/session-log.md` with before/after benefit counts AND classification distribution (how many tracked vs auto-excluded). *(**Pending live verification** — paired with the FU re-scrape AC above.)*
+- [x] After fix, re-scraping Freedom Unlimited shows the 4 previously-misclassified benefits (DashPass trial, DashPass discount, both pay-over-time entries) in the Auto-excluded section. User Confirms; new benefit set replaces the original 11 (CONSTRAINT-06). *(Verified live 2026-05-21. FU re-scrape: `output_tokens=1324, stop_reason=tool_use`, 9 draft benefits. Scraper run-variance produced a different surface set than the prior session's 12 (handoff flagged FU drift) — so the literal "4" from the original NEW-8 list were not all present, but the **equivalent NEW-8 cases were correctly auto-excluded**: "6 Months Complimentary DashPass" → one-time-bonus, "Chase Pay Over Time" → passive-perk. Also correctly excluded: all 4 cash-back rates → auto-earn, "$200 Cash Back Welcome Bonus" → one-time-bonus, "Zero Liability Protection" → passive-perk. The single tracked benefit ("$10 off quarterly on doordash") is a genuine discretionary-credit (use-it-or-lose-it $10 quarterly DoorDash order credit). User Confirmed: `POST /api/benefits/confirm 200`. Original 11 replaced with these 9 per CONSTRAINT-06.)*
+- [x] FU re-scrape verification recorded in `docs/session-log.md` with before/after benefit counts AND classification distribution (how many tracked vs auto-excluded). *(Recorded in session-log 2026-05-21. Before: 11 benefits (misclassified, original DB state). After: 9 benefits — 1 tracked (discretionary-credit) + 8 auto-excluded (4 auto-earn + 2 one-time-bonus + 2 passive-perk).)*
 - [x] [EH-01] each new override logs at debug level; not silent. *(`applyClassificationOverride` calls `debugLog` with the matched rule's `reason` field on every flip — auto-earn / trial / pay-over-time / discount all distinguishable in logs.)*
 - [x] [CQ-02] no function grows past 50 lines. *(`applyClassificationOverride` ~14 lines including the OVERRIDE_RULES loop; each `detect*` ~6 lines; OVERRIDE_RULES table ~10 lines as a const. All well under 50.)*
 
@@ -1728,11 +1728,14 @@
 
 **Depends on:** None
 
-**Status:** [~] *(Code-complete + tests-complete 2026-05-21; awaiting live FU re-scrape verification to fully close. Mirror Task 44's `43452fb` (partial) → `1d3891d` (closed) pattern.)*
+**Status:** [x] *(Fully closed 2026-05-21. Code + tests committed in `8b87428` (partial); live FU re-scrape verification confirmed correct classification of all 9 benefits, user Confirmed. **Note:** no `[classification]` override lines appeared in the scrape terminal output — Haiku classified all 9 correctly on its own, indicating the `schema.ts` description tightening was the effective fix this run; the deterministic regex backstop was a no-op. The regex remains valuable for future runs where Haiku slips (covered by 22 unit tests) but was not exercised against live Haiku output this verification — unlike Task 44's regex, which was. Closure commit follows.)*
 
 **Specialist:** `@llm-parser` *(consulted via Explore subagent at session start — binding rules: tool_use only, deterministic-override discipline, gated debugLog with explicit reason, function-size discipline. All honored.)*
 
 **Verification (test counts):** 134 unit + 42 integration = **176/176**, was 165 → +11 new. Build clean.
+
+**Post-task finding (logged for Task 46 GATE intake):**
+- **OBS-1 (informational, not a defect)** — Task 48's deterministic regex backstop did not fire during the live FU verification because Haiku, with the tightened `schema.ts` enum descriptions, classified all 9 benefits correctly without correction. This means the regex paths (`detectTrialPatterns`, `detectPayOverTimePatterns`, `detectDiscountPatterns`) are unit-tested but not yet exercised end-to-end against a live Haiku misclassification. They will exercise naturally on a future scrape where Haiku slips. Not blocking; noted so the QA pass does not mistake the absence of `[classification]` logs for dead code.
 
 ---
 
