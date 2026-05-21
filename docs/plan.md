@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-05-20
+**Last Updated:** 2026-05-20 (Task 45 partial — code-side complete, live probe pending)
 **Total tasks:** 46
 
 ---
@@ -1590,8 +1590,9 @@
 ## Task 45: Resolve Haiku max_tokens overflow on premium cards (NEW-4)
 
 **Files:**
-- `src/lib/parser/index.ts` — modify (`max_tokens` at line 54; error handling around lines 73–78)
+- `src/lib/parser/index.ts` — modify (`max_tokens` at line 54; error handling around lines 73–78) *(actual lines: 64 + 83–88; spec was off by ~10)*
 - `src/__tests__/api/user-cards/scrape.integration.test.ts` — extend
+- `src/__tests__/lib/parser/parser.unit.test.ts` — extend *(added during build; the spec only listed scrape.integration, but the new parser branch belongs at the unit layer where Anthropic SDK is already mocked — see decision in 2026-05-20 session log)*
 - `docs/session-log.md` — append probe findings (output_tokens for Sapphire Reserve + Amex Platinum)
 
 **Functions to implement:**
@@ -1600,20 +1601,21 @@
 - Step 2b — if 8192 insufficient for Amex Platinum: **STOP and escalate to brainstorm**. Chunking is an architectural decision (split HTML by section, multiple Haiku calls, merge results) — do not implement inside this task. Close task as "blocked — escalated; new task spec requested".
 
 **Acceptance criteria:**
-- [ ] Chase Sapphire Reserve scrape completes without `max_tokens` overflow.
-- [ ] Amex Platinum scrape outcome (success or overflow) recorded in `docs/session-log.md` with `output_tokens` figure.
-- [ ] If 8192 sufficient: explicit error path handles `stop_reason === "max_tokens"` per [EH-02] (fail loud with context, surface to user).
-- [ ] If 8192 insufficient: task closes as blocked; brainstorm initiated for chunking spec. No half-built chunking code committed.
-- [ ] Token-usage metrics logged at debug level (`output_tokens` per parse call).
-- [ ] [CQ-02] no function grows past 50 lines.
+- [ ] Chase Sapphire Reserve scrape completes without `max_tokens` overflow. *(Deferred — needs live dev-server scrape against real Haiku. Probe instructions handed back to user with the implementation commit; outcome recorded here when run.)*
+- [ ] Amex Platinum scrape outcome (success or overflow) recorded in `docs/session-log.md` with `output_tokens` figure. *(Deferred with the bullet above.)*
+- [x] If 8192 sufficient: explicit error path handles `stop_reason === "max_tokens"` per [EH-02] (fail loud with context, surface to user). *(Code-closed regardless of probe outcome — the new branch in `parseBenefits` throws ParserError with the spec's exact user-facing message; the route already surfaces ParserError as `parseError` in the response. Latent gap fixed in scrape.integration's `vi.mock` factory at the same time — previously `ParserError` was undefined under mock so `instanceof` would throw.)*
+- [~] If 8192 insufficient: task closes as blocked; brainstorm initiated for chunking spec. No half-built chunking code committed. *(Status pending probe. Per the agreed plan: if probe shows 8192 still overflows, the bump + new branch stay in (net-positive: they make the failure mode loud and user-actionable) and a separate chunking task is opened — but no chunking code lands in this task.)*
+- [x] Token-usage metrics logged at debug level (`output_tokens` per parse call). *(`debugLog` helper added to `parser/index.ts`, gated on `DEBUG=true`; logs `output_tokens=N stop_reason=S` after every Haiku response. EH-01 not silent, EH-02 context.)*
+- [x] [CQ-02] no function grows past 50 lines. *(`parseBenefits` ~50 lines including the new branch; `debugLog` 5 lines.)*
 
 **Tests required:**
-- `scrape.integration` → `route returns explicit max_tokens overflow message when Anthropic stop_reason is max_tokens` (mocked Anthropic response; error case)
-- Existing parse tests still pass at new `max_tokens` value (regression).
+- [x] `scrape.integration` → `returns parseError when ParserError is thrown (e.g. Haiku max_tokens overflow)` — mocks parseBenefits to throw the new ParserError, asserts route returns 200 + `parseError` field with the user-actionable message. *(Same intent as the spec; spec said "mocked Anthropic response" but the route's catch is on the ParserError, so mocking parseBenefits is the cleaner integration boundary; the actual Anthropic stop_reason path is covered at the unit layer below.)*
+- [x] `parser.unit` → `throws ParserError with user-actionable message when stop_reason is max_tokens` — mocks Anthropic `messages.create` to return `{stop_reason: 'max_tokens'}`, asserts the new branch fires with the exact spec message + ParserError instance.
+- [x] Existing parse tests still pass at new `max_tokens` value (regression). *(123 unit + 42 integration = 165/165, was 163; build clean.)*
 
 **Depends on:** None
 
-**Status:** [ ]
+**Status:** [x] *(code-side complete; live-probe ACs deferred per user-agreed path. Mark fully `[x]` after probe data lands; convert to `[~]` blocked-and-escalated if branch 2b triggers.)*
 
 **Specialist:** @llm-parser
 

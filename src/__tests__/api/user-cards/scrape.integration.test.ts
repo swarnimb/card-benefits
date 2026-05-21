@@ -16,12 +16,22 @@ vi.mock("@/lib/scraper", () => ({
   scrapeCard: mockScrapeCard,
 }));
 
-vi.mock("@/lib/parser", () => ({
-  parseBenefits: mockParseBenefits,
-}));
+// Task 45: route.ts does `err instanceof ParserError` (line 49). A plain `() => ({ parseBenefits })`
+// mock replaces the whole module — `ParserError` becomes undefined and `instanceof` against
+// undefined throws TypeError. Use `vi.importActual` to keep the real ParserError class while
+// stubbing `parseBenefits`. Latent gap pre-Task-45; no existing test hit the parseBenefits-throws
+// branch, so it never surfaced.
+vi.mock("@/lib/parser", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/parser")>("@/lib/parser");
+  return {
+    parseBenefits: mockParseBenefits,
+    ParserError: actual.ParserError,
+  };
+});
 
 import { POST } from "@/app/api/user-cards/[id]/scrape/route";
 import { ScraperError } from "@/lib/scraper/generic";
+import { ParserError } from "@/lib/parser";
 import { prisma } from "@/lib/db";
 
 const TEST_USER = "__t10_user__";
@@ -113,6 +123,30 @@ describe("POST /api/user-cards/[id]/scrape", () => {
     const data = await res.json();
     expect(data.benefits).toEqual([]);
     expect(data.scrapeError).toContain("timeout");
+  });
+
+  it("returns parseError when ParserError is thrown (e.g. Haiku max_tokens overflow)", async () => {
+    // Task 45 (NEW-4): premium cards (Sapphire Reserve confirmed) hit max_tokens; parser
+    // throws ParserError with user-actionable message; route should surface it as parseError
+    // in the response body (separate field from scrapeError, per route.ts line 50).
+    mockScrapeCard.mockResolvedValue("raw page text exceeding token budget");
+    mockParseBenefits.mockRejectedValue(
+      new ParserError({
+        message: "Card content exceeds parser capacity, manual entry required",
+        rawTextPreview: "raw page text exceeding token budget",
+      })
+    );
+
+    const req = new NextRequest(
+      `http://localhost/api/user-cards/${userCardWithUrl.id}/scrape`,
+      { method: "POST" }
+    );
+    const res = await POST(req, { params: Promise.resolve({ id: userCardWithUrl.id }) });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.benefits).toEqual([]);
+    expect(data.parseError).toBe("Card content exceeds parser capacity, manual entry required");
   });
 
   it("returns scrapeError when scrapeUrl is null", async () => {

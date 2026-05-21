@@ -21,6 +21,10 @@ function makeToolUseResponse(benefits: unknown[]) {
         input: { benefits },
       },
     ],
+    // Task 45: parseBenefits reads response.usage.output_tokens for the gated debugLog.
+    // Always include `usage` so the read is type-safe even when DEBUG is unset (the log
+    // is suppressed but the template literal access still happens).
+    usage: { input_tokens: 100, output_tokens: 500 },
   };
 }
 
@@ -87,12 +91,34 @@ describe("parseBenefits", () => {
   });
 
   it("throws ParserError when stop_reason is not tool_use", async () => {
-    mockCreate.mockResolvedValue({ stop_reason: "end_turn", content: [] });
+    mockCreate.mockResolvedValue({
+      stop_reason: "end_turn",
+      content: [],
+      usage: { input_tokens: 50, output_tokens: 10 },
+    });
 
     await expect(parseBenefits("some text")).rejects.toBeInstanceOf(ParserError);
     await expect(parseBenefits("some text")).rejects.toMatchObject({
       name: "ParserError",
       rawTextPreview: "some text",
+    });
+  });
+
+  it("throws ParserError with user-actionable message when stop_reason is max_tokens", async () => {
+    // Task 45 (NEW-4): Haiku runs out of room mid-tool_use on content-rich cards
+    // (Sapphire Reserve confirmed pre-bump). The new branch surfaces a user-facing
+    // message rather than the generic 'Expected stop_reason "tool_use"' string.
+    mockCreate.mockResolvedValue({
+      stop_reason: "max_tokens",
+      content: [],
+      usage: { input_tokens: 1000, output_tokens: 8192 },
+    });
+
+    await expect(parseBenefits("some long card text")).rejects.toBeInstanceOf(ParserError);
+    await expect(parseBenefits("some long card text")).rejects.toMatchObject({
+      name: "ParserError",
+      message: "Card content exceeds parser capacity, manual entry required",
+      rawTextPreview: "some long card text",
     });
   });
 

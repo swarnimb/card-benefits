@@ -61,7 +61,7 @@ export async function parseBenefits(rawText: string): Promise<DraftBenefit[]> {
   try {
     response = await client.messages.create({
       model: MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192, // Task 45 (NEW-4): bumped from 4096 after Sapphire Reserve overflow. Probe pending; max_tokens branch below surfaces residual overflow as user-actionable.
       tools: [BENEFIT_EXTRACTION_TOOL],
       tool_choice: { type: "tool", name: "extract_benefits" },
       messages: [
@@ -80,6 +80,16 @@ export async function parseBenefits(rawText: string): Promise<DraftBenefit[]> {
     });
   }
 
+  debugLog(`output_tokens=${response.usage.output_tokens} stop_reason=${response.stop_reason}`);
+
+  if (response.stop_reason === "max_tokens") {
+    // Task 45 (NEW-4): Haiku ran out of room mid-tool_use. User-actionable per EH-02.
+    throw new ParserError({
+      message: "Card content exceeds parser capacity, manual entry required",
+      rawTextPreview: rawText.slice(0, 200),
+    });
+  }
+
   if (response.stop_reason !== "tool_use") {
     throw new ParserError({
       message: `Expected stop_reason "tool_use", got "${response.stop_reason}"`,
@@ -94,6 +104,15 @@ export async function parseBenefits(rawText: string): Promise<DraftBenefit[]> {
   if (!benefits?.length) return [];
 
   return benefits.map(toDraftBenefit);
+}
+
+/** Gated debug log — EH-01 (not silent) / EH-02 (context). Visible when DEBUG=true.
+ *  Duplicates the pattern in classification.ts intentionally; extract to a shared util
+ *  the moment a third consumer needs it (see Task 45 session-log). */
+function debugLog(message: string): void {
+  if (process.env.DEBUG === "true") {
+    console.log("[parser] " + message);
+  }
 }
 
 type RawBenefit = {
