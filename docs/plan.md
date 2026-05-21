@@ -7,8 +7,8 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-05-20 (Task 45 fully closed; NEW-6 + NEW-7 surfaced for Task 46 GATE intake)
-**Total tasks:** 46
+**Last Updated:** 2026-05-20 (Task 44 + 45 fully closed via live probes; NEW-6 + NEW-8 → Phase F Tasks 47, 48; NEW-7 → Phase G)
+**Total tasks:** 46 (+2 pending: Task 47 NEW-6, Task 48 NEW-8 — to be spec'd next)
 
 ---
 
@@ -1568,8 +1568,8 @@
 **Acceptance criteria:**
 - [x] Function detects "1.5% cash back on all purchases", "3x points on dining", and similar cash-back/points-multiplier phrasings as auto-earn. **Spec note:** literal "5% on travel through Chase" (no qualifier) does NOT match the spec regex (which requires `cash back|back|rewards|on all|on every` after `%`); treated as a paraphrase of real FU copy ("5% cash back on travel through Chase Travel") per the spec's "Conservative" stance. FU re-scrape (deferred AC below) is the truth-check for real-world coverage.
 - [x] Function does NOT misclassify true discretionary credits ($300 travel credit, $200 Uber credit, $25 streaming credit, $120 dining credit, $50 hotel credit) as auto-earn. *(5 negative cases in classification.unit.test.ts.)*
-- [~] After fix, re-scraping Freedom Unlimited shows all cash-back rates as `tracked: false` with `classification: "auto-earn"`. *(Deferred — needs dev server + interactive Admin re-scrape. 2 unit tests + 1 override test cover the same code path; risk low. Batch into pre-Task-46 manual QA pass, per Task 43's NEW-1 walkthrough pattern.)*
-- [~] Freedom Unlimited re-scrape verification recorded in `docs/session-log.md` with before/after benefit counts. *(Deferred with the bullet above.)*
+- [x] After fix, re-scraping Freedom Unlimited shows all cash-back rates as `tracked: false` with `classification: "auto-earn"`. *(Verified live 2026-05-20: FU re-scrape produced 12 total benefits (4 tracked + 8 auto-excluded). User confirmed cash-back rates appear in the Auto-excluded section, meaning the regex override correctly flipped them from Haiku's `discretionary-credit` default to `auto-earn` → `tracked: false`. Confirm NOT clicked — see next bullet for why.)*
+- [x] Freedom Unlimited re-scrape verification recorded in `docs/session-log.md` with before/after benefit counts. *(Before: 11 benefits. After: 12 draft benefits (4 tracked + 8 auto-excluded). Did NOT Confirm because the 4 tracked benefits are themselves misclassified — Haiku put DashPass trial, DashPass quarterly discount, and two "pay over time" features into the tracked bucket. None are user-actionable credits. This is a NEW class of misclassification (NEW-8) that Task 44's regex doesn't target. Cancelling preserved the original 11 benefits in DB; will re-scrape after NEW-8 fix lands and Confirm then. Task 44's own regex is verified working; the new finding is separate scope.)*
 - [x] [EH-01] classification override logs at debug level (visible when `DEBUG=true`); not silent. *(Implemented via gated `debugLog` helper in `src/lib/parser/classification.ts` — explicit `[classification]` prefix + before/after bucket + reason. Off by default; visible on `DEBUG=true`.)*
 - [x] [CQ-02] new function < 50 lines. *(`detectAutoEarnPatterns` 9 lines, `applyAutoEarnOverride` 11 lines, `debugLog` 5 lines. All well under.)*
 
@@ -1620,8 +1620,9 @@
 **Specialist:** @llm-parser
 
 **Post-task findings (logged for Task 46 GATE intake):**
-- **NEW-6** — Amex Platinum scrape returns `{benefits: []}` from Haiku (`output_tokens=33, stop_reason=tool_use`). Not a max_tokens issue. Possible root causes: scraper extracts page content with no benefit details (login-walled or marketing page), Readability strips benefit content, or Haiku doesn't see benefits in the specific text. The 3 Amex cards (Platinum, Blue Cash Preferred, Blue Cash Everyday) all sit at 0 benefits in DB — likely all affected by the same bug.
-- **NEW-7** — Task 43 NEW-1 orphan-cancel cleanup is unreachable if user navigates away during the 30–40s fresh-add scrape. AdminPage `freshAddCardId` `useState` is lost on unmount, so when the user returns and triggers Re-scrape, Cancel correctly does nothing (per Task 43 design: re-scrape Cancel is no-op) and the orphan stays. Clean repro of the happy-path fresh-add flow confirmed Task 43 fix WORKS — but this latent UX gap should be surfaced as a separate task. Possible fixes: persist `freshAddCardId` in sessionStorage, disable BottomNav during fresh-add scrape, or accept-and-document.
+- **NEW-6** — Amex Platinum scrape returns `{benefits: []}` from Haiku (`output_tokens=33, stop_reason=tool_use`). Not a max_tokens issue. Possible root causes: scraper extracts page content with no benefit details (login-walled or marketing page), Readability strips benefit content, or Haiku doesn't see benefits in the specific text. The 3 Amex cards (Platinum, Blue Cash Preferred, Blue Cash Everyday) all sit at 0 benefits in DB — likely all affected by the same bug. → Phase F **Task 47** (per user 2026-05-20).
+- **NEW-7** — Task 43 NEW-1 orphan-cancel cleanup is unreachable if user navigates away during the 30–40s fresh-add scrape. AdminPage `freshAddCardId` `useState` is lost on unmount, so when the user returns and triggers Re-scrape, Cancel correctly does nothing (per Task 43 design: re-scrape Cancel is no-op) and the orphan stays. Clean repro of the happy-path fresh-add flow confirmed Task 43 fix WORKS — but this latent UX gap should be surfaced as a separate task. Possible fixes: persist `freshAddCardId` in sessionStorage, disable BottomNav during fresh-add scrape, or accept-and-document. → Phase G post-MVP (per user 2026-05-20).
+- **NEW-8** — Surfaced 2026-05-20 during the Task 44 FU re-scrape verification. Haiku classifies non-cash-back perks as `discretionary-credit` (tracked: true) when they should be `one-time-bonus` / `passive-perk` / `auto-earn` (tracked: false). Specific cases observed on FU re-scrape: "DashPass 6 month trial" (one-time-bonus), "DashPass quarterly discount" (passive-perk / auto-earn), "Amazon Chase pay over time" and "Chase pay over time (after purchase)" (passive-perk / card feature, not a credit). Same class of bug as NEW-5 but different patterns — the Task 44 regex catches cash-back % and Nx-points only, doesn't catch trials, auto-applied discounts, or financing features. Fix path likely combines regex extension (catch "trial", "discount", "pay over time") and further Haiku schema tightening. → Phase F **Task 48** (per user 2026-05-20).
 
 ---
 
