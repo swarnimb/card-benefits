@@ -1713,24 +1713,26 @@
   - `auto-earn`: cash-back percentage rates, points multipliers on categories (NEW-5 / Task 44 territory).
 
 **Acceptance criteria:**
-- [ ] `TRIAL_PATTERN` detects "DashPass 6 month trial", "Apple TV+ trial offer", and similar phrasings; flips classification to `one-time-bonus`.
-- [ ] `PAY_OVER_TIME_PATTERN` detects "pay over time", "Chase Pay Over Time", "Amazon pay over time after purchase"; flips classification to `passive-perk`.
-- [ ] Discount pattern outcome recorded explicitly: either implemented with a tight pattern + tests, OR deferred to Phase G with rationale ("false-positive risk too high for the value").
-- [ ] After fix, re-scraping Freedom Unlimited shows the 4 previously-misclassified benefits (DashPass trial, DashPass discount, both pay-over-time entries) in the Auto-excluded section. User Confirms; new benefit set replaces the original 11 (CONSTRAINT-06).
-- [ ] FU re-scrape verification recorded in `docs/session-log.md` with before/after benefit counts AND classification distribution (how many tracked vs auto-excluded).
-- [ ] [EH-01] each new override logs at debug level; not silent.
-- [ ] [CQ-02] no function grows past 50 lines.
+- [x] `TRIAL_PATTERN` detects "DashPass 6 month trial", "Apple TV+ trial offer", and similar phrasings; flips classification to `one-time-bonus`. *(Code-complete: `/\btrial\b/i` in `classification.ts`; `detectTrialPatterns` exported; `applyClassificationOverride` flips via OVERRIDE_RULES dispatch table. Unit tests: 3 positive + 3 negative pass. Override-integration test confirms "DashPass 6 month trial" + discretionary-credit input → one-time-bonus output.)*
+- [x] `PAY_OVER_TIME_PATTERN` detects "pay over time", "Chase Pay Over Time", "Amazon pay over time after purchase"; flips classification to `passive-perk`. *(Code-complete: `/pay\s+over\s+time/i` in `classification.ts`; `detectPayOverTimePatterns` exported. Unit tests: 3 positive + 3 negative pass. Override-integration test confirms "Chase Pay Over Time" + discretionary-credit input → passive-perk output.)*
+- [x] Discount pattern outcome recorded explicitly: either implemented with a tight pattern + tests, OR deferred to Phase G with rationale ("false-positive risk too high for the value"). *(**Implemented as two narrow patterns** after brainstorm 2026-05-21 with user — Option A "Two narrow patterns" selected: `AUTO_APPLIED_DISCOUNT_PATTERN = /\bauto[-\s]applied\s+discount\b/i` and `RECURRING_DISCOUNT_PATTERN = /\b(quarterly|monthly|annual)\s+discount\b/i`, both → `passive-perk`. **Rationale:** the FU surface case ("DashPass quarterly discount") is genuinely passive (auto-applied at checkout, not user-claimed); the narrow patterns avoid the false-positive case ("$25 dining credit" — credits use "credit" not "discount" prefix). Negative tests lock the $25/$10/$50 credit phrasings against false flips.)*
+- [ ] After fix, re-scraping Freedom Unlimited shows the 4 previously-misclassified benefits (DashPass trial, DashPass discount, both pay-over-time entries) in the Auto-excluded section. User Confirms; new benefit set replaces the original 11 (CONSTRAINT-06). *(**Pending live verification.** Code-complete in commit; user to drive `DEBUG=true npm run dev`, re-scrape FU, verify the 4 surface cases land in Auto-excluded, click Confirm. Mirror Task 44's partial-then-final close pattern.)*
+- [ ] FU re-scrape verification recorded in `docs/session-log.md` with before/after benefit counts AND classification distribution (how many tracked vs auto-excluded). *(**Pending live verification** — paired with the FU re-scrape AC above.)*
+- [x] [EH-01] each new override logs at debug level; not silent. *(`applyClassificationOverride` calls `debugLog` with the matched rule's `reason` field on every flip — auto-earn / trial / pay-over-time / discount all distinguishable in logs.)*
+- [x] [CQ-02] no function grows past 50 lines. *(`applyClassificationOverride` ~14 lines including the OVERRIDE_RULES loop; each `detect*` ~6 lines; OVERRIDE_RULES table ~10 lines as a const. All well under 50.)*
 
 **Tests required:**
-- `classification.unit` → 3 positive tests (each new regex matches representative real text from card benefit pages).
-- `classification.unit` → 3 negative tests (genuine discretionary credits like "$25 dining credit", "$10 streaming credit", "$50 hotel credit" don't get mis-flipped by the broader regex set).
-- `applyClassificationOverride` → integration tests for each new override path (flips classification correctly; passes through unchanged when no pattern matches).
+- [x] `classification.unit` → 3 positive tests (each new regex matches representative real text from card benefit pages). *(Spec asked for 3; landed 3 it-blocks × 3 assertions each = 9 positive assertions across `detectTrialPatterns`, `detectPayOverTimePatterns`, `detectDiscountPatterns`. Each it-block covers 3 representative phrasings per pattern.)*
+- [x] `classification.unit` → 3 negative tests (genuine discretionary credits like "$25 dining credit", "$10 streaming credit", "$50 hotel credit" don't get mis-flipped by the broader regex set). *(Landed 3 it-blocks × 3 assertions = 9 negative assertions. The discount negative block is the critical false-positive lock — explicitly tests $25 / $10 / $50 credit phrasings.)*
+- [x] `applyClassificationOverride` → integration tests for each new override path (flips classification correctly; passes through unchanged when no pattern matches). *(Landed 7 it-blocks: 1 auto-earn flip [kept from Task 44], 1 trial flip, 1 pay-over-time flip, 1 discount flip, 1 auto-earn-sticky edge case [NEW — locks the "5% cash back trial offer" case], 1 pass-through [extended with discount false-positive], 1 no-op-when-LLM-correct [NEW]. Total: 22 tests in the file, was 11 → +11 new.)*
 
 **Depends on:** None
 
-**Status:** [ ]
+**Status:** [~] *(Code-complete + tests-complete 2026-05-21; awaiting live FU re-scrape verification to fully close. Mirror Task 44's `43452fb` (partial) → `1d3891d` (closed) pattern.)*
 
-**Specialist:** `@llm-parser`
+**Specialist:** `@llm-parser` *(consulted via Explore subagent at session start — binding rules: tool_use only, deterministic-override discipline, gated debugLog with explicit reason, function-size discipline. All honored.)*
+
+**Verification (test counts):** 134 unit + 42 integration = **176/176**, was 165 → +11 new. Build clean.
 
 ---
 

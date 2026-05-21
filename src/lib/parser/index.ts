@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { BENEFIT_EXTRACTION_TOOL } from "@/lib/parser/schema";
 import {
-  applyAutoEarnOverride,
+  applyClassificationOverride,
   deriveTracked,
   normalizeClassification,
 } from "@/lib/parser/classification";
@@ -18,15 +18,15 @@ const VALID_TYPES = new Set<DraftBenefit["type"]>([
 
 /**
  * Maps one raw LLM benefit to a DraftBenefit. `classification` is normalized,
- * then run through `applyAutoEarnOverride` so deterministic regex correction
- * (NEW-5: Haiku misclassifying cash-back rates as credits) takes precedence
- * over the LLM bucket. `tracked` is derived from the final classification via
- * deterministic policy — never read from the LLM.
+ * then run through `applyClassificationOverride` so deterministic regex
+ * correction (NEW-5 cash-back / NEW-8 trials, pay-over-time, recurring
+ * discounts) takes precedence over the LLM bucket. `tracked` is derived from
+ * the final classification via deterministic policy — never read from the LLM.
  */
 function toDraftBenefit(b: RawBenefit): DraftBenefit {
   const normalized = normalizeClassification(b.classification);
   const description = b.description ?? null;
-  const classification = applyAutoEarnOverride(b.name, description, normalized);
+  const classification = applyClassificationOverride(b.name, description, normalized);
   return {
     name: b.name,
     description,

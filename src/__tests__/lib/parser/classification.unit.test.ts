@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
-  applyAutoEarnOverride,
+  applyClassificationOverride,
   CLASSIFICATION_BUCKETS,
   deriveTracked,
   detectAutoEarnPatterns,
+  detectDiscountPatterns,
+  detectPayOverTimePatterns,
+  detectTrialPatterns,
   isValidClassification,
   normalizeClassification,
 } from '@/lib/parser/classification'
@@ -126,37 +129,202 @@ describe('detectAutoEarnPatterns', () => {
   })
 })
 
-describe('applyAutoEarnOverride', () => {
+describe('detectTrialPatterns', () => {
+  it('returns true for 3 representative trial phrasings (Task 48 / NEW-8)', () => {
+    // DashPass 6 month trial — the FU regression that surfaced NEW-8.
+    expect(
+      detectTrialPatterns('DashPass 6 month trial', '6-month complimentary DashPass trial')
+    ).toBe(true)
+    // Apple TV+ trial in name only — common when description is null.
+    expect(detectTrialPatterns('Apple TV+ Trial', null)).toBe(true)
+    // Trial phrasing buried in description — Walmart+ style.
+    expect(
+      detectTrialPatterns('Walmart+ Membership', 'Free 6-month trial of Walmart+')
+    ).toBe(true)
+  })
+
+  it('returns false for 3 representative non-trial phrasings (negative lock)', () => {
+    // Recurring statement credit — must not flip just because "credit" exists.
+    expect(
+      detectTrialPatterns('$25 Streaming Credit', 'Monthly statement credit')
+    ).toBe(false)
+    // Fixed annual travel credit — pure discretionary, no trial.
+    expect(detectTrialPatterns('$300 Travel Credit', null)).toBe(false)
+    // Lounge access — passive activation perk, not a trial.
+    expect(
+      detectTrialPatterns('Priority Pass', 'Complimentary lounge access worldwide')
+    ).toBe(false)
+  })
+})
+
+describe('detectPayOverTimePatterns', () => {
+  it('returns true for 3 representative pay-over-time phrasings (Task 48 / NEW-8)', () => {
+    // Chase Pay Over Time — the FU surface case.
+    expect(
+      detectPayOverTimePatterns('Chase Pay Over Time', 'Pay over time on eligible purchases')
+    ).toBe(true)
+    // Amazon Pay Over Time — second FU surface case.
+    expect(detectPayOverTimePatterns('Amazon Pay Over Time', null)).toBe(true)
+    // Pay-over-time buried in description — generic phrasing.
+    expect(
+      detectPayOverTimePatterns(
+        'Flexible Payments',
+        'Option to pay over time for purchases over $100'
+      )
+    ).toBe(true)
+  })
+
+  it('returns false for 3 representative non-financing phrasings (negative lock)', () => {
+    // Streaming credit — recurring, but not financing.
+    expect(
+      detectPayOverTimePatterns('$25 Streaming Credit', 'Monthly credit toward streaming')
+    ).toBe(false)
+    // Cash back rate — would be flipped by earn-rate rule, not this one.
+    expect(
+      detectPayOverTimePatterns('1.5% Cash Back', 'on all purchases')
+    ).toBe(false)
+    // Trial — distinct override path, no pay-over-time signal.
+    expect(detectPayOverTimePatterns('DashPass Trial', '6 month trial')).toBe(false)
+  })
+})
+
+describe('detectDiscountPatterns', () => {
+  it('returns true for 3 representative auto-applied / recurring discount phrasings', () => {
+    // DashPass quarterly discount — the FU case that motivated this regex.
+    expect(
+      detectDiscountPatterns('DashPass quarterly discount', 'Quarterly discount on DashPass orders')
+    ).toBe(true)
+    // Explicit auto-applied phrasing — the safest discount signal.
+    expect(
+      detectDiscountPatterns('Auto-applied discount', 'Discount auto applied at checkout')
+    ).toBe(true)
+    // Monthly recurring discount — fixed cadence prefix.
+    expect(
+      detectDiscountPatterns('Grocery Savings', 'Monthly discount on grocery purchases')
+    ).toBe(true)
+  })
+
+  it('returns false for 3 representative fixed-dollar credits (CRITICAL false-positive lock)', () => {
+    // "$25 dining credit" — must NOT flip even though the card description
+    // might use "discount" colloquially elsewhere. The regex requires the
+    // discount prefix; bare "credit" is the strongest non-flip signal.
+    expect(
+      detectDiscountPatterns('$25 Dining Credit', 'Monthly statement credit for dining')
+    ).toBe(false)
+    // Streaming credit — fixed-dollar recurring, must stay discretionary-credit.
+    expect(
+      detectDiscountPatterns('$10 Streaming Credit', 'Monthly credit toward streaming')
+    ).toBe(false)
+    // Hotel property credit — per-stay fixed amount, not a discount rate.
+    expect(
+      detectDiscountPatterns('$50 Hotel Credit', '$50 property credit per stay')
+    ).toBe(false)
+  })
+})
+
+describe('applyClassificationOverride', () => {
   it('flips discretionary-credit to auto-earn when name/description matches earn-rate regex', () => {
     // The integration of override path: LLM says discretionary, regex says earn rate.
     expect(
-      applyAutoEarnOverride(
+      applyClassificationOverride(
         '1.5% Cash Back',
         'Earn 1.5% cash back on all purchases',
         'discretionary-credit'
       )
     ).toBe('auto-earn')
     expect(
-      applyAutoEarnOverride('3x Points', 'on dining', 'discretionary-credit')
+      applyClassificationOverride('3x Points', 'on dining', 'discretionary-credit')
     ).toBe('auto-earn')
   })
 
-  it('passes through unchanged when no earn-rate pattern matches', () => {
-    // True discretionary credit — override must not fire.
+  it('flips discretionary-credit to one-time-bonus when trial pattern matches', () => {
+    // The FU NEW-8 case: "DashPass 6 month trial" was classified as
+    // discretionary-credit (tracked: true) when it's a signup perk.
     expect(
-      applyAutoEarnOverride(
+      applyClassificationOverride(
+        'DashPass 6 month trial',
+        '6-month complimentary DashPass trial',
+        'discretionary-credit'
+      )
+    ).toBe('one-time-bonus')
+  })
+
+  it('flips discretionary-credit to passive-perk when pay-over-time pattern matches', () => {
+    // The FU NEW-8 case: "Chase Pay Over Time" is a card feature, not a credit.
+    expect(
+      applyClassificationOverride(
+        'Chase Pay Over Time',
+        'Pay over time on eligible purchases',
+        'discretionary-credit'
+      )
+    ).toBe('passive-perk')
+  })
+
+  it('flips discretionary-credit to passive-perk when recurring-discount pattern matches', () => {
+    // The FU NEW-8 case: "DashPass quarterly discount" is auto-applied at checkout.
+    expect(
+      applyClassificationOverride(
+        'DashPass quarterly discount',
+        'Quarterly discount on DashPass orders',
+        'discretionary-credit'
+      )
+    ).toBe('passive-perk')
+  })
+
+  it('auto-earn is sticky: weaker keyword signals do not downgrade an auto-earn input', () => {
+    // Edge case: "5% cash back trial offer". LLM correctly identifies the
+    // earn-rate mechanic as auto-earn — the "trial" keyword must not flip
+    // it to one-time-bonus. The earn rate is the truth, the trial is a wrapper.
+    expect(
+      applyClassificationOverride('5% Cash Back trial offer', null, 'auto-earn')
+    ).toBe('auto-earn')
+    // Same for discount and pay-over-time wrappers around an earn rate.
+    expect(
+      applyClassificationOverride(
+        '2% Cash Back',
+        'Monthly discount applied as cash back',
+        'auto-earn'
+      )
+    ).toBe('auto-earn')
+  })
+
+  it('passes through unchanged when no override pattern matches', () => {
+    // True discretionary credit — no override must fire.
+    expect(
+      applyClassificationOverride(
         '$300 Travel Credit',
         'Up to $300 annual statement credit',
         'discretionary-credit'
       )
     ).toBe('discretionary-credit')
-    // Activation perk — override only flips to auto-earn, never away from it.
+    // Activation perk — no override path targets it; passes through.
     expect(
-      applyAutoEarnOverride('Priority Pass', null, 'activation-perk')
+      applyClassificationOverride('Priority Pass', null, 'activation-perk')
     ).toBe('activation-perk')
-    // Already auto-earn — short-circuit, no work needed.
+    // Critical false-positive lock at the integration level: "$25 dining
+    // credit" must not flip to passive-perk just because "discount" might be
+    // used colloquially — the regex requires the discount prefix.
     expect(
-      applyAutoEarnOverride('1.5% Cash Back', 'on all', 'auto-earn')
-    ).toBe('auto-earn')
+      applyClassificationOverride(
+        '$25 Dining Credit',
+        'Monthly statement credit for dining',
+        'discretionary-credit'
+      )
+    ).toBe('discretionary-credit')
+  })
+
+  it('no-op (silent) when LLM already chose the override target', () => {
+    // LLM correctly classified a trial as one-time-bonus → no flip, no log.
+    expect(
+      applyClassificationOverride(
+        'DashPass 6 month trial',
+        null,
+        'one-time-bonus'
+      )
+    ).toBe('one-time-bonus')
+    // LLM correctly classified pay-over-time as passive-perk → no flip.
+    expect(
+      applyClassificationOverride('Chase Pay Over Time', null, 'passive-perk')
+    ).toBe('passive-perk')
   })
 })
