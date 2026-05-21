@@ -1,6 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { BENEFIT_EXTRACTION_TOOL } from "@/lib/parser/schema";
-import { deriveTracked, normalizeClassification } from "@/lib/parser/classification";
+import {
+  applyAutoEarnOverride,
+  deriveTracked,
+  normalizeClassification,
+} from "@/lib/parser/classification";
 import type { DraftBenefit } from "@/types/benefit";
 
 const MODEL = "claude-haiku-4-5-20251001"; // CONSTRAINT-09: hardcoded, never substituted
@@ -13,21 +17,27 @@ const VALID_TYPES = new Set<DraftBenefit["type"]>([
 ]);
 
 /**
- * Maps one raw LLM benefit to a DraftBenefit. `tracked` is derived here from
- * `classification` via deterministic policy — never read from the LLM.
+ * Maps one raw LLM benefit to a DraftBenefit. `classification` is normalized,
+ * then run through `applyAutoEarnOverride` so deterministic regex correction
+ * (NEW-5: Haiku misclassifying cash-back rates as credits) takes precedence
+ * over the LLM bucket. `tracked` is derived from the final classification via
+ * deterministic policy — never read from the LLM.
  */
 function toDraftBenefit(b: RawBenefit): DraftBenefit {
+  const normalized = normalizeClassification(b.classification);
+  const description = b.description ?? null;
+  const classification = applyAutoEarnOverride(b.name, description, normalized);
   return {
     name: b.name,
-    description: b.description ?? null,
+    description,
     type: VALID_TYPES.has(b.type) ? b.type : "perk",
     value: b.value ?? null,
     valueUnit: b.valueUnit === "points" ? "points" : "dollars",
     resetPeriod: b.resetPeriod,
     resetAnchor: b.resetAnchor ?? "calendar", // default per CONSTRAINT-09 / task spec
     category: b.category,
-    classification: normalizeClassification(b.classification),
-    tracked: deriveTracked(b.classification),
+    classification,
+    tracked: deriveTracked(classification),
     confidence: b.confidence,
   };
 }

@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
+  applyAutoEarnOverride,
   CLASSIFICATION_BUCKETS,
   deriveTracked,
+  detectAutoEarnPatterns,
   isValidClassification,
   normalizeClassification,
 } from '@/lib/parser/classification'
@@ -51,5 +53,110 @@ describe('isValidClassification', () => {
     for (const bucket of CLASSIFICATION_BUCKETS) {
       expect(isValidClassification(bucket)).toBe(true)
     }
+  })
+})
+
+describe('detectAutoEarnPatterns', () => {
+  it('returns true for 5 representative cash-back / points patterns', () => {
+    // Cash-back percentage on all purchases — Freedom Unlimited base rate.
+    expect(
+      detectAutoEarnPatterns(
+        '1.5% Cash Back',
+        'Earn 1.5% cash back on all purchases'
+      )
+    ).toBe(true)
+    // Cash-back percentage on a specific category — FU dining/drugstore.
+    expect(
+      detectAutoEarnPatterns(
+        '3% on Dining',
+        'Earn 3% cash back at restaurants worldwide'
+      )
+    ).toBe(true)
+    // "Rewards" phrasing — covers Citi/Discover rotating-category language.
+    expect(
+      detectAutoEarnPatterns(
+        '5% Rewards',
+        'Earn 5% rewards on rotating quarterly categories'
+      )
+    ).toBe(true)
+    // Points multiplier in name only — common when description is null.
+    expect(detectAutoEarnPatterns('3x Points on Dining', null)).toBe(true)
+    // Miles multiplier in description — Hilton Aspire / Capital One pattern.
+    expect(
+      detectAutoEarnPatterns('Hilton Points', 'Earn 5x miles on hotel stays')
+    ).toBe(true)
+  })
+
+  it('returns false for 5 representative discretionary-credit phrasings', () => {
+    // Fixed-dollar annual credit — should remain discretionary-credit.
+    expect(
+      detectAutoEarnPatterns(
+        '$300 Travel Credit',
+        'Up to $300 annual statement credit toward eligible travel'
+      )
+    ).toBe(false)
+    // Fixed monthly credit — Amex Platinum Uber Cash style.
+    expect(
+      detectAutoEarnPatterns(
+        '$200 Uber Credit',
+        '$15 monthly Uber Cash, $20 in December'
+      )
+    ).toBe(false)
+    // Streaming subscription credit — fixed dollar, not a rate.
+    expect(
+      detectAutoEarnPatterns(
+        '$25 Streaming Credit',
+        'Monthly statement credit for select streaming subscriptions'
+      )
+    ).toBe(false)
+    // Property-specific credit — fixed amount per stay.
+    expect(
+      detectAutoEarnPatterns(
+        '$120 Dining Credit',
+        'Annual credit at Grubhub, Five Guys, Goldbelly'
+      )
+    ).toBe(false)
+    // Hotel resort credit — fixed amount, not a rate.
+    expect(
+      detectAutoEarnPatterns(
+        '$50 Hotel Credit',
+        'Property credit per stay at participating hotels'
+      )
+    ).toBe(false)
+  })
+})
+
+describe('applyAutoEarnOverride', () => {
+  it('flips discretionary-credit to auto-earn when name/description matches earn-rate regex', () => {
+    // The integration of override path: LLM says discretionary, regex says earn rate.
+    expect(
+      applyAutoEarnOverride(
+        '1.5% Cash Back',
+        'Earn 1.5% cash back on all purchases',
+        'discretionary-credit'
+      )
+    ).toBe('auto-earn')
+    expect(
+      applyAutoEarnOverride('3x Points', 'on dining', 'discretionary-credit')
+    ).toBe('auto-earn')
+  })
+
+  it('passes through unchanged when no earn-rate pattern matches', () => {
+    // True discretionary credit — override must not fire.
+    expect(
+      applyAutoEarnOverride(
+        '$300 Travel Credit',
+        'Up to $300 annual statement credit',
+        'discretionary-credit'
+      )
+    ).toBe('discretionary-credit')
+    // Activation perk — override only flips to auto-earn, never away from it.
+    expect(
+      applyAutoEarnOverride('Priority Pass', null, 'activation-perk')
+    ).toBe('activation-perk')
+    // Already auto-earn — short-circuit, no work needed.
+    expect(
+      applyAutoEarnOverride('1.5% Cash Back', 'on all', 'auto-earn')
+    ).toBe('auto-earn')
   })
 })

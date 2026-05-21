@@ -69,12 +69,12 @@ export const BENEFIT_EXTRACTION_TOOL = {
               ],
               description:
                 "Behavioural bucket for the benefit. " +
-                "discretionary-credit=a recurring dollar credit the user must actively spend to capture (e.g. monthly dining/travel credit). " +
+                "discretionary-credit=a FIXED-DOLLAR recurring credit the user must actively spend to capture (e.g. $25 monthly Uber credit, $300 annual travel credit, $120 dining credit). NOT for percentage-based earn rates. " +
                 "activation-perk=a benefit requiring a one-time or periodic enrollment/activation to use (e.g. quarterly bonus categories, complimentary status to enroll). " +
-                "auto-earn=value accrues automatically with no user action (e.g. base points/miles per dollar). " +
+                "auto-earn=value accrues automatically with no user action. INCLUDES cash-back percentages (1.5% cash back on all purchases, 3% on dining), points/miles multipliers (3x points on travel, 5x miles on hotels), and any 'earn X% on Y' or 'Nx points on Y' phrasing. " +
                 "passive-perk=an always-on benefit needing no action and no tracking (e.g. no foreign transaction fees, purchase protection, rental insurance). " +
                 "one-time-bonus=a single non-recurring reward (e.g. welcome/sign-up bonus, anniversary points). " +
-                "If unsure, choose discretionary-credit.",
+                "If unsure between discretionary-credit and auto-earn: a fixed dollar amount per period = discretionary-credit; a percentage or multiplier of spend = auto-earn. If unsure across other buckets, choose discretionary-credit.",
             },
             confidence: {
               type: "number",
