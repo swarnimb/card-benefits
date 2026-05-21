@@ -7,8 +7,8 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-05-20 (Task 44 + 45 fully closed via live probes; NEW-6 + NEW-8 → Phase F Tasks 47, 48; NEW-7 → Phase G)
-**Total tasks:** 46 (+2 pending: Task 47 NEW-6, Task 48 NEW-8 — to be spec'd next)
+**Last Updated:** 2026-05-20 (Tasks 47, 48 spec'd; Phase G added with Task G1)
+**Total tasks:** 48 in MVP scope (Phase F: 6/9 done — 40, 41, 42, 43, 44, 45 ✅; 47, 48 spec'd; 46 GATE awaits both) + 1 Phase G backlog (G1)
 
 ---
 
@@ -1647,11 +1647,124 @@
 **Tests required:**
 - None new in this task — the new tests live in Tasks 40, 41, 43, 44, 45. This is the gate.
 
-**Depends on:** Tasks 40, 41, 42, 43, 44, 45
+**Depends on:** Tasks 40, 41, 42, 43, 44, 45, 47, 48
 
 **Status:** [ ]
 
 **Specialist:** None (gate task)
+
+**Note (2026-05-20):** Original spec said "test count ≥ 151". Real count at Task 45 close is 165 (123 unit + 42 integration). Task 46 should use the actual current count as the baseline, not 151.
+
+---
+
+## Task 47: Triage NEW-6 — Amex empty-benefit responses (probe-then-decide)
+
+**Files:**
+- `src/lib/scraper/index.ts` (or the deepest function that returns `rawText`) — instrument with gated `debugLog(rawText.length + first 500 chars)` per scrape call. Mirror `[parser]`-style helper from Task 45.
+- TBD based on Step 2 diagnosis — likely `data/card-catalog.json` (URL fixes), possibly `src/lib/parser/schema.ts` (Haiku prompt tightening), or a scraper extraction tweak.
+- `src/__tests__/lib/scraper/` — extend with unit test for whatever extraction path changes.
+
+**Functions to implement:**
+- Step 1 — instrument + probe: add gated `debugLog` logging `rawText.length` + `rawText.slice(0, 500)` when `DEBUG=true`. User re-scrapes Amex Platinum (and optionally BCP + BCE) with `DEBUG=true npm run dev`; pastes log lines.
+- Step 2 — diagnose, branch based on what `rawText` reveals:
+  - Empty / single login page text → wrong scrape URL in catalog OR Amex blocks HTTP-first scraper. Fix: update `card-catalog.json` URL OR force Playwright fallback for Amex.
+  - Marketing fluff, no benefit details → catalog URL points to marketing page, not benefits page. Fix: update URL.
+  - Visible benefits but Haiku returns empty → Haiku prompt/schema problem. Fix: tighten prompt, possibly add issuer-specific guidance.
+- Step 3 — fix in this task ONLY if diagnosis is a simple URL/extraction tweak. If diagnosis reveals architectural work (issuer-specific scraper, prompt refactor, etc.), STOP and escalate — mirror Task 45's branch 2b discipline. Close as blocked, open new task spec.
+
+**Acceptance criteria:**
+- [ ] `scrapeCard` (or relevant fn) logs `[scraper] rawText.length=N preview="…"` at debug level per scrape call. EH-01 not silent.
+- [ ] Amex Platinum probe outcome recorded in `docs/session-log.md` with `rawText.length` figure + first 500 chars preview + Haiku response shape (`output_tokens`, benefits array length).
+- [ ] Diagnosis recorded explicitly in session-log: which of the 3 branches the probe revealed.
+- [ ] If fix path is simple (URL/extraction tweak): implementation lands; AP re-scrape produces > 0 benefits in review gate; user confirms benefit list is reasonable.
+- [ ] If fix path is architectural: task closes as blocked-and-escalated; new task spec requested; no half-built code committed.
+- [ ] BCP + BCE outcome recorded (optional probe): same root cause as AP, or different bug per card?
+- [ ] [CQ-02] no function grows past 50 lines.
+
+**Tests required:**
+- Unit test for whatever extraction code path changes (if any).
+- Integration test only if the route behavior changes (likely none if fix is a catalog URL update).
+
+**Depends on:** None
+
+**Status:** [ ]
+
+**Specialist:** `@scraper` (probe targets scraper output); shifts to `@llm-parser` if Step 2 diagnosis points there.
+
+---
+
+## Task 48: Extend deterministic classification to trials + pay-over-time perks (NEW-8)
+
+**Files:**
+- `src/lib/parser/classification.ts` — modify (extend pattern set + override path)
+- `src/lib/parser/schema.ts` — modify (tighten `BENEFIT_EXTRACTION_TOOL` enum descriptions)
+- `src/__tests__/lib/parser/classification.unit.test.ts` — extend
+
+**Functions to implement:**
+- Add new regex constants to `classification.ts`:
+  - `TRIAL_PATTERN = /\btrial\b/i` — catches "DashPass 6 month trial", "Apple TV+ trial", "Walmart+ trial". Override target: `one-time-bonus` (signup perks, no recurring action).
+  - `PAY_OVER_TIME_PATTERN = /pay\s+over\s+time/i` — catches "pay over time", "Chase Pay Over Time", "Amazon pay over time after purchase". Override target: `passive-perk` (card feature, not a credit).
+  - **`DISCOUNT_PATTERN` — flagged for brainstorm during execution.** "discount" is ambiguous: "$10 dining discount" is a legit discretionary-credit, "DashPass quarterly discount" is auto-applied / passive-perk. Discuss false-positive cases before locking the regex. May land as a tighter pattern (e.g. `/auto[-\s]applied\s+discount/i`, `/quarterly\s+discount/i`, `/monthly\s+discount/i`) OR may be deferred entirely with rationale.
+- Generalize `applyAutoEarnOverride` (likely rename to `applyClassificationOverride`) to apply each new regex override; log each via gated `debugLog`.
+- Tighten `BENEFIT_EXTRACTION_TOOL` enum descriptions in `schema.ts` to explicitly distinguish:
+  - `discretionary-credit`: FIXED-DOLLAR credits the user must spend to redeem (e.g. $300 travel credit, $25 streaming credit).
+  - `one-time-bonus`: signup trials, welcome perks, opt-in-once offers (no recurring action; doesn't reset).
+  - `passive-perk`: card features that auto-apply or are always available (financing options, auto-applied discounts, base insurance).
+  - `auto-earn`: cash-back percentage rates, points multipliers on categories (NEW-5 / Task 44 territory).
+
+**Acceptance criteria:**
+- [ ] `TRIAL_PATTERN` detects "DashPass 6 month trial", "Apple TV+ trial offer", and similar phrasings; flips classification to `one-time-bonus`.
+- [ ] `PAY_OVER_TIME_PATTERN` detects "pay over time", "Chase Pay Over Time", "Amazon pay over time after purchase"; flips classification to `passive-perk`.
+- [ ] Discount pattern outcome recorded explicitly: either implemented with a tight pattern + tests, OR deferred to Phase G with rationale ("false-positive risk too high for the value").
+- [ ] After fix, re-scraping Freedom Unlimited shows the 4 previously-misclassified benefits (DashPass trial, DashPass discount, both pay-over-time entries) in the Auto-excluded section. User Confirms; new benefit set replaces the original 11 (CONSTRAINT-06).
+- [ ] FU re-scrape verification recorded in `docs/session-log.md` with before/after benefit counts AND classification distribution (how many tracked vs auto-excluded).
+- [ ] [EH-01] each new override logs at debug level; not silent.
+- [ ] [CQ-02] no function grows past 50 lines.
+
+**Tests required:**
+- `classification.unit` → 3 positive tests (each new regex matches representative real text from card benefit pages).
+- `classification.unit` → 3 negative tests (genuine discretionary credits like "$25 dining credit", "$10 streaming credit", "$50 hotel credit" don't get mis-flipped by the broader regex set).
+- `applyClassificationOverride` → integration tests for each new override path (flips classification correctly; passes through unchanged when no pattern matches).
+
+**Depends on:** None
+
+**Status:** [ ]
+
+**Specialist:** `@llm-parser`
+
+---
+
+# Phase G — Post-MVP Backlog
+
+> Tasks deferred until after MVP launch. NOT blocking the Task 46 GATE.
+
+---
+
+## Task G1: Persist freshAddCardId across navigation (NEW-7)
+
+**Surfaced:** 2026-05-20 during Task 43 NEW-1 manual walkthrough.
+
+**Problem:** AdminPage's `freshAddCardId` is held in React `useState`. State is lost when AdminPage unmounts. If the user navigates away from `/admin` during the 30–40s fresh-add scrape (or if some Next.js side effect causes a remount), the fresh-add marker is gone; subsequent Cancel correctly classifies as re-scrape Cancel (per Task 43 design: no-op) and the orphan card stays in DB. Task 43's fix works in the canonical happy-path; this is a latent UX gap on top of it.
+
+**MVP impact:** Low. Single-user app; user knows not to navigate; manual Remove button is a fine fallback. Real-world repro requires specific timing during the scrape window.
+
+**Fix candidates (decide during execution):**
+- **Persist `freshAddCardId` in `sessionStorage`** — simplest; survives unmount/remount; no UX changes. Probably 10–15 lines of code + tests.
+- **Disable BottomNav during fresh-add scrape** — more invasive; not great if user has a legit reason to navigate.
+- **Accept-and-document** — add "Please don't navigate away" hint to the scrape spinner text; cheapest; leaves the gap.
+
+**Acceptance criteria:**
+- [ ] Fresh-add → navigate to /cards → navigate back to /admin during scrape → review gate appears → Cancel → orphan deleted (the navigation no longer breaks the cleanup path).
+- [ ] Unit test covering the sessionStorage persistence path (if that's the chosen fix).
+- [ ] Manual walkthrough by user confirms the navigation edge case works end-to-end.
+
+**Tests required:** TBD (depends on chosen fix path).
+
+**Depends on:** Task 43 (NEW-1 base fix). Independent of Tasks 47, 48.
+
+**Status:** [ ]
+
+**Specialist:** `@ui-cardmaxxer` (admin UI work; React state lifecycle).
 
 ---
 
