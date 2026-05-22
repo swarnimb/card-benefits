@@ -7,8 +7,8 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-05-20 (Tasks 47, 48 spec'd; Phase G added with Task G1)
-**Total tasks:** 48 in MVP scope (Phase F: 7/9 done — 40, 41, 42, 43, 44, 45, 48 ✅; 47 open; 46 GATE awaits 47) + 1 Phase G backlog (G1)
+**Last Updated:** 2026-05-21 (Phase H added — Feature 8, Tasks 49–55)
+**Total tasks:** 48 in MVP scope (Phase F: 8/9 done — 40, 41, 42, 43, 44, 45, 47, 48 ✅; 46 GATE ready to run) + 1 Phase G backlog (G1) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55)
 
 ---
 
@@ -1673,23 +1673,29 @@
 - Step 3 — fix in this task ONLY if diagnosis is a simple URL/extraction tweak. If diagnosis reveals architectural work (issuer-specific scraper, prompt refactor, etc.), STOP and escalate — mirror Task 45's branch 2b discipline. Close as blocked, open new task spec.
 
 **Acceptance criteria:**
-- [ ] `scrapeCard` (or relevant fn) logs `[scraper] rawText.length=N preview="…"` at debug level per scrape call. EH-01 not silent.
-- [ ] Amex Platinum probe outcome recorded in `docs/session-log.md` with `rawText.length` figure + first 500 chars preview + Haiku response shape (`output_tokens`, benefits array length).
-- [ ] Diagnosis recorded explicitly in session-log: which of the 3 branches the probe revealed.
-- [ ] If fix path is simple (URL/extraction tweak): implementation lands; AP re-scrape produces > 0 benefits in review gate; user confirms benefit list is reasonable.
-- [ ] If fix path is architectural: task closes as blocked-and-escalated; new task spec requested; no half-built code committed.
-- [ ] BCP + BCE outcome recorded (optional probe): same root cause as AP, or different bug per card?
-- [ ] [CQ-02] no function grows past 50 lines.
+- [x] `scrapeCard` (or relevant fn) logs `[scraper] rawText.length=N preview="…"` at debug level per scrape call. EH-01 not silent. *(`genericScrape` emits `[scraper] path=<http-fast-path|playwright-fallback> rawText.length=N preview="…"` via gated `debugLog`, one line per scrape. `path=` added beyond spec minimum — directly informs branch-1 triage.)*
+- [x] Amex Platinum probe outcome recorded in `docs/session-log.md` with `rawText.length` figure + first 500 chars preview + Haiku response shape (`output_tokens`, benefits array length). *(Logged 2026-05-21 18:32 — probe: rawText.length=748, 404-page preview, `output_tokens=33` empty array.)*
+- [x] Diagnosis recorded explicitly in session-log: which of the 3 branches the probe revealed. *(Branch 1 — wrong scrape URL. Catalog URL `…/en-us/credit-cards/platinum-card/` 404s; Amex retired that scheme.)*
+- [x] If fix path is simple (URL/extraction tweak): implementation lands; AP re-scrape produces > 0 benefits in review gate; user confirms benefit list is reasonable. *(URL corrected to `…/us/credit-cards/card/platinum/` in `data/card-catalog.json` + the cached `Card` DB row. Verification re-scrape: `path=http-fast-path`, rawText.length=12043, `output_tokens=3026 stop_reason=tool_use`. User confirmed the list looks correct.)*
+- [x] If fix path is architectural: task closes as blocked-and-escalated; new task spec requested; no half-built code committed. *(N/A — fix path was simple; the simple-fix branch applied. No escalation needed.)*
+- [x] BCP + BCE outcome recorded (optional probe): same root cause as AP, or different bug per card? *(Same root cause — BCP + BCE `Card` rows + catalog carry the identical dead `/en-us/credit-cards/…/` pattern, confirmed via DB query. Live probe skipped. Fix deferred to a follow-up task per user decision — see NEW-10.)*
+- [x] [CQ-02] no function grows past 50 lines. *(`genericScrape` ~7 lines; `debugLog` ~5 lines.)*
 
 **Tests required:**
-- Unit test for whatever extraction code path changes (if any).
-- Integration test only if the route behavior changes (likely none if fix is a catalog URL update).
+- Unit test for whatever extraction code path changes (if any). *(None — no extraction path changed; the fix was a data correction (URL) plus an additive logging side-effect. `scraper.test.ts` 13/13 + full unit suite 134/134 pass.)*
+- Integration test only if the route behavior changes (likely none if fix is a catalog URL update). *(None — no route behavior changed.)*
 
 **Depends on:** None
 
-**Status:** [ ]
+**Status:** [x] *(Closed 2026-05-21. NEW-6 root cause = stale Amex catalog URL (Branch 1). Fixed in `data/card-catalog.json` + the cached `Card` DB row; verified live — AP re-scrape produced 12,043 chars + `output_tokens=3026`, user-confirmed. Instrumentation (`[scraper]` gated debugLog) landed in `src/lib/scraper/generic.ts`. No anti-bot escalation needed — HTTP fast-path works for Amex.)*
 
 **Specialist:** `@scraper` (probe targets scraper output); shifts to `@llm-parser` if Step 2 diagnosis points there.
+
+**Post-task findings (logged for Task 46 GATE intake):**
+- **NEW-9** — Catalog→DB sync gap. The scrape route reads `userCard.card.scrapeUrl` from the `Card` DB table, not from `data/card-catalog.json`; the catalog→DB resync runs only inside the add-card flow (`user-cards/route.ts:40-44`). So a catalog URL correction does NOT reach an already-added card — Task 47's fix had to be hand-applied to the `Card` row via SQL. Recommend a follow-up: resync `Card.scrapeUrl` from the catalog at scrape time, or an admin "refresh catalog" action.
+- **NEW-10** — BCP + BCE carry the identical dead `/en-us/credit-cards/…/` Amex URL (same root cause as NEW-6). Fix = correct catalog + both `Card` DB rows to the `…/us/credit-cards/card/…/` scheme + verify re-scrape. Deferred to a follow-up task per user decision 2026-05-21.
+- **OBS-2** — `npx tsc --noEmit` reports 5 pre-existing type errors in test files (`add-card-modal.test.tsx` ×4; `setup.ts` ×1) — unrelated to Task 47, surfaced incidentally. Not blocking (`npm test` green: 134/134 unit). Recommend a standalone cleanup.
+- **OBS-3** — `debugLog` is now triplicated (`scraper/generic.ts`, `parser/index.ts`, `parser/classification.ts`). The Task 45 comment anticipated a shared-util extraction "at the third consumer" — now reached. Deferred to keep Task 47 scraper-scoped; recommend a small shared-util extraction task.
 
 ---
 
@@ -1773,6 +1779,235 @@
 
 ---
 
+## Phase H — Set-and-Forget Benefits (Feature 8)
+
+> Added 2026-05-21 via `@create-plan`. Implements `docs/prd.md` Feature 8 + `docs/architecture.md` → Data Model → Set-and-Forget Benefits. Scope: "Fix only" (builder decision) — no activation nudge, no `dismissed` state, no annual re-confirm. Not MVP-blocking; does not block the Task 46 GATE. Architecture: FB15, CONSTRAINT-16, CONSTRAINT-17.
+
+---
+
+## Task 49: Schema + types — `setAndForget` + `activatedAt` on `Benefit`
+
+**Files:**
+- `prisma/schema.prisma` — modify (`Benefit` model)
+- `prisma/migrations/` — new migration (created by `prisma migrate dev`)
+- `src/types/benefit.ts` — modify (DB-benefit type + `DraftBenefit`)
+
+**Functions to implement:** None (schema + types only).
+
+**Acceptance criteria:**
+- [ ] `Benefit` gains `setAndForget Boolean @default(false)` and `activatedAt DateTime?`, placed after `tracked` and before the `userCard` relation (field-ordering convention).
+- [ ] `npx prisma migrate dev --name set_and_forget_benefits` runs clean; migration is additive (two defaulted/nullable columns), no backfill.
+- [ ] Per CONSTRAINT-11, datasource URL stays in `prisma.config.ts` — no `url` added to `schema.prisma`.
+- [ ] Existing `Benefit` rows unaffected after migration: `setAndForget = false`, `activatedAt = null`.
+- [ ] `src/types/benefit.ts`: DB-benefit type gains `setAndForget: boolean` + `activatedAt: Date | null`; `DraftBenefit` gains `setAndForget: boolean` (NOT `activatedAt` — activation is a post-confirm state, never on a draft).
+- [ ] [CQ-01] no `any`; files within size limits.
+
+**Tests required:**
+- `schema` → `Benefit row creates and queries with setAndForget + activatedAt` (happy)
+- `schema` → `setAndForget defaults false, activatedAt defaults null` (edge)
+
+**Depends on:** None
+
+**Status:** [ ]
+
+**Specialist:** `@data`
+
+---
+
+## Task 50: Classifier — derive + persist `setAndForget`
+
+**Files:**
+- `src/lib/parser/classification.ts` — modify
+- `src/lib/parser/schema.ts` — modify (`BENEFIT_EXTRACTION_TOOL` descriptions)
+- `src/lib/parser/index.ts` — modify (`toDraftBenefit` wiring)
+- `src/app/api/benefits/confirm/route.ts` — modify (persist `setAndForget`)
+- `src/__tests__/lib/parser/classification.unit.test.ts` — extend
+
+**Functions to implement:**
+- `detectSetAndForget(name: string, description: string | null): boolean` — regex set matching membership-reimbursement benefits (Walmart+, Uber One, CLEAR / CLEAR Plus, Oura, digital-entertainment / streaming-bundle credits). Mirrors the existing `detect*` pattern.
+- `deriveSetAndForget(name, description, classification): boolean` — deterministic resolution; the LLM may hint via the tool schema but code decides (same discipline as `deriveTracked`).
+- Wire `setAndForget` into `toDraftBenefit` in `parser/index.ts`, alongside the existing `applyClassificationOverride` / `deriveTracked` calls.
+
+**Acceptance criteria:**
+- [ ] A set-and-forget benefit (Walmart+, Uber One, CLEAR, Oura, digital-entertainment credit) resolves to `setAndForget: true`.
+- [ ] **Uber Cash** (monthly credit the user must actively spend) resolves to `setAndForget: false` — the Uber One vs Uber Cash distinction is explicitly handled.
+- [ ] Recurring-action credits (airline fee, hotel, Resy dining) resolve to `setAndForget: false`.
+- [ ] `setAndForget` is decided by deterministic code, never trusted from the LLM (mirrors `tracked`).
+- [ ] `schema.ts` `BENEFIT_EXTRACTION_TOOL` descriptions tightened so Haiku can signal a membership-reimbursement benefit.
+- [ ] `toDraftBenefit` includes `setAndForget` on every `DraftBenefit`.
+- [ ] `POST /api/benefits/confirm` persists `setAndForget` on each created `Benefit`; `activatedAt` left `null` on create.
+- [ ] [EH-01] the derivation logs at debug level via the existing gated `debugLog`, not silent.
+- [ ] [CQ-02] no function exceeds 50 lines.
+
+**Tests required:**
+- `classification.unit` → `detectSetAndForget` 3+ positive: Walmart+, Uber One, CLEAR (happy)
+- `classification.unit` → `detectSetAndForget` negatives: Uber Cash, airline fee credit, hotel credit do NOT flip (error/edge)
+- `classification.unit` → `deriveSetAndForget` resolves correct boolean for representative benefits
+
+**Depends on:** Task 49
+
+**Status:** [ ]
+
+**Specialist:** `@llm-parser`
+
+---
+
+## Task 51: `setBenefitActivation()` + activation API route
+
+**Files:**
+- `src/lib/engine/usage.ts` — modify (add `setBenefitActivation`)
+- `src/app/api/benefits/[id]/activation/route.ts` — create
+- `docs/api-spec.md` — modify (document the new route)
+- `src/__tests__/lib/engine/` — unit test (extend or new)
+- `src/__tests__/` — integration test for the route (`*.integration.test.ts`)
+
+**Functions to implement:**
+- `setBenefitActivation(benefitId: string, activated: boolean): Promise<Benefit>` — sets `Benefit.activatedAt = activated ? new Date() : null`. Sole write path for `activatedAt` (CONSTRAINT-16).
+- `PATCH /api/benefits/[id]/activation` — auth-gated; validates `{ activated: boolean }`; calls `setBenefitActivation`; returns the updated benefit.
+
+**Acceptance criteria:**
+- [ ] `setBenefitActivation(id, true)` sets `activatedAt` to the current time; `setBenefitActivation(id, false)` sets it to `null`.
+- [ ] `setBenefitActivation` writes only `activatedAt` — never `usedAmount` or `BenefitPeriod` (CONSTRAINT-16; CONSTRAINT-07 untouched).
+- [ ] Throws a named error class (EH-05) with context (EH-02) if the benefit does not exist or is not `setAndForget`.
+- [ ] The route enforces auth (existing route pattern) and validates the body before business logic (SEC-02); invalid body → 400.
+- [ ] The route is documented in `docs/api-spec.md` in the existing contract format.
+- [ ] [EH-01] no silent catches; [CQ-02] no function over 50 lines.
+
+**Tests required:**
+- `setBenefitActivation` → `activates and deactivates a set-and-forget benefit` (happy)
+- `setBenefitActivation` → `throws when benefit not found / not setAndForget` (error)
+- `[id]/activation` (integration) → `PATCH toggles activation`; `rejects unauthenticated and invalid body`
+
+**Depends on:** Task 49
+
+**Status:** [ ]
+
+**Specialist:** `@data`
+
+---
+
+## Task 52: Period engine — skip set-and-forget benefits + caller sweep
+
+**Files:**
+- `src/lib/engine/periods.ts` — modify (`ensureCurrentPeriod`)
+- `src/__tests__/lib/engine/periods.unit.test.ts` — extend
+- Caller-sweep findings recorded in `docs/session-log.md`; any fixes land in the affected file (or are routed to Tasks 53/54).
+
+**Functions to implement:**
+- Guard in `ensureCurrentPeriod(benefitId)` — if the benefit has `setAndForget: true`, never create or roll a `BenefitPeriod`. Define the return/throw contract explicitly so set-and-forget benefits cannot reach period logic.
+
+**Acceptance criteria:**
+- [ ] `ensureCurrentPeriod` never creates a `BenefitPeriod` for a `setAndForget` benefit (CONSTRAINT-17); behavior for non-set-and-forget benefits is unchanged.
+- [ ] CONSTRAINT-08 (append-only periods) remains honored.
+- [ ] **Caller sweep (R1):** every call site of `ensureCurrentPeriod` and every reader of `benefit.periods` / "current period" is enumerated; the set-and-forget behavior of each is documented in the session-log entry and corrected if it would break.
+- [ ] No code path crashes or mis-renders when a tracked benefit has zero `BenefitPeriod` records.
+- [ ] [EH-05] the not-applicable case uses a named error or an explicit documented return; [CQ-02] functions under 50 lines.
+
+**Tests required:**
+- `ensureCurrentPeriod` → `does not create a period for a setAndForget benefit` (happy)
+- `ensureCurrentPeriod` → `unchanged behavior for a normal benefit` (regression)
+
+**Depends on:** Tasks 49, 50
+
+**Status:** [ ]
+
+**Specialist:** `@data`
+
+---
+
+## Task 53: Overview triage — `expiring.ts` set-and-forget branch
+
+**Files:**
+- `src/lib/engine/expiring.ts` — modify (`buildOverviewTriage`, `isExpiringSoon`, `isDone`, `unusedValue`)
+- `src/app/api/overview/route.ts` — modify if needed
+- `src/types/api.ts` — modify if a realized/secured-value field is added to `OverviewData`
+- `src/__tests__/lib/engine/` — extend triage tests
+
+**Functions to implement:**
+- `setAndForget` branch in the triage helpers: an `active` set-and-forget benefit (`activatedAt != null`) → excluded from `needsAttention` / `isExpiringSoon` / money-at-risk, treated as `done`, `value` counted as realized; a `not set up` one (`activatedAt == null`) → excluded from urgency, rendered calm.
+
+**Acceptance criteria:**
+- [ ] An `active` set-and-forget benefit never appears in `needsAttention` and is never counted in money-at-risk.
+- [ ] An `active` set-and-forget benefit's `value` is counted toward realized/secured value (PRD Feature 8 AC).
+- [ ] A `not set up` set-and-forget benefit produces no urgency and no money-at-risk contribution.
+- [ ] Triage of non-set-and-forget benefits is unchanged (regression).
+- [ ] Overview visual treatment of set-and-forget benefits confirmed against `docs/design-decisions.md` — consult `@designer` if a new surface is introduced.
+- [ ] [CQ-02] functions under 50 lines.
+
+**Tests required:**
+- `buildOverviewTriage` → `active set-and-forget excluded from needsAttention, counted as realized` (happy)
+- `buildOverviewTriage` → `not-set-up set-and-forget produces no urgency` (edge)
+- `buildOverviewTriage` → `normal benefit triage unchanged` (regression)
+
+**Depends on:** Tasks 49, 50, 52
+
+**Status:** [ ]
+
+**Specialist:** `@data`
+
+---
+
+## Task 54: Cards UI — "Automatic" group + sticky activation toggle
+
+**Files:**
+- `src/components/cards/benefit-item.tsx` — modify (dispatch)
+- `src/components/cards/activation-toggle.tsx` — create
+- the Cards-space benefit-grouping component — modify (add the "Automatic" group)
+- `src/__tests__/components/cards/` — component tests
+
+**Functions to implement:**
+- `ActivationToggle` — sticky toggle bound to `activatedAt`: renders "Set up" when `activatedAt == null`, "✓ Active" when set; on tap calls `PATCH /api/benefits/[id]/activation`.
+- `setAndForget` branch in `benefit-item.tsx` dispatch — a set-and-forget benefit renders `ActivationToggle`, ahead of the per-`type` (slider/toggle/counter) routing.
+- An "Automatic" group in the Cards benefit list — set-and-forget benefits grouped separately from the per-period benefits.
+
+**Acceptance criteria:**
+- [ ] Set-and-forget benefits render in a distinct "Automatic" group, not in the per-period benefit list (PRD Feature 8).
+- [ ] The toggle is sticky — state reads `activatedAt` (period-independent); it does not reset on a period rollover.
+- [ ] Tapping an `active` benefit deactivates it (back to "Set up"); tapping a `not set up` one activates it.
+- [ ] The toggle's writes go through the activation route only — no direct DB writes (CONSTRAINT-16).
+- [ ] Visual follows `docs/design-decisions.md` (dark theme, mobile-first 375px, calm styling, issuer color); `@designer` consulted for the "Automatic" group treatment.
+- [ ] [CQ-02] component files under 200 lines.
+
+**Tests required:**
+- `ActivationToggle` → `renders Set up / ✓ Active by activatedAt` (happy)
+- `ActivationToggle` → `tap calls the activation endpoint` (happy)
+- `benefit-item` → `setAndForget benefit renders ActivationToggle, not the per-type widget` (edge)
+
+**Depends on:** Tasks 49, 50, 51
+
+**Status:** [ ]
+
+**Specialist:** `@ui-cardmaxxer`
+
+---
+
+## Task 55: Feature 8 — integration tests + live verification
+
+**Files:**
+- `src/__tests__/` — integration test(s) (`*.integration.test.ts`)
+- `docs/session-log.md` — record the live verification outcome
+
+**Functions to implement:** None (verification task).
+
+**Acceptance criteria:**
+- [ ] Integration test covers the end-to-end flow: a set-and-forget benefit is classified (`setAndForget: true`), confirmed (persisted), activated via the route, then excluded from Overview `needsAttention` and shown in the Cards "Automatic" group.
+- [ ] Live walkthrough: re-scrape a real card with set-and-forget benefits (e.g. Amex Platinum — Walmart+, CLEAR, Uber One), activate one, verify it appears in the "Automatic" group and is absent from "needs attention". Outcome recorded in `docs/session-log.md`.
+- [ ] Classification spot-check confirmed live: Uber One → set-and-forget, Uber Cash → not.
+- [ ] Full unit + integration suites pass (`npm test`, `npm run test:integration`); `npm run build` clean.
+- [ ] On completion: recommend `@code-review` for Phase H, then `@qa`.
+
+**Tests required:**
+- Integration → `set-and-forget benefit: classify → confirm → activate → Overview/Cards reflect it`
+- Integration → `re-scrape resets activation` (documents the accepted CONSTRAINT-06 trade-off)
+
+**Depends on:** Tasks 49, 50, 51, 52, 53, 54
+
+**Status:** [ ]
+
+**Specialist:** `@qa`
+
+---
+
 ## Completed Tasks
 
 _(none yet)_
@@ -1787,3 +2022,4 @@ _(none yet)_
 | 2026-05-15 | Tasks 29–38 added (28 → 38 total) | `@create-plan` — Benefit Classification & Tracking Model (29–35) + Overview Redesign (36–38) |
 | 2026-05-19 | Task 39 added (38 → 39 total) | Generic scraper redesign — HTTP-first + Playwright fallback with Readability |
 | 2026-05-19 | Tasks 40–46 added (39 → 46 total) | `@create-plan` — Phase F: Defect Closeout + Stability bundle (5 manual-QA findings + Next.js security upgrade + gate) |
+| 2026-05-21 | Tasks 49–55 added (Phase H) | `@create-plan` — Feature 8: Set-and-Forget Benefits |

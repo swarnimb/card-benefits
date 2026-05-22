@@ -347,6 +347,62 @@ When app detects benefit period has ended:
 
 ---
 
+## Feature 8: Set-and-Forget Benefits
+
+> Added 2026-05-21 via `@cpo`. Scope: "Fix only" per builder decision — see Out of Scope.
+
+### Problem Statement
+CardMaxxer prompts the user to mark usage on every tracked benefit, every reset period. But a subset of benefits — those that reimburse a recurring membership the user enrolls in once (e.g. Walmart+, Uber One, CLEAR, Oura, digital-entertainment credits) — need a single setup action and then pay out automatically, with no further action. Tracking these as per-period to-dos generates ~11 months/year of false tasks per benefit, burying genuine use-it-or-lose-it urgency. The user hit this directly while reviewing a scraped Amex Platinum benefit list (2026-05-21).
+
+### User Story
+As a CardMaxxer user, I want benefits that I set up once and that then recur automatically to stay marked as handled, so that I am only prompted to act on benefits that genuinely need recurring action.
+
+### User Flow
+1. The user re-scrapes a card. The parser classifies each benefit; benefits meeting the set-and-forget rule (Business Logic) are identified.
+2. In the review gate (unchanged), the benefits appear and the user confirms/saves them.
+3. On the Cards space, set-and-forget benefits appear in a distinct, calm "Automatic" group — separate from the per-period benefit list.
+4. A set-and-forget benefit starts in the `not set up` state, shown as "Set up". The user taps it once to mark it `active` ("✓ Active").
+5. The `active` state is permanent: it persists across every reset period. The user is never prompted to re-mark that benefit.
+6. If the user later cancels the underlying service, they tap the benefit again to return it to `not set up`.
+
+### Business Logic
+- **Set-and-forget rule:** a benefit is set-and-forget when a single setup action makes its value recur automatically with no further per-period action. Discriminator: *one decision* (enroll in a recurring membership) vs. *a recurring decision* (actively spend each period). In: Walmart+, Uber One, CLEAR, Oura, digital-entertainment credits. Out: airline fee credit, hotel credit, Resy dining credit, Uber Cash (monthly credit the user must actively spend).
+- The set-and-forget determination is made at parse time by the classifier (Haiku + deterministic override), consistent with the bucket→tracked model in Feature 3.5. The LLM never decides activation state.
+- Annual one-shots (CLEAR) and monthly auto-recurring benefits (Walmart+) are the **same class**. `resetPeriod` is retained for value math but drives no user prompt for these benefits.
+- A set-and-forget benefit has a binary, **period-independent** activation state: `not set up` / `active`. This state does NOT reset on period rollover (unlike `usedAmount`, which is per-period).
+- An `active` set-and-forget benefit is treated as fully realized every period: excluded from "expiring soon" / "needs attention" / money-at-risk, and its value counts toward the realized/secured total in the Overview.
+- A `not set up` set-and-forget benefit shows calmly in the "Automatic" group — no urgency styling, no prompt.
+- Set-and-forget benefits remain `tracked: true` but are exempt from per-period usage tracking.
+- The activation toggle is a usage write and goes through the single write path (`updateBenefitUsage()` or equivalent, per Feature 4) — no direct DB writes.
+
+### Acceptance Criteria
+- [ ] Given an `active` set-and-forget benefit, when its reset period rolls over, then its state remains `active` — the user is not re-prompted.
+- [ ] Given an `active` set-and-forget benefit, when the Overview computes "needs attention" / expiring-soon / money-at-risk, then the benefit is excluded.
+- [ ] Given an `active` set-and-forget benefit, when the Overview computes realized/secured value, then the benefit's value is included.
+- [ ] Given a set-and-forget benefit, when shown on the Cards space, then it appears in the "Automatic" group, not the per-period benefit list.
+- [ ] Given a `not set up` set-and-forget benefit, then it shows no urgency styling and produces no prompt.
+- [ ] Given the user taps an `active` set-and-forget benefit, then it returns to `not set up`.
+- [ ] Given "Uber Cash" (a monthly credit the user must actively spend), then it is NOT classified set-and-forget — it remains a per-period tracked benefit.
+
+### Edge Cases
+- **Classifier mis-types a benefit:** the existing review gate is the catch — the user reviews all benefits before save. Review gate behavior is unchanged.
+- **Annual one-shot (CLEAR):** treated identically to a monthly set-and-forget benefit — one toggle, sticky. No special case.
+- **Re-scrape replaces all benefits (CONSTRAINT-06):** a re-scrape deletes and recreates a card's benefits, so a previously-`active` benefit returns to `not set up` after a re-scrape. Acceptable here (re-scrapes are infrequent and already discard all usage history). Whether activation state should survive a re-scrape is an `@cto` implementation decision — not required for this feature.
+- **Distinction from `resetPeriod: 'once'`:** a `once` benefit is genuinely one-time (signup bonus); a set-and-forget benefit's *value* recurs every period — only the user's *action* is one-time. Different concepts, though both are excluded from expiring-soon.
+
+### Out of Scope
+- Proactive activation nudge for un-set-up benefits ("CLEAR: $209/yr available, not claimed") — deferred (builder decision 2026-05-21: "Fix only").
+- A `dismissed` / "not interested" state — deferred with the nudge.
+- Annual re-confirmation / silent-breakage safety check — deferred to a future version.
+- Visual design of the "Automatic" group — `@designer`.
+- Implementation: the new period-independent activation field, period-engine changes, expiring-soon changes — `@cto` (architecture) → `@create-plan` (tasks).
+- Classifier implementation (the deterministic set-and-forget override) — `@llm-parser`, planned in `@create-plan`.
+
+### Success Metric
+A user re-scrapes a card with set-and-forget benefits, activates them once, and across subsequent reset periods sees zero prompts for those benefits — only recurring-action benefits appear in the "needs attention" lane.
+
+---
+
 ## Out of Scope (MVP)
 
 - CSV transaction import or auto-matching

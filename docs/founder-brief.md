@@ -253,3 +253,20 @@ The split of responsibility matters: the AI only assigns the bucket (a judgment 
 **Check before approving:** Two specific risks are accepted. (1) Amex's bot detection may still defeat the generic pipeline — same risk as before, same mitigation (manual entry via review gate, assumption A3). (2) PDF benefit summaries remain out of scope — if an issuer hides benefits behind a PDF link, the user adds manually. Neither risk is new; both were already documented.
 
 **What this closes off:** The "five issuer files, one per bank" code shape is permanently gone. If a future bank needs special handling, the new shape is "add one entry to the empty `ISSUER_SCRAPERS` map" — a much smaller surface than recreating per-issuer files. The PDF-extraction path remains explicitly out of scope.
+
+---
+
+## FB15 — Set-and-Forget Benefits: Activation Lives on the Benefit, Not the Period
+
+**Date:** 2026-05-21
+**Architecture section:** `docs/architecture.md` → Data Model → Set-and-Forget Benefits (Feature 8); `docs/prd.md` Feature 8
+
+**Decided:** Some credit-card benefits — Walmart+, Uber One, CLEAR, Oura, streaming credits — only need to be set up once; after that the credit arrives automatically every period with no action from you. CardMaxxer will now treat these differently from credits you must actively spend (airline fee credit, hotel credit, dining). Each such benefit gets two new pieces of data: a flag marking it "set-and-forget," and an "activated" state. Crucially, that activated state is stored on the benefit itself — not on the per-month/per-quarter usage record — so it never resets. Tap it active once, it stays active.
+
+**Means for your product:** You stop being nagged ~11 months a year to "use" benefits that need nothing from you. Set-and-forget benefits move into a calm "Automatic" group; once activated they sit quietly and still count toward your secured value. Only benefits that genuinely need a recurring decision stay in the "needs attention" list — the app stops crying wolf.
+
+**Why:** The tracking model was built on one clock — the benefit's reset period — and assumed "reset" means "the user must act again." For set-and-forget benefits that is false: the credit resets monthly but your action was one-time. Storing activation per-period guaranteed it would wrongly reset every month. The fix is to store activation one level up, on the benefit itself, where one-time state belongs.
+
+**Check before approving:** Two accepted trade-offs. (1) After you re-scrape a card, its set-and-forget benefits revert to "not set up" and you re-tap them once — re-scrapes are quarterly-ish, and preserving activation across a re-scrape would break the existing "re-scrape replaces everything" rule (CONSTRAINT-06). (2) Set-and-forget benefits keep no month-by-month history — there is nothing to track per month.
+
+**What this closes off:** The deferred v2 additions — a proactive "you're missing $209/yr" nudge and a "not interested" dismiss state — stay easy to add later. But per-period audit history for set-and-forget benefits is deliberately not modeled; a future feature wanting "show me each month Walmart+ posted" would have to add it back.

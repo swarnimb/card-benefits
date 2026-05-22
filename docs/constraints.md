@@ -194,6 +194,30 @@
 
 ---
 
+### [CONSTRAINT-16] `setBenefitActivation()` is the only write path for `Benefit.activatedAt`
+
+**Decision:** All writes to `Benefit.activatedAt` (the Feature 8 set-and-forget activation state) must go through `lib/engine/usage.ts → setBenefitActivation()`. No direct Prisma writes to `activatedAt` elsewhere. Mirrors CONSTRAINT-07.
+
+**What it means in practice:** Route handlers call `setBenefitActivation(benefitId, activated)`; they never call `prisma.benefit.update({ activatedAt })` directly. `activatedAt` is period-independent state on `Benefit`, distinct from `BenefitPeriod.usedAmount` — CONSTRAINT-07 continues to govern `usedAmount` separately; this is its parallel for activation.
+
+**Who decided and when:** @cto (Feature 8 architecture), 2026-05-21
+
+**What this closes off:** Nothing — an enforced single-responsibility pattern. Bypassing it is the anti-pattern.
+
+---
+
+### [CONSTRAINT-17] Set-and-forget benefits have no `BenefitPeriod` records
+
+**Decision:** A benefit with `setAndForget = true` (Feature 8) is never given `BenefitPeriod` records. Its entire state is `Benefit.activatedAt`. `ensureCurrentPeriod()` and initial period creation must skip set-and-forget benefits.
+
+**What it means in practice:** Set-and-forget benefits have no per-period usage and no period history. Any code that iterates a benefit's periods, or assumes every tracked benefit has a current period, must guard on `setAndForget`. Their Overview value math and activation state read directly from `Benefit` (`value`, `activatedAt`) — never from a period.
+
+**Who decided and when:** @cto (Feature 8 architecture), 2026-05-21
+
+**What this closes off:** Per-period audit history for set-and-forget benefits (e.g. "did the Walmart+ credit post each month"). Intentional — there is nothing to track per period for these benefits. Re-introducing per-period history would require modeling it back.
+
+---
+
 ## Summary Table
 
 | # | Decision | Practical impact | Decided by | Date |
@@ -213,3 +237,5 @@
 | 13 | CQ-06: y/m/d exempt in date math helpers | Single-letter date vars allowed in pure date boundary functions | Builder | 2026-04-08 |
 | 14 | Plaintext admin password | ADMIN_PASSWORD in .env; bcrypt removed (dotenv-expand incompatibility) | Builder | 2026-04-09 |
 | 15 | UI-layer concat over data denormalization | Composite displays render at JSX layer; columns stay normalized | Builder (Task 41) | 2026-05-19 |
+| 16 | setBenefitActivation() only write path for activatedAt | Feature 8 activation writes route through one function | @cto (Feature 8) | 2026-05-21 |
+| 17 | Set-and-forget benefits have no BenefitPeriod records | State is Benefit.activatedAt; no per-period history | @cto (Feature 8) | 2026-05-21 |

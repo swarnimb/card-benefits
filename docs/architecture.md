@@ -182,6 +182,8 @@ model Benefit {
   category    String          // "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"
   classification String       @default("one-time-bonus") // app-validated bucket: "discretionary-credit" | "activation-perk" | "auto-earn" | "passive-perk" | "one-time-bonus" — NOT a Prisma enum (CONSTRAINT-01)
   tracked     Boolean         @default(false) // derived deterministically from classification by src/lib/parser/classification.ts — never set by the LLM
+  setAndForget Boolean        @default(false) // Feature 8: derived deterministically (like `tracked`) by classification.ts — true = one setup action, value auto-recurs. Never set by the LLM
+  activatedAt DateTime?       // Feature 8: set-and-forget activation — null = not set up, timestamp = active. Written only via setBenefitActivation() (CONSTRAINT-16)
   userCard    UserCard        @relation(fields: [userCardId], references: [id], onDelete: Cascade)
   periods     BenefitPeriod[]
   createdAt   DateTime        @default(now())
@@ -242,6 +244,26 @@ Migration: additive at the SQLite column level (add `classification`, `tracked`;
 #### Field standardization (resolved)
 
 Resolved 2026-05-15: standardized to a single field `tracked` across PRD, architecture, and API spec. `isTrackable` is retired — do not reintroduce.
+
+### Set-and-Forget Benefits (Feature 8)
+
+Added 2026-05-21 via `@cto`. Some benefits (Walmart+, Uber One, CLEAR, Oura, digital-entertainment credits) reimburse a membership the user enrolls in once, then recur automatically with no per-period action. They need a **period-independent activation state** — the per-period `BenefitPeriod.usedAmount` cannot express it, because the period engine zeroes `usedAmount` on every reset.
+
+**Two new `Benefit` fields:**
+- **`setAndForget`** (`Boolean`, default `false`) — classifier output. Derived deterministically in `src/lib/parser/classification.ts` (same discipline as `tracked` — the LLM may hint via the tool schema but never sets it). `true` = one setup action makes the value auto-recur.
+- **`activatedAt`** (`DateTime?`) — user-facing activation state. `null` = not set up; a timestamp = active. Period-independent (lives on `Benefit`, mirroring `UserCard.lastVerifiedAt`). Toggling off sets it back to `null`.
+
+**No `BenefitPeriod` records.** A `setAndForget = true` benefit has no per-period usage — its entire state is `activatedAt`. `ensureCurrentPeriod()` and initial period creation skip set-and-forget benefits (guard on `setAndForget`). Binding — see CONSTRAINT-17. Consequence: no per-period history for these benefits (intentional).
+
+**Write path.** Activation is toggled via a new `setBenefitActivation(benefitId, activated)` in `src/lib/engine/usage.ts` — it writes `Benefit.activatedAt` only, never `usedAmount`, so CONSTRAINT-07 is unaffected. It is the sole write path for `activatedAt` (CONSTRAINT-16). A dedicated API route is required (specced in `docs/api-spec.md` during task breakdown).
+
+**Triage.** `src/lib/engine/expiring.ts` (`buildOverviewTriage` + helpers) branches on `setAndForget`: an `active` benefit is excluded from "needs attention" / expiring-soon / money-at-risk and its `value` counts toward the realized/secured total; a `not set up` benefit renders calm — no urgency.
+
+**UI.** The Cards space renders set-and-forget benefits in a distinct "Automatic" group with a sticky toggle; `src/components/cards/benefit-item.tsx` dispatch gains a `setAndForget` branch ahead of the per-`type` widget routing. Visual treatment → `@designer`.
+
+**Migration.** One additive Prisma migration adds both fields with safe defaults (`false` / `null`); existing benefits are unaffected until a re-scrape re-classifies them. No backfill. Per CONSTRAINT-06, activation does not survive a re-scrape (re-scrape deletes and replaces all benefits) — the user re-activates afterward; an accepted trade-off (see `docs/founder-brief.md` FB15).
+
+**Scope.** "Fix only" per `docs/prd.md` Feature 8 — the activation nudge, a `dismissed` state, and annual re-confirmation are explicitly out of scope.
 
 ---
 
