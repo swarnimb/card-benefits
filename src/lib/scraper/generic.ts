@@ -26,6 +26,8 @@ const HTTP_TIMEOUT_MS = 10_000;
 const PLAYWRIGHT_NAV_TIMEOUT_MS = 30_000;
 const MIN_FASTPATH_CONTENT_LENGTH = 1_500;
 const MIN_CONTENT_LENGTH = 200;
+/** Chars of scraped text echoed in the DEBUG probe line (Task 47 / NEW-6 triage). */
+const SCRAPE_PREVIEW_LENGTH = 500;
 const SCROLL_STEP_PX = 800;
 const SCROLL_PAUSE_MS = 250;
 const MAX_SCROLL_ITERS = 10;
@@ -52,8 +54,11 @@ export class ScraperError extends Error {
  */
 export async function genericScrape(url: string, issuer = "generic"): Promise<string> {
   const fastPathResult = await tryHttpFastPath(url);
-  if (fastPathResult) return fastPathResult;
-  return tryPlaywrightFallback(url, issuer);
+  const path = fastPathResult ? "http-fast-path" : "playwright-fallback";
+  const rawText = fastPathResult || (await tryPlaywrightFallback(url, issuer));
+  const preview = rawText.slice(0, SCRAPE_PREVIEW_LENGTH).replace(/\s+/g, " ");
+  debugLog(`path=${path} rawText.length=${rawText.length} preview="${preview}"`);
+  return rawText;
 }
 
 async function tryHttpFastPath(url: string): Promise<string | null> {
@@ -178,5 +183,18 @@ async function expandCollapsedSections(page: Page): Promise<void> {
       await handle.click({ timeout: 2_000 }).catch(() => {});
       clicks++;
     }
+  }
+}
+
+/**
+ * Gated debug log — EH-01 (not silent) / EH-02 (context). Visible only when
+ * DEBUG=true. Third copy of the Task 45 pattern (also in parser/index.ts and
+ * parser/classification.ts). The shared-util extraction the Task 45 comment
+ * anticipated is deliberately deferred — pulling parser files into this probe
+ * task's scope would widen its blast radius. Tracked as a follow-up cleanup.
+ */
+function debugLog(message: string): void {
+  if (process.env.DEBUG === "true") {
+    console.log("[scraper] " + message);
   }
 }

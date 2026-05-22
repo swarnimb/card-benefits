@@ -45,7 +45,7 @@
     "id": "amex-platinum",
     "issuer": "Amex",
     "name": "Platinum Card",
-    "scrapeUrl": "https://www.americanexpress.com/en-us/credit-cards/platinum-card/",
+    "scrapeUrl": "https://www.americanexpress.com/us/credit-cards/card/platinum/",
     "defaultColor": "#B8952A"
   },
   {
