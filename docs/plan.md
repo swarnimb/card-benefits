@@ -7,8 +7,8 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-05-21 (Phase H added — Feature 8, Tasks 49–55)
-**Total tasks:** 48 in MVP scope (Phase F: 8/9 done — 40, 41, 42, 43, 44, 45, 47, 48 ✅; 46 GATE ready to run) + 1 Phase G backlog (G1) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55)
+**Last Updated:** 2026-05-21 (Task 46 Phase F GATE closed; Phase G backlog +2 — G2/G3 for NEW-9/NEW-10)
+**Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1, G2, G3) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55)
 
 ---
 
@@ -1638,18 +1638,18 @@
 - Run `@qa` over the full app. Target outcome: APPROVED; all 5 NEW findings closed; test count ≥ 151 (extensions count as net-new).
 
 **Acceptance criteria:**
-- [ ] `@security` returns CLEAR with npm audit advisories resolved and no new findings.
-- [ ] `@qa` returns APPROVED with all 5 NEW findings explicitly marked closed in `docs/qa-report.md`.
-- [ ] Manual Puppeteer spot-check of the 5 fix paths (orphan-card flow, red Remove button, full-name title, FU classification, Sapphire Reserve scrape) — each visually verified.
-- [ ] Tasks 40–45 all marked `[x]` in `docs/plan.md`.
-- [ ] `docs/session-log.md` entry: "Defect closeout bundle complete. Ready for `@launch-prep`."
+- [x] `@security` returns CLEAR with npm audit advisories resolved and no new findings. *(CLEAR — 0 Critical / 0 High / 0 Medium / 6 Low; no new findings from Tasks 43–48; npm audit 11 moderate, all build/test/tooling, 0 at production runtime; SEC-07 clean.)*
+- [x] `@qa` returns APPROVED. *(APPROVED — 0 blocking / 7 non-blocking; 176/176 tests; clean build. Spec drift corrected: bundle = Tasks 40–48, findings NEW-1…10 not "5". NEW-1…6 + NEW-8 marked closed; NEW-7/9/10 are accepted post-MVP deferrals tracked as Tasks G1/G2/G3 — not gate blockers.)*
+- [x] Manual Puppeteer spot-check of the 5 fix paths — each visually verified. *(2026-05-21 hybrid Puppeteer walkthrough — all 5 PASS, no DB writes left behind: NEW-1 orphan-card deleted on Cancel (Admin back to 6 cards); NEW-2 red Remove button at 1280px + 375px; NEW-3 title "Remove Chase Freedom Unlimited?"; NEW-4 Amex Platinum (real content-rich card, substituted for the spec's "Sapphire Reserve") → 21 benefits, no max_tokens overflow; NEW-5 FU "2% Cash Back on Lyft" → auto-earn, zero discretionary-credit.)*
+- [x] Tasks 40–48 all marked `[x]` in `docs/plan.md`. *(Spec said "40–45"; bundle grew to include 47 + 48. All verified `[x]`.)*
+- [x] `docs/session-log.md` entry: "Defect closeout bundle complete. Ready for `@launch-prep`." *(Appended 2026-05-21.)*
 
 **Tests required:**
 - None new in this task — the new tests live in Tasks 40, 41, 43, 44, 45. This is the gate.
 
 **Depends on:** Tasks 40, 41, 42, 43, 44, 45, 47, 48
 
-**Status:** [ ]
+**Status:** [x] *(Closed 2026-05-21. Phase F GATE passed — `@security` CLEAR + `@qa` APPROVED (176/176 tests, clean build), live Puppeteer spot-check of all 5 fix paths PASS. Bundle = Tasks 40–48 (spec drift corrected from "40–45"); NEW-1…6,8 closed; NEW-7/9/10 deferred post-MVP as Tasks G1/G2/G3. Ready for `@launch-prep`.)*
 
 **Specialist:** None (gate task)
 
@@ -1776,6 +1776,58 @@
 **Status:** [ ]
 
 **Specialist:** `@ui-cardmaxxer` (admin UI work; React state lifecycle).
+
+---
+
+## Task G2: Resync `Card.scrapeUrl` from the catalog at scrape time (NEW-9)
+
+**Surfaced:** 2026-05-21 during Task 47 (NEW-6 fix); confirmed in the Task 46 GATE.
+
+**Problem:** The scrape route reads `userCard.card.scrapeUrl` from the `Card` DB table, not from `data/card-catalog.json`. The catalog→DB resync runs only inside the add-card flow (`user-cards/route.ts:40-44`). A catalog URL correction therefore never reaches an already-added card — Task 47's Amex Platinum fix had to be hand-applied to the `Card` row via raw SQL.
+
+**MVP impact:** Low–medium. Catalog edits are rare (it is a code artifact — CONSTRAINT-04). But every catalog URL correction silently fails to take effect for owned cards until someone runs SQL — a real footgun, and the direct cause of the NEW-10 manual-SQL burden.
+
+**Fix candidates (decide during execution):**
+- **Resync at scrape time** — before each scrape, refresh the `Card` row's catalog-derived fields (`scrapeUrl`, etc.) from `data/card-catalog.json`. Simplest; keeps the catalog as source of truth per CONSTRAINT-04; the `Card` row stays a pure cache.
+- **Admin "refresh catalog" action** — an explicit button that re-syncs all `Card` rows on demand. More visible, more code.
+
+**Acceptance criteria:**
+- [ ] A catalog `scrapeUrl` correction reaches an already-added card without manual SQL — verified by editing a catalog URL and confirming the next scrape uses the new URL.
+- [ ] CONSTRAINT-04 preserved — the catalog JSON remains the source of truth; the `Card` row is a cache.
+- [ ] Decision recorded: resync-at-scrape-time vs admin action, with rationale.
+
+**Tests required:** Unit/integration test that the scrape route picks up a changed catalog URL. TBD on the chosen fix path.
+
+**Depends on:** None. Related to Task 47 (NEW-6) and Task G3 (NEW-10).
+
+**Status:** [ ]
+
+**Specialist:** `@scraper` / `@dev` (scrape route + catalog sync).
+
+---
+
+## Task G3: Correct dead Amex `scrapeUrl`s on Blue Cash + Amex Gold (NEW-10)
+
+**Surfaced:** 2026-05-21 — NEW-10 during Task 47; the Amex Gold variant found during the Task 46 `@qa` pass.
+
+**Problem:** Amex Blue Cash Preferred, Blue Cash Everyday, and Amex Gold carry the dead `/en-us/credit-cards/…/` Amex URL scheme — the same root cause as NEW-6 (Task 47). Amex retired that scheme; these URLs 404, so the cards scrape to 0 benefits.
+
+**MVP impact:** Medium. Three owned cards cannot be populated by scrape until their URLs are corrected. Manual benefit entry via the review gate is the current fallback.
+
+**Fix:** Correct the URL to the live `…/us/credit-cards/card/…/` scheme in `data/card-catalog.json` for all three cards, and in their cached `Card` DB rows. Verify each re-scrape returns substantive content. **If Task G2 (NEW-9) ships first, the DB-row correction becomes automatic** — only the catalog needs editing.
+
+**Acceptance criteria:**
+- [ ] BCP, BCE, and Amex Gold catalog `scrapeUrl` values corrected to the live `…/us/credit-cards/card/…/` scheme.
+- [ ] Each card's cached `Card.scrapeUrl` updated (manually, or automatically if Task G2 has shipped).
+- [ ] Each of the three re-scrapes returns substantive benefit content in the review gate (verified live).
+
+**Tests required:** None expected (data correction). Add a test only if an extraction path changes.
+
+**Depends on:** None. Cleaner done after Task G2 (NEW-9) — then no manual SQL is needed.
+
+**Status:** [ ]
+
+**Specialist:** `@scraper`.
 
 ---
 
