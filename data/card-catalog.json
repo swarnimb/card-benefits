@@ -38,7 +38,7 @@
     "id": "amex-gold",
     "issuer": "Amex",
     "name": "Gold Card",
-    "scrapeUrl": "https://www.americanexpress.com/en-us/credit-cards/gold-card/",
+    "scrapeUrl": "https://www.americanexpress.com/us/credit-cards/card/gold-card/",
     "defaultColor": "#B8952A"
   },
   {
@@ -52,14 +52,14 @@
     "id": "amex-blue-cash-preferred",
     "issuer": "Amex",
     "name": "Blue Cash Preferred",
-    "scrapeUrl": "https://www.americanexpress.com/en-us/credit-cards/blue-cash-preferred-credit-card/",
+    "scrapeUrl": "https://www.americanexpress.com/us/credit-cards/card/blue-cash-preferred/",
     "defaultColor": "#B8952A"
   },
   {
     "id": "amex-blue-cash-everyday",
     "issuer": "Amex",
     "name": "Blue Cash Everyday",
-    "scrapeUrl": "https://www.americanexpress.com/en-us/credit-cards/blue-cash-everyday-credit-card/",
+    "scrapeUrl": "https://www.americanexpress.com/us/credit-cards/card/blue-cash-everyday/",
     "defaultColor": "#B8952A"
   },
   {
