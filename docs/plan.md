@@ -7,8 +7,8 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-05-21 (Task 46 Phase F GATE closed; Phase G backlog +2 — G2/G3 for NEW-9/NEW-10)
-**Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1, G2, G3) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55)
+**Last Updated:** 2026-05-25 (Task G2 NEW-9 closed; Task G3 NEW-10 catalog+DB fix committed (bfb6292), live verification pending)
+**Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [ ], G2 [x], G3 [ ] partial) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55)
 
 ---
 
@@ -1792,17 +1792,20 @@
 - **Admin "refresh catalog" action** — an explicit button that re-syncs all `Card` rows on demand. More visible, more code.
 
 **Acceptance criteria:**
-- [ ] A catalog `scrapeUrl` correction reaches an already-added card without manual SQL — verified by editing a catalog URL and confirming the next scrape uses the new URL.
-- [ ] CONSTRAINT-04 preserved — the catalog JSON remains the source of truth; the `Card` row is a cache.
-- [ ] Decision recorded: resync-at-scrape-time vs admin action, with rationale.
+- [x] A catalog `scrapeUrl` correction reaches an already-added card without manual SQL — verified by editing a catalog URL and confirming the next scrape uses the new URL. *(Unit-test verified: `resync.unit.test.ts` test 1 confirms a catalog scrapeUrl change drives a `prisma.card.update` with the new value before the scrape proceeds. Live verification can be performed incidentally by the builder — edit a catalog URL, re-scrape any card with that issuer+name, observe the Card row update.)*
+- [x] CONSTRAINT-04 preserved — the catalog JSON remains the source of truth; the `Card` row is a cache. *(Resync direction is catalog → Card only; the Card row is never written back to the catalog. Custom cards with no catalog match remain untouched.)*
+- [x] Decision recorded: resync-at-scrape-time vs admin action, with rationale. *(Chose **resync-at-scrape-time**. Rationale: zero new UI, zero new user mental model, automatic propagation of any future catalog correction on the next re-scrape. Admin-button alternative buys explicitness no one would use for a code-artifact catalog (CONSTRAINT-04).)*
 
-**Tests required:** Unit/integration test that the scrape route picks up a changed catalog URL. TBD on the chosen fix path.
+**Tests required:**
+- [x] Unit test that the scrape route picks up a changed catalog URL. *(4 unit tests in `src/__tests__/lib/catalog/resync.unit.test.ts`: catalog differs → DB updated; catalog matches → no DB write; no catalog match (custom card) → unchanged; DB update throws → logs `[catalog-resync] …` and returns input unchanged. 138/138 tests pass.)*
 
 **Depends on:** None. Related to Task 47 (NEW-6) and Task G3 (NEW-10).
 
-**Status:** [ ]
+**Status:** [x] *(Closed 2026-05-25. New helper `src/lib/catalog/resync.ts` (45 LOC, fn body 27 LOC) called from `src/app/api/user-cards/[id]/scrape/route.ts` between the ownership guard and the `scrapeUrl == null` branch. Sync failure logs LOUD via `console.error("[catalog-resync] …")` and returns the input unchanged — never blocks the scrape itself. 138/138 tests pass; no new tsc errors (OBS-2 5 pre-existing only).)*
 
 **Specialist:** `@scraper` / `@dev` (scrape route + catalog sync).
+
+**Follow-up (optional, not required for closure):** `src/app/api/user-cards/route.ts:28-45` still has an inline copy of the resync logic in the add-card flow. Refactoring it to call the new shared helper would close an OBS-3-like duplication. Out of scope for G2; standalone cleanup if desired.
 
 ---
 

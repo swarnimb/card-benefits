@@ -1,7 +1,7 @@
 # Known Issues: CardMaxxer
 
 > Consolidated list of known bugs, limitations, and accepted risks at launch.
-> Updated: 2026-05-21 — refreshed after the Tasks 40–48 defect-fix bundle (Phase F GATE).
+> Updated: 2026-05-25 — Task G2 (NEW-9) closed; Task G3 (NEW-10) code+data complete, awaiting live re-scrape verification.
 
 ---
 
@@ -12,23 +12,23 @@ MVP is gate-cleared. All 48 MVP tasks (Phases A–F) are complete; Phases G and 
 - **QA:** APPROVED — `docs/qa-report.md` (2026-05-21). 176/176 tests passing, clean build, 0 blocking issues.
 - **Security:** CLEAR — `docs/security-report.md` (2026-05-21). 0 Critical / 0 High / 0 Medium / 6 Low.
 - **Blocking issues:** 0.
-- **Open non-blocking items:** 11 — 3 deferred defects, 2 code-quality observations, 6 security Lows (listed below).
+- **Open non-blocking items:** 10 — 2 deferred defects (NEW-7 open; NEW-10 code+data complete, live verification pending), 2 code-quality observations, 6 security Lows (listed below).
 
 ---
 
 ## Open Defects — deferred post-MVP
 
-Three defects surfaced during the Tasks 40–48 bundle were deliberately deferred. None blocks release; all are root-caused. Detail and founder briefs in `docs/qa-report.md`.
+Three defects surfaced during the Tasks 40–48 bundle were deliberately deferred. None blocks release; all are root-caused. NEW-9 closed by Task G2 on 2026-05-25. NEW-10 code+data complete on 2026-05-25 (Task G3 partial), live re-scrape verification pending. Detail and founder briefs in `docs/qa-report.md`.
 
 ### NEW-7 — Fresh-add Cancel rollback unreachable after navigation
 - **What:** `AdminPage.freshAddCardId` is held in React `useState`. If the user navigates away from `/admin` during the 30–40s fresh-add scrape, the marker is lost and a later Cancel cannot roll back the orphan card.
 - **Impact:** Low. Narrow UX edge — worst case is one stray 0-benefit card, removable manually. No data corruption. The canonical flow (stay on Admin, then Cancel) works correctly.
 - **Tracked:** `docs/plan.md` — Phase G, Task G1. Candidate fixes: sessionStorage persistence / disable BottomNav during scrape / accept-and-document.
 
-### NEW-9 — Catalog→DB sync gap
-- **What:** The scrape route reads `Card.scrapeUrl` from the DB. The catalog→DB resync runs only in the add-card flow, so correcting a URL in `data/card-catalog.json` does not reach an already-added card.
-- **Impact:** Low. Catalog URL corrections must be hand-applied via SQL to existing `Card` rows (as Task 47 required). Maintenance friction only — no user-facing break.
-- **Tracked:** `docs/plan.md` — Phase G. Fix: resync `Card.scrapeUrl` at scrape time, or add an admin "refresh catalog" action.
+### NEW-9 — Catalog→DB sync gap ✅ CLOSED 2026-05-25
+- **What:** The scrape route read `Card.scrapeUrl` from the DB. The catalog→DB resync ran only in the add-card flow, so correcting a URL in `data/card-catalog.json` did not reach an already-added card.
+- **Impact:** Low. Catalog URL corrections had to be hand-applied via SQL to existing `Card` rows (as Task 47 required). Maintenance friction only — no user-facing break.
+- **Fix:** Task G2 — new `src/lib/catalog/resync.ts` helper called from the scrape route before each scrape. Catalog → Card sync direction only; CONSTRAINT-04 preserved. Sync failure logs `[catalog-resync] …` and returns the input unchanged, never blocks the scrape.
 
 ### NEW-10 — Blue Cash Preferred + Everyday carry the dead Amex URL
 - **What:** `data/card-catalog.json` still has the dead `/en-us/credit-cards/...` Amex URL scheme for Blue Cash Preferred and Blue Cash Everyday (Amex Gold too) — same root cause as NEW-6, fixed for Amex Platinum in Task 47.

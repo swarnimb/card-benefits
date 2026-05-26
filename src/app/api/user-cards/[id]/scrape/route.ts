@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { scrapeCard } from "@/lib/scraper";
 import { ScraperError } from "@/lib/scraper/generic";
 import { parseBenefits, ParserError } from "@/lib/parser";
+import { resyncCardFromCatalog } from "@/lib/catalog/resync";
 import type { DraftBenefit } from "@/types/benefit";
 
 const CUSTOM_CARD_SCRAPE_ERROR = "Custom card — no scrape URL. Add benefits manually.";
@@ -27,6 +28,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (!userCard || userCard.userId !== userId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  const syncedCard = await resyncCardFromCatalog(userCard.card);
+  userCard = { ...userCard, card: syncedCard };
   if (!userCard.card.scrapeUrl) {
     return NextResponse.json({ benefits: [], scrapeError: CUSTOM_CARD_SCRAPE_ERROR });
   }
