@@ -1,7 +1,7 @@
 # Known Issues: CardMaxxer
 
 > Consolidated list of known bugs, limitations, and accepted risks at launch.
-> Updated: 2026-05-25 — Task G2 (NEW-9) closed; Task G3 (NEW-10) code+data complete, awaiting live re-scrape verification.
+> Updated: 2026-05-26 — Task G2 (NEW-9) closed; Task G3 (NEW-10) code+data complete (live verification pending); NEW-11 surfaced (statement-anchor pre-existing bug).
 
 ---
 
@@ -12,7 +12,7 @@ MVP is gate-cleared. All 48 MVP tasks (Phases A–F) are complete; Phases G and 
 - **QA:** APPROVED — `docs/qa-report.md` (2026-05-21). 176/176 tests passing, clean build, 0 blocking issues.
 - **Security:** CLEAR — `docs/security-report.md` (2026-05-21). 0 Critical / 0 High / 0 Medium / 6 Low.
 - **Blocking issues:** 0.
-- **Open non-blocking items:** 10 — 2 deferred defects (NEW-7 open; NEW-10 code+data complete, live verification pending), 2 code-quality observations, 6 security Lows (listed below).
+- **Open non-blocking items:** 11 — 3 deferred defects (NEW-7 open; NEW-10 code+data complete, live verification pending; NEW-11 pre-existing statement-anchor bug, low priority), 2 code-quality observations, 6 security Lows (listed below).
 
 ---
 
@@ -33,7 +33,12 @@ Three defects surfaced during the Tasks 40–48 bundle were deliberately deferre
 ### NEW-10 — Blue Cash Preferred + Everyday carry the dead Amex URL
 - **What:** `data/card-catalog.json` still has the dead `/en-us/credit-cards/...` Amex URL scheme for Blue Cash Preferred and Blue Cash Everyday (Amex Gold too) — same root cause as NEW-6, fixed for Amex Platinum in Task 47.
 - **Impact:** Low. Scraping either Blue Cash card returns empty benefits. Neither card has benefits in the DB today, so nothing visible breaks; a re-scrape won't populate them until the URLs are corrected. Intersects NEW-9 — the `Card` rows must be updated directly, not just the catalog.
-- **Tracked:** `docs/plan.md` — Phase G. Fix: correct the catalog + `Card` rows to the `/us/credit-cards/card/...` scheme, verify a re-scrape.
+- **Tracked:** `docs/plan.md` — Phase G, Task G3. Catalog + `Card` rows corrected on 2026-05-26 (commit `bfb6292`); AC 3 (live re-scrape returns substantive content) pending user verification during populate resumption.
+
+### NEW-11 — calcStatementBoundary is monthly-only (pre-existing)
+- **What:** `src/lib/engine/periods.ts:calcStatementBoundary` produces month-long windows regardless of `resetPeriod`. The `quarterly+statement` and `annual+statement` combinations therefore silently produce monthly period windows — wrong cadence.
+- **Impact:** Low. Statement-anchored quarterlies and annuals are uncommon — most quarterly benefits are calendar-anchored (e.g. Sapphire Reserve $300 travel = calendar year). Discovered while implementing semiannual support 2026-05-26; pre-existing bug, NOT introduced by today's work.
+- **Tracked:** Phase G follow-up. Fix: make `calcStatementBoundary` honor `resetPeriod` (or split into `calcMonthlyStatement`, `calcQuarterlyStatement`, `calcAnnualStatement`).
 
 ---
 

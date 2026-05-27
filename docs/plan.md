@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-05-25 (Task G2 NEW-9 closed; Task G3 NEW-10 catalog+DB fix committed (bfb6292), live verification pending)
+**Last Updated:** 2026-05-26 (Task G2 NEW-9 closed; Task G3 NEW-10 partial; tracked toggle made user-overridable; semiannual reset period added)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [ ], G2 [x], G3 [ ] partial) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55)
 
 ---
@@ -1828,7 +1828,7 @@
 
 **Depends on:** None. Cleaner done after Task G2 (NEW-9) — then no manual SQL is needed.
 
-**Status:** [ ]
+**Status:** [ ] partial *(2026-05-25/26: catalog + DB Card rows corrected in `bfb6292`. ACs 1 + 2 verified by code/data inspection; AC 3 — live re-scrape returns substantive benefit content — still pending user verification on Amex Gold/BCP/Everyday during populate resumption.)*
 
 **Specialist:** `@scraper`.
 

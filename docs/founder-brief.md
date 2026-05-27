@@ -270,3 +270,33 @@ The split of responsibility matters: the AI only assigns the bucket (a judgment 
 **Check before approving:** Two accepted trade-offs. (1) After you re-scrape a card, its set-and-forget benefits revert to "not set up" and you re-tap them once — re-scrapes are quarterly-ish, and preserving activation across a re-scrape would break the existing "re-scrape replaces everything" rule (CONSTRAINT-06). (2) Set-and-forget benefits keep no month-by-month history — there is nothing to track per month.
 
 **What this closes off:** The deferred v2 additions — a proactive "you're missing $209/yr" nudge and a "not interested" dismiss state — stay easy to add later. But per-period audit history for set-and-forget benefits is deliberately not modeled; a future feature wanting "show me each month Walmart+ posted" would have to add it back.
+
+---
+
+## FB16 — Catalog Corrections Now Propagate Automatically
+
+**Date:** 2026-05-26
+**Architecture section:** `docs/architecture.md` → Scraper Architecture → Catalog → Card resync at scrape time
+
+**Decided:** Every scrape now syncs the Card DB row to match the catalog JSON before scraping. The catalog stays the single source of truth; the Card row is a self-correcting cache.
+
+**Means for your product:** When you fix a wrong URL in `data/card-catalog.json`, the next re-scrape of that card automatically picks up the fix. No more hand-applied SQL like Task 47 required. Custom (non-catalog) cards are unaffected — they have no catalog entry to match against.
+
+**Check before approving:** Does the catalog still feel like the right source of truth (vs. moving to an admin UI to manage cards)? If you later prefer admin-managed cards, this design rebuilds easily — the resync helper would be removed, and an admin form would write directly to the Card row.
+
+**What this closes off:** NEW-9 silent-sync footgun. Closes a maintenance friction class that would have grown linearly with the catalog — every URL fix would otherwise have required a manual DB update per affected user-card. Resync failure (broken catalog file, DB write error) logs and returns the input card unchanged — it never blocks the scrape.
+
+---
+
+## FB17 — Users Can Override Tracked Classifications
+
+**Date:** 2026-05-26
+**Architecture section:** `docs/architecture.md` → Data Model → Benefit Classification & Tracking → Decision A evolution (2026-05-26)
+
+**Decided:** The `tracked` field on each benefit is now user-editable in two places (the review gate and the Cards page). The LLM's classification still drives the default, but you have the final say. `classification` itself stays server-derived — only the policy bit (`tracked`) becomes user-editable.
+
+**Means for your product:** When the LLM mis-classifies (e.g., drops a real credit into `auto-earn` and silently hides it from Overview), you can fix it with one click — both during the review gate AND later on the Cards page. The Cards-page toggle is optimistic with revert-on-failure, so it feels instant. The data is preserved; nothing is silently dropped.
+
+**Check before approving:** Are you OK with users diverging from the LLM's classification permanently? (Yes — that's the point.) Are there any downstream features (recommendations, alerts) that assume `tracked` is server-deterministic? (Today: no — Overview triage, expiring-soon, and period creation all read `benefit.tracked` directly, so the override propagates everywhere automatically.)
+
+**What this closes off:** Trust-critical UX gap. Mis-classification was previously unrecoverable without a DB edit; now it's a single click. The original Decision A ("`tracked` is server-derived; never client-set") is formally evolved — recorded in `docs/architecture.md` under Decision A evolution (2026-05-26). The bucket → default mapping is unchanged, so the conservative default behavior (ambiguity → tracked) is preserved.

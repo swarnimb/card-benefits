@@ -245,6 +245,23 @@ Migration: additive at the SQLite column level (add `classification`, `tracked`;
 
 Resolved 2026-05-15: standardized to a single field `tracked` across PRD, architecture, and API spec. `isTrackable` is retired — do not reintroduce.
 
+#### Decision A evolution (2026-05-26) — `tracked` is user-overridable
+
+The original Decision A (MVP) stated: `tracked` is server-derived from `classification`; never client-set. As of 2026-05-26 this is evolved:
+
+- **`tracked` now has a server-derived default** via `deriveTracked(classification)` in `src/lib/parser/classification.ts` (unchanged).
+- **A client-supplied `tracked` value WINS** on both `POST /api/benefits/confirm` and `PATCH /api/benefits/[id]`. The server still validates the value (`boolean`); it no longer overwrites a present `tracked` with the deterministic default.
+- **`classification` itself remains server-only.** The LLM assigns the bucket; the user cannot reach `classification`. Only the policy bit (`tracked`) is user-editable.
+
+Two override points exist in the UI:
+
+- **Review gate (pre-save).** `BenefitEditRow` shows an Eye / EyeOff toggle that flips `tracked` at confirm time — the toggled value is the one that lands in the DB on the bulk save.
+- **Cards page (post-save).** `BenefitItem` shows an inline Eye / EyeOff toggle on every benefit row. Toggling fires `PATCH /api/benefits/[id]` with optimistic UI; on PATCH failure, the UI reverts.
+
+Filter sites — Overview triage (`buildOverviewTriage` in `src/lib/engine/expiring.ts`), expiring-soon, and period creation guards — read `benefit.tracked` directly, so the toggle takes effect everywhere automatically with no changes at those sites.
+
+**Why it's safe:** The bucket → default mapping is unchanged, so the LLM still drives the conservative default (ambiguity → `discretionary-credit` → tracked = `true`). The user can only diverge from the default deliberately, and the divergence is recoverable from the same UI control. Excluded benefits remain persisted (never dropped), so a future "show me everything" view still works.
+
 ### Set-and-Forget Benefits (Feature 8)
 
 Added 2026-05-21 via `@cto`. Some benefits (Walmart+, Uber One, CLEAR, Oura, digital-entertainment credits) reimburse a membership the user enrolls in once, then recur automatically with no per-period action. They need a **period-independent activation state** — the per-period `BenefitPeriod.usedAmount` cannot express it, because the period engine zeroes `usedAmount` on every reset.
@@ -339,6 +356,23 @@ async function updateBenefitUsage(benefitId: string, newAmount: number): Promise
 - 30-second Playwright nav timeout; 10-second HTTP fast-path timeout.
 - Returns text ≥200 chars or throws `ScraperError({ url, issuer, reason })`.
 - ScraperError → API returns `200 { benefits: [], scrapeError }` so the review gate surfaces manual entry (CONSTRAINT-10).
+
+### Catalog → Card resync at scrape time (closes NEW-9)
+
+Added 2026-05-26 via Task G2. `data/card-catalog.json` is the source of truth for catalog cards (CONSTRAINT-04); the `Card` DB row is a cache populated at add-time by the find-or-create pattern (FB9). Before Task G2, fixing a wrong `scrapeUrl` or `defaultColor` in the catalog JSON did **not** propagate to already-added `Card` rows — it required hand-applied SQL (the maintenance burden Task 47 exposed and that NEW-9 tracked).
+
+**New module:** `src/lib/catalog/resync.ts` exports `resyncCardFromCatalog(card): Card`. It loads the catalog JSON, matches by `(issuer, name)`, and — if `scrapeUrl` or `defaultColor` differs from the input Card row — updates the Card row in place and returns the refreshed object. Sync direction is **catalog → Card row only**; the reverse never happens.
+
+**Call site:** `src/app/api/user-cards/[id]/scrape/route.ts` invokes `resyncCardFromCatalog(card)` between the ownership guard and the `scrapeUrl == null` check. Effect: every scrape automatically picks up the latest catalog values for that card before reading `scrapeUrl`.
+
+**Failure mode:** Catalog read failure (file missing / JSON parse error) or DB write failure logs `[catalog-resync] …` via `console.error` and returns the input card unchanged. The resync never throws and never blocks the scrape — a broken catalog file degrades to "scrape using whatever's already in the DB row," not a scrape outage.
+
+**Invariants preserved:**
+- CONSTRAINT-04 — catalog remains the single source of truth; the Card row is a self-correcting cache.
+- The find-or-create pattern (FB9) still owns the first-time Card row creation; resync handles subsequent updates.
+- Custom (non-catalog) cards are unaffected — no match in the catalog means no update.
+
+Closes NEW-9. See `docs/founder-brief.md` FB16.
 
 ---
 
