@@ -44,8 +44,9 @@ export const BENEFIT_EXTRACTION_TOOL = {
             },
             resetPeriod: {
               type: "string",
-              enum: ["monthly", "quarterly", "annual", "once"],
-              description: "How often the benefit resets",
+              enum: ["monthly", "quarterly", "semiannual", "annual", "once"],
+              description:
+                "How often the benefit resets; use 'semiannual' for twice-a-year benefits like H1/H2 splits or 'every 6 months'",
             },
             resetAnchor: {
               type: "string",

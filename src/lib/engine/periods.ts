@@ -34,6 +34,13 @@ function calcCalendarBoundary(
       periodEnd: eod(new Date(year, quarterStartMonth + 3, 0)),
     };
   }
+  if (resetPeriod === "semiannual") {
+    const halfStartMonth = Math.floor(month / 6) * 6;
+    return {
+      periodStart: new Date(year, halfStartMonth, 1),
+      periodEnd: eod(new Date(year, halfStartMonth + 6, 0)),
+    };
+  }
   // annual
   return { periodStart: new Date(year, 0, 1), periodEnd: eod(new Date(year, 11, 31)) };
 }
@@ -55,6 +62,27 @@ function calcStatementBoundary(
   };
 }
 
+function calcSemiannualStatementBoundary(
+  now: Date,
+  statementDay: number
+): { periodStart: Date; periodEnd: Date | null } {
+  // Find the most recent statement open: shift back one month if current day < statementDay.
+  const baseYear = now.getFullYear();
+  const baseMonth = now.getMonth();
+  const stmtMonth = now.getDate() < statementDay ? baseMonth - 1 : baseMonth;
+  const anchorYear = stmtMonth < 0 ? baseYear - 1 : baseYear;
+  const anchorMonth = (stmtMonth + 12) % 12;
+  // Align to a 6-month boundary measured from the anchor month modulo 6.
+  const cycleOffset = ((anchorMonth % 6) + 6) % 6;
+  const startMonthIndex = anchorMonth - cycleOffset; // can be negative — Date constructor handles overflow
+  const start = new Date(anchorYear, startMonthIndex, statementDay);
+  const nextClose = new Date(anchorYear, startMonthIndex + 6, statementDay);
+  return {
+    periodStart: start,
+    periodEnd: eod(new Date(nextClose.getFullYear(), nextClose.getMonth(), nextClose.getDate() - 1)),
+  };
+}
+
 function calcAnniversaryBoundary(
   now: Date,
   anniversaryDate: Date
@@ -66,6 +94,27 @@ function calcAnniversaryBoundary(
   const [start, next] = now >= thisYearAnniversary
     ? [thisYearAnniversary, new Date(year + 1, anniversaryMonth, anniversaryDay)]
     : [new Date(year - 1, anniversaryMonth, anniversaryDay), thisYearAnniversary];
+  return {
+    periodStart: start,
+    periodEnd: eod(new Date(next.getFullYear(), next.getMonth(), next.getDate() - 1)),
+  };
+}
+
+function calcSemiannualAnniversaryBoundary(
+  now: Date,
+  anniversaryDate: Date
+): { periodStart: Date; periodEnd: Date | null } {
+  // Two 6-month windows per anniversary year: H1 = anniv..+6mo, H2 = +6mo..+12mo.
+  const year = now.getFullYear();
+  const anniversaryMonth = anniversaryDate.getMonth();
+  const anniversaryDay = anniversaryDate.getDate();
+  const thisYearAnniversary = new Date(year, anniversaryMonth, anniversaryDay);
+  const annivStart = now >= thisYearAnniversary
+    ? thisYearAnniversary
+    : new Date(year - 1, anniversaryMonth, anniversaryDay);
+  const midpoint = new Date(annivStart.getFullYear(), annivStart.getMonth() + 6, annivStart.getDate());
+  const nextAnniv = new Date(annivStart.getFullYear() + 1, annivStart.getMonth(), annivStart.getDate());
+  const [start, next] = now < midpoint ? [annivStart, midpoint] : [midpoint, nextAnniv];
   return {
     periodStart: start,
     periodEnd: eod(new Date(next.getFullYear(), next.getMonth(), next.getDate() - 1)),
@@ -91,11 +140,13 @@ export function calculatePeriodBoundary(
 
   if (resetAnchor === "statement") {
     if (!statementDay) throw new PeriodEngineError({ message: "statementDay required for statement anchor", fn: "calculatePeriodBoundary", benefitId: "n/a" });
+    if (resetPeriod === "semiannual") return calcSemiannualStatementBoundary(now, statementDay);
     return calcStatementBoundary(now, statementDay);
   }
 
   if (resetAnchor === "anniversary") {
     if (!anniversaryDate) throw new PeriodEngineError({ message: "anniversaryDate required for anniversary anchor", fn: "calculatePeriodBoundary", benefitId: "n/a" });
+    if (resetPeriod === "semiannual") return calcSemiannualAnniversaryBoundary(now, anniversaryDate);
     return calcAnniversaryBoundary(now, anniversaryDate);
   }
 

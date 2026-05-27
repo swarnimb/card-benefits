@@ -7,7 +7,7 @@ import type { DraftBenefit } from "@/types/benefit";
 
 const VALID_TYPES = new Set(["credit", "subscription", "access", "perk"]);
 const VALID_VALUE_UNITS = new Set(["dollars", "points"]);
-const VALID_RESET_PERIODS = new Set(["monthly", "quarterly", "annual", "once"]);
+const VALID_RESET_PERIODS = new Set(["monthly", "quarterly", "semiannual", "annual", "once"]);
 const VALID_RESET_ANCHORS = new Set(["calendar", "statement", "anniversary"]);
 const VALID_CATEGORIES = new Set(["dining", "travel", "streaming", "shopping", "lounge", "general"]);
 

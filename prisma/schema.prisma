@@ -39,7 +39,7 @@ model Benefit {
   type        String          // "credit" | "subscription" | "access" | "perk"
   value       Float?          // dollar cap or count cap; null = unlimited
   valueUnit   String          @default("dollars") // "dollars" | "points"
-  resetPeriod String          // "monthly" | "quarterly" | "annual" | "once"
+  resetPeriod String          // "monthly" | "quarterly" | "semiannual" | "annual" | "once"
   resetAnchor String          @default("calendar")
   category    String          // "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"
   classification String       @default("one-time-bonus") // app-validated bucket, NOT a Prisma enum (CONSTRAINT-01)

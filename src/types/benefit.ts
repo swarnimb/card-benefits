@@ -8,7 +8,7 @@ export type { BenefitClassification };
 export type BenefitType = "credit" | "subscription" | "access" | "perk";
 
 /** How often a benefit resets. */
-export type ResetPeriod = "monthly" | "quarterly" | "annual" | "once";
+export type ResetPeriod = "monthly" | "quarterly" | "semiannual" | "annual" | "once";
 
 /** What date the reset cycle is anchored to. */
 export type ResetAnchor = "calendar" | "statement" | "anniversary";
