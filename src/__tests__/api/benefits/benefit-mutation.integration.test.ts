@@ -113,7 +113,7 @@ describe("PATCH /api/benefits/[id]", () => {
     expect(period?.usedAmount).toBe(0);
   });
 
-  it("ignores tracked and classification and leaves persisted values unchanged while updating name", async () => {
+  it("accepts tracked override but still strips classification and isTrackable", async () => {
     const benefit = await createBenefit(testUserCardId, {
       classification: "discretionary-credit",
       tracked: true,
@@ -136,8 +136,46 @@ describe("PATCH /api/benefits/[id]", () => {
     expect(res.status).toBe(200);
     const persisted = await prisma.benefit.findUnique({ where: { id: benefit.id } });
     expect(persisted!.name).toBe("Renamed"); // allowed field applied
-    expect(persisted!.tracked).toBe(true); // Decision A: not user-editable
-    expect(persisted!.classification).toBe("discretionary-credit"); // unchanged
+    // Decision A (updated 2026-05-26): tracked is now user-editable post-save.
+    expect(persisted!.tracked).toBe(false);
+    // classification stays server-only — silently stripped.
+    expect(persisted!.classification).toBe("discretionary-credit");
+  });
+
+  it("PATCH accepts tracked field and persists it", async () => {
+    const benefit = await createBenefit(testUserCardId, {
+      classification: "discretionary-credit",
+      tracked: true,
+    });
+
+    const res = await PATCH(
+      new NextRequest(`http://localhost/api/benefits/${benefit.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ tracked: false }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: benefit.id }) }
+    );
+
+    expect(res.status).toBe(200);
+    const persisted = await prisma.benefit.findUnique({ where: { id: benefit.id } });
+    expect(persisted!.tracked).toBe(false);
+  });
+
+  it("PATCH rejects non-boolean tracked with 400", async () => {
+    const benefit = await createBenefit(testUserCardId);
+
+    const res = await PATCH(
+      new NextRequest(`http://localhost/api/benefits/${benefit.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ tracked: "yes" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: benefit.id }) }
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("tracked must be true or false");
   });
 
   it("does not 400 when body has only stripped fields plus a valid field", async () => {

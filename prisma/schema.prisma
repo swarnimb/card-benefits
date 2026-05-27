@@ -43,7 +43,7 @@ model Benefit {
   resetAnchor String          @default("calendar")
   category    String          // "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"
   classification String       @default("one-time-bonus") // app-validated bucket, NOT a Prisma enum (CONSTRAINT-01)
-  tracked     Boolean         @default(false) // server-derived from classification via src/lib/parser/classification.ts; never LLM/client set
+  tracked     Boolean         @default(false) // default derived from classification; user can override via review gate or post-save PATCH
   userCard    UserCard        @relation(fields: [userCardId], references: [id], onDelete: Cascade)
   periods     BenefitPeriod[]
   createdAt   DateTime        @default(now())

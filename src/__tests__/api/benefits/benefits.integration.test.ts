@@ -225,21 +225,53 @@ describe("POST /api/benefits/confirm", () => {
     expect(period).toBeNull();
   });
 
-  it("ignores client tracked=true on auto-earn and stores tracked=false", async () => {
+  it("honors client tracked=true override even for auto-earn classification", async () => {
     const res = await CONFIRM(
       confirmReq([
-        { ...baseBenefit, name: "Spoofed Track", type: "perk", classification: "auto-earn", tracked: true },
+        { ...baseBenefit, name: "User Override Track", type: "perk", classification: "auto-earn", tracked: true },
       ])
     );
     expect(res.status).toBe(200);
 
     const b = await prisma.benefit.findFirst({
-      where: { userCardId: testUserCard.id, name: "Spoofed Track" },
+      where: { userCardId: testUserCard.id, name: "User Override Track" },
     });
-    expect(b!.tracked).toBe(false); // server re-derives; client value ignored
+    // Decision A (updated 2026-05-26): client-supplied tracked WINS over deriveTracked.
+    // Server only falls back to classification-derived value when client omits the field.
+    expect(b!.tracked).toBe(true);
+
+    // Override to tracked=true triggers initial open period creation.
+    const period = await prisma.benefitPeriod.findFirst({ where: { benefitId: b!.id } });
+    expect(period?.status).toBe("open");
+  });
+
+  it("falls back to deriveTracked when client omits tracked", async () => {
+    // Payload intentionally omits `tracked`. Classification is auto-earn →
+    // server deriveTracked returns false → persisted tracked must be false.
+    const res = await CONFIRM(
+      confirmReq([
+        { ...baseBenefit, name: "Derive Default", type: "perk", classification: "auto-earn" },
+      ])
+    );
+    expect(res.status).toBe(200);
+
+    const b = await prisma.benefit.findFirst({
+      where: { userCardId: testUserCard.id, name: "Derive Default" },
+    });
+    expect(b!.tracked).toBe(false);
 
     const period = await prisma.benefitPeriod.findFirst({ where: { benefitId: b!.id } });
     expect(period).toBeNull();
+  });
+
+  it("rejects non-boolean tracked with 400", async () => {
+    const res = await CONFIRM(
+      confirmReq([
+        { ...baseBenefit, name: "Bad Tracked", classification: "discretionary-credit", tracked: "yes" },
+      ])
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("tracked must be true or false");
   });
 
   it("returns 400 when classification is not in the allowlist", async () => {

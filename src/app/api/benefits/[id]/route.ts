@@ -9,12 +9,11 @@ const VALID_CATEGORIES = new Set(["dining", "travel", "streaming", "shopping", "
 
 const VALID_VALUE_UNITS = new Set(["dollars", "points"]);
 
-// Decision A (PRD 3.5 / CONSTRAINT-06): `tracked` and `classification` are
-// NOT user-editable post-save — they change only via re-scrape. They are
-// intentionally absent here so extractPatchFields silently strips them
-// rather than 400-ing (preserves the existing PATCH contract).
+// Decision A (updated 2026-05-26): `tracked` is now user-editable post-save —
+// it represents the user's override of the deterministic classification→tracked
+// mapping. `classification` itself remains server-derived (not in this set).
 const ALLOWED_PATCH_FIELDS = new Set([
-  "name", "description", "type", "value", "valueUnit", "resetPeriod", "resetAnchor", "category",
+  "name", "description", "type", "value", "valueUnit", "resetPeriod", "resetAnchor", "category", "tracked",
 ]);
 
 type BenefitPatchData = {
@@ -26,6 +25,7 @@ type BenefitPatchData = {
   resetPeriod?: string;
   resetAnchor?: string;
   category?: string;
+  tracked?: boolean;
 };
 
 function parseJsonBody(request: NextRequest): Promise<Record<string, unknown> | null> {
@@ -52,6 +52,7 @@ function validatePatchFields(data: BenefitPatchData): string | null {
   if (data.resetPeriod !== undefined && !VALID_RESET_PERIODS.has(data.resetPeriod)) return `invalid resetPeriod: "${data.resetPeriod}"`;
   if (data.resetAnchor !== undefined && !VALID_RESET_ANCHORS.has(data.resetAnchor)) return `invalid resetAnchor: "${data.resetAnchor}"`;
   if (data.category !== undefined && !VALID_CATEGORIES.has(data.category)) return `invalid category: "${data.category}"`;
+  if (data.tracked !== undefined && typeof data.tracked !== "boolean") return "tracked must be true or false";
   return null;
 }
 

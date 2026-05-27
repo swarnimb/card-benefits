@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { X, Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { DraftBenefit, BenefitType, ResetPeriod, ResetAnchor, BenefitCategory, ValueUnit } from "@/types/benefit";
@@ -91,20 +91,33 @@ export function BenefitEditRow({ benefit, onChange, onRemove, showNameError }: B
         <SelectField label="Category" value={benefit.category} options={CATEGORIES} onChange={(v) => update({ category: v })} />
       </div>
       {/*
-        No tracked/classification control here: `tracked` is server-derived
-        from `classification` (Decision A), and `classification` is not a
-        user-editable enum in MVP (PRD 3.5) — it travels in the payload as
-        parsed. Task 35 owns the excluded-row collapse + classification display.
+        Tracked toggle (added 2026-05-26): user can override the deterministic
+        classification→tracked mapping at confirm time. Flipping it moves the
+        row between the tracked section and the excluded disclosure on
+        re-render (BenefitReviewGate partitions by `benefit.tracked`).
+        `classification` itself remains server-only / non-editable.
       */}
       <div className="flex items-center justify-between gap-2">
         <SelectField label="Reset anchor" value={benefit.resetAnchor} options={RESET_ANCHORS} onChange={(v) => update({ resetAnchor: v })} />
-        <span
-          className="text-xs uppercase tracking-wider text-muted-foreground"
-          aria-label="Classification"
-          title="Classification (set automatically — not editable)"
-        >
-          {benefit.classification}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => update({ tracked: !benefit.tracked })}
+            aria-label="Toggle tracked"
+            aria-pressed={benefit.tracked}
+            title={benefit.tracked ? "Currently tracked — click to exclude" : "Currently excluded — click to track"}
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+          >
+            {benefit.tracked ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+          </button>
+          <span
+            className="text-xs uppercase tracking-wider text-muted-foreground"
+            aria-label="Classification"
+            title="Classification (set automatically — not editable)"
+          >
+            {benefit.classification}
+          </span>
+        </div>
       </div>
     </div>
   );

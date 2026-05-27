@@ -232,16 +232,16 @@ Bulk-save confirmed benefits for a UserCard. **Replaces all existing benefits fo
     resetAnchor?: "calendar" | "statement" | "anniversary"
     category: "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"
     classification: "discretionary-credit" | "activation-perk" | "auto-earn" | "passive-perk" | "one-time-bonus"
-    tracked?: boolean   // accepted but authoritative value is re-derived server-side from classification
+    tracked?: boolean   // OPTIONAL — when supplied, the client value wins (user override at the review gate). When omitted, server falls back to deriveTracked(classification).
   }[]
 }
 ```
 
-**Classification handling:** `classification` is validated against the 5-bucket allowlist (400 on invalid, same pattern as other enum-like fields — CONSTRAINT-01: app-level validation, not a DB enum). The server does NOT trust a client-supplied `tracked`: it re-derives `tracked` from `classification` via `src/lib/parser/classification.ts` before insert, so the persisted `tracked` always matches policy. Excluded benefits (`tracked: false`) are persisted, never dropped (Feature 3.5).
+**Classification handling:** `classification` is validated against the 5-bucket allowlist (400 on invalid, same pattern as other enum-like fields — CONSTRAINT-01: app-level validation, not a DB enum). **Tracked handling (updated 2026-05-26):** the server uses `deriveTracked(classification)` as the DEFAULT — only when the client omits `tracked` entirely. A client-supplied boolean WINS and is persisted as-is (represents the user's explicit override at the review gate). Non-boolean `tracked` → 400. Excluded benefits (`tracked: false`) are persisted, never dropped (Feature 3.5).
 
 **Transaction (atomic):**
 1. DELETE all existing `Benefit` for `userCardId` (cascades to `BenefitPeriod`) — CONSTRAINT-06 (replace-all, no merge)
-2. For each benefit: derive `tracked` from `classification` via `src/lib/parser/classification.ts`
+2. For each benefit: `tracked = typeof b.tracked === "boolean" ? b.tracked : deriveTracked(b.classification)` (client value wins; otherwise derive from classification via `src/lib/parser/classification.ts`)
 3. INSERT new `Benefit` rows (including `classification` and the derived `tracked`)
 4. For each tracked benefit: INSERT initial open `BenefitPeriod` using `calculatePeriodBoundary()`
 5. UPDATE `UserCard.lastVerifiedAt = now()`
@@ -262,10 +262,10 @@ Edit fields on an existing Benefit.
 
 **Auth:** Required. Ownership verified: Benefit → UserCard → userId. 403 if mismatch.
 
-**Allowed fields:** `name`, `description`, `type`, `value`, `resetPeriod`, `resetAnchor`, `category`
+**Allowed fields:** `name`, `description`, `type`, `value`, `resetPeriod`, `resetAnchor`, `category`, `tracked`
 Unknown fields silently stripped.
 
-> **Note:** `tracked` and `classification` are NOT client-editable. `classification` is LLM-assigned and correctable only at the review gate (POST `/api/benefits/confirm`) before save; `tracked` is always server-derived from `classification` via the classification policy module. Post-save, both change only via re-scrape (constraint 06: re-scrape replaces all benefits). No direct PATCH or manual-override path exists in MVP.
+> **Note (updated 2026-05-26):** `tracked` is now user-editable post-save — it represents the user's override of the deterministic classification→tracked mapping (e.g. flipping a low-value tracked credit to hidden, or surfacing an auto-earn perk into Overview). Non-boolean `tracked` → 400. `classification` itself remains server-only / non-editable — it is LLM-assigned and correctable only at the review gate (POST `/api/benefits/confirm`) before save. Post-save, classification changes only via re-scrape (CONSTRAINT-06).
 
 **Request body:** Any subset of allowed fields.
 

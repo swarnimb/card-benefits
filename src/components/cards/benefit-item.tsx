@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import type { BenefitWithPeriod } from "@/types/benefit";
 import { UsageSlider } from "./usage-slider";
 import { UsageToggle } from "./usage-toggle";
@@ -10,6 +12,13 @@ export interface BenefitItemProps {
   benefit: BenefitWithPeriod;
   cardColor: string;
   onUsageUpdate: (benefitId: string, newAmount: number) => void;
+  /**
+   * Sync callback invoked AFTER a successful tracked PATCH so the parent list
+   * can re-render with the new value. The PATCH itself is owned here (this
+   * component fires it directly, mirroring the brief). Optional — if omitted,
+   * the toggle still works but parent state is not updated until refetch.
+   */
+  onTrackedUpdate?: (benefitId: string, newTracked: boolean) => void;
 }
 
 const EXPIRING_DAYS = 7;
@@ -38,22 +47,71 @@ function daysUntilReset(benefit: BenefitWithPeriod): number | null {
 /**
  * Single benefit row — name, description, expiring label, and inline tracking UI.
  */
-export function BenefitItem({ benefit, cardColor, onUsageUpdate }: BenefitItemProps) {
+export function BenefitItem({ benefit, cardColor, onUsageUpdate, onTrackedUpdate }: BenefitItemProps) {
+  // Optimistic tracked state: flip immediately on click, revert if PATCH fails.
+  // Synced via key=benefit.id so a parent refetch resets it to the server value.
+  const [trackedLocal, setTrackedLocal] = useState<boolean>(benefit.tracked);
+  const [trackedError, setTrackedError] = useState<string | null>(null);
+  const [savingTracked, setSavingTracked] = useState(false);
+
   const expiring = isExpiringSoon(benefit);
   const daysLeft = expiring ? daysUntilReset(benefit) : null;
   const usedAmount = benefit.currentPeriod?.usedAmount ?? 0;
   const isComplete = benefit.value !== null && usedAmount >= benefit.value;
   const sliderColor = isComplete ? COLOR_COMPLETE : cardColor;
 
+  async function handleTrackedToggle() {
+    if (savingTracked) return;
+    const newValue = !trackedLocal;
+    const prev = trackedLocal;
+    setTrackedLocal(newValue);
+    setTrackedError(null);
+    setSavingTracked(true);
+    try {
+      const res = await fetch(`/api/benefits/${benefit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tracked: newValue }),
+      });
+      if (!res.ok) {
+        setTrackedLocal(prev);
+        setTrackedError("Could not update — try again");
+        console.error(`PATCH /api/benefits/${benefit.id} tracked toggle returned ${res.status}`);
+        return;
+      }
+      onTrackedUpdate?.(benefit.id, newValue);
+    } catch (err) {
+      setTrackedLocal(prev);
+      setTrackedError("Network error — try again");
+      console.error(`PATCH /api/benefits/${benefit.id} tracked toggle failed:`, err);
+    } finally {
+      setSavingTracked(false);
+    }
+  }
+
   return (
     <div className="px-4 py-3 border-b border-white/10 last:border-0">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-[#F9F9F8]">{benefit.name}</p>
-        {benefit.value !== null && (
-          <span className="text-sm font-medium text-[#F9F9F8]">
-            {formatValue(benefit.value, benefit.valueUnit)}
-          </span>
-        )}
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-[#F9F9F8] flex-1 min-w-0 truncate">{benefit.name}</p>
+        <div className="flex items-center gap-2 shrink-0">
+          {benefit.value !== null && (
+            <span className="text-sm font-medium text-[#F9F9F8]">
+              {formatValue(benefit.value, benefit.valueUnit)}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleTrackedToggle}
+            disabled={savingTracked}
+            aria-label="Toggle tracked"
+            aria-pressed={trackedLocal}
+            title={trackedLocal ? "Currently tracked — click to exclude from Overview" : "Currently excluded — click to track"}
+            data-testid={`tracked-toggle-${benefit.id}`}
+            className="p-1 rounded-md text-[#9CA3AF] hover:text-[#F9F9F8] hover:bg-white/10 transition-colors disabled:opacity-50"
+          >
+            {trackedLocal ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+          </button>
+        </div>
       </div>
       {benefit.description && (
         <p className="text-xs text-[#9CA3AF] mt-0.5 truncate">{benefit.description}</p>
@@ -61,6 +119,11 @@ export function BenefitItem({ benefit, cardColor, onUsageUpdate }: BenefitItemPr
       {expiring && daysLeft !== null && (
         <p className="text-xs text-[#F59E0B] mt-1">
           ⚠ Resets in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+        </p>
+      )}
+      {trackedError && (
+        <p className="text-xs text-destructive mt-1" role="alert" aria-live="polite">
+          {trackedError}
         </p>
       )}
 

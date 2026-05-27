@@ -28,7 +28,9 @@ function validateBenefits(items: unknown[]): string | null {
     if (!VALID_RESET_PERIODS.has(b.resetPeriod as string)) return `invalid resetPeriod: "${b.resetPeriod}"`;
     if (!VALID_RESET_ANCHORS.has(b.resetAnchor as string)) return `invalid resetAnchor: "${b.resetAnchor}"`;
     if (!VALID_CATEGORIES.has(b.category as string)) return `invalid category: "${b.category}"`;
-    // `tracked` is server-derived from `classification` — never read from the client.
+    // `tracked` is optional: server falls back to deriveTracked(classification) when client omits it.
+    // When the client DOES supply tracked, it must be a boolean and the client value wins (user override).
+    if (b.tracked !== undefined && typeof b.tracked !== "boolean") return "tracked must be true or false";
     if (!isValidClassification(b.classification)) return `Invalid value for field classification: "${b.classification}"`;
   }
   return null;
@@ -43,10 +45,13 @@ async function runConfirmTransaction(
   await prisma.$transaction(async (tx) => {
     await tx.benefit.deleteMany({ where: { userCardId } });
     for (const b of benefits) {
-      // Server is the sole authority for tracked (Decision A / PRD 3.5): derive
-      // from classification, ignore any client-supplied `tracked`. Excluded
-      // benefits are still persisted (tracked=false) — never dropped.
-      const tracked = deriveTracked(b.classification);
+      // tracked: server uses `deriveTracked(classification)` as the DEFAULT
+      // (when the client omits the field). A client-supplied boolean WINS —
+      // it represents the user's explicit override at the review gate
+      // (Decision A updated 2026-05-26). `classification` itself remains
+      // server-only / non-editable. Excluded benefits are still persisted
+      // (tracked=false) — never dropped.
+      const tracked = typeof b.tracked === "boolean" ? b.tracked : deriveTracked(b.classification);
       const created = await tx.benefit.create({
         data: {
           userCardId,

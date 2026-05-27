@@ -18,6 +18,7 @@ class UsageUpdateError extends Error {
   }
 }
 
+
 function applyOptimisticUsageUpdate(
   cards: UserCardWithBenefits[],
   cardId: string,
@@ -39,6 +40,26 @@ function applyOptimisticUsageUpdate(
                     usedAmount: newAmount,
                   },
                 }
+          ),
+        }
+  );
+}
+
+function applyOptimisticTrackedUpdate(
+  cards: UserCardWithBenefits[],
+  cardId: string,
+  benefitId: string,
+  newTracked: boolean
+): UserCardWithBenefits[] {
+  return cards.map((card) =>
+    card.id !== cardId
+      ? card
+      : {
+          ...card,
+          benefits: card.benefits.map((benefit) =>
+            benefit.id !== benefitId
+              ? benefit
+              : { ...benefit, tracked: newTracked }
           ),
         }
   );
@@ -72,6 +93,16 @@ export interface CardsDataResult {
     benefitId: string,
     newAmount: number
   ) => Promise<void>;
+  /**
+   * Sync local state after a successful tracked PATCH (BenefitItem owns the
+   * network call + optimistic local toggle; this just updates the cards list
+   * so subsequent renders show the correct value).
+   */
+  syncBenefitTracked: (
+    cardId: string,
+    benefitId: string,
+    newTracked: boolean
+  ) => void;
 }
 
 /**
@@ -131,5 +162,12 @@ export function useCardsData(): CardsDataResult {
     [cards]
   );
 
-  return { cards, loading, error, retry, updateBenefitUsage };
+  const syncBenefitTracked = useCallback(
+    (cardId: string, benefitId: string, newTracked: boolean): void => {
+      setCards((prev) => applyOptimisticTrackedUpdate(prev, cardId, benefitId, newTracked));
+    },
+    []
+  );
+
+  return { cards, loading, error, retry, updateBenefitUsage, syncBenefitTracked };
 }

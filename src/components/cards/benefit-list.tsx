@@ -8,6 +8,8 @@ export interface BenefitListProps {
   benefits: BenefitWithPeriod[];
   cardColor: string;
   onUsageUpdate: (benefitId: string, newAmount: number) => void;
+  /** Optional sync callback invoked after a successful tracked PATCH so the parent list re-renders. */
+  onTrackedUpdate?: (benefitId: string, newTracked: boolean) => void;
 }
 
 const GROUP_ORDER: BenefitType[] = ["credit", "subscription", "access", "perk"];
@@ -23,7 +25,7 @@ const GROUP_LABELS: Record<BenefitType, string> = {
  * Groups benefits by type (credit → subscription → access → perk) and renders
  * a section header + BenefitItem rows per group. Empty groups are omitted.
  */
-export function BenefitList({ benefits, cardColor, onUsageUpdate }: BenefitListProps) {
+export function BenefitList({ benefits, cardColor, onUsageUpdate, onTrackedUpdate }: BenefitListProps) {
   return (
     <div>
       {GROUP_ORDER.map((type) => {
@@ -41,6 +43,7 @@ export function BenefitList({ benefits, cardColor, onUsageUpdate }: BenefitListP
                 benefit={benefit}
                 cardColor={cardColor}
                 onUsageUpdate={onUsageUpdate}
+                onTrackedUpdate={onTrackedUpdate}
               />
             ))}
           </div>

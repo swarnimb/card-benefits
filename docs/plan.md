@@ -1050,7 +1050,7 @@
 
 **Schema change (Benefit model):**
 - Add `classification String @default("one-time-bonus")` — comment: app-validated bucket, NOT a Prisma enum (CONSTRAINT-01).
-- Add `tracked Boolean @default(false)` — comment: server-derived from `classification` via `src/lib/parser/classification.ts`; never LLM/client set.
+- Add `tracked Boolean @default(false)` — comment: server-derived from `classification` via `src/lib/parser/classification.ts`; never LLM/client set. *(Updated 2026-05-26: tracked is now user-editable; classification remains server-only.)*
 - Remove `isTrackable Boolean @default(true)` (replaced; rename consumed by Tasks 30–34).
 - Do NOT add `url` to the `datasource db {}` block (CONSTRAINT-11 — URL stays in `prisma.config.ts`).
 
@@ -1129,7 +1129,7 @@
 **Acceptance criteria:**
 - [x] `classification` required + enum-constrained (5 buckets); `isTrackable` removed from schema/required.
 - [x] Model `claude-haiku-4-5-20251001`, tool_use only, tool_choice forced, no freeform fallback (CONSTRAINT-09).
-- [x] Returns `DraftBenefit[]` with normalized `classification` and `tracked=deriveTracked(...)`; `tracked` never from LLM.
+- [x] Returns `DraftBenefit[]` with normalized `classification` and `tracked=deriveTracked(...)`; `tracked` never from LLM. *(Updated 2026-05-26: tracked is now user-editable; classification remains server-only.)*
 - [x] Missing/invalid classification → discretionary-credit, tracked=true (A10).
 - [x] Existing defaults preserved (resetAnchor→calendar, type→perk, valueUnit→dollars, empty array valid).
 - [x] `stop_reason !== "tool_use"` throws `ParserError`; [SEC-01] API key never logged.
@@ -1149,18 +1149,18 @@
 
 ---
 
-## Task 32: Confirm path — validate `classification`, derive `tracked` server-side, persist excluded benefits
+## Task 32: Confirm path — validate `classification`, derive `tracked` server-side, persist excluded benefits *(Updated 2026-05-26: tracked is now user-editable; classification remains server-only.)*
 
 **Files:**
 - `src/app/api/benefits/confirm/route.ts` — modify (`validateBenefits`, `runConfirmTransaction`)
 
 **Functions to implement:**
 - `validateBenefits(items: unknown[]): string | null` — classification required, in 5-bucket allowlist (reuse Task 30 helpers); 400 on invalid; stop validating/persisting `isTrackable`.
-- `runConfirmTransaction(...)` — persist `classification`; `tracked = deriveTracked(b.classification)` server-side (ignore client `tracked`); create initial open `BenefitPeriod` only when tracked===true; still INSERT excluded (never drop).
+- `runConfirmTransaction(...)` — persist `classification`; `tracked = deriveTracked(b.classification)` server-side (ignore client `tracked`); create initial open `BenefitPeriod` only when tracked===true; still INSERT excluded (never drop). *(Updated 2026-05-26: tracked is now user-editable; classification remains server-only.)*
 
 **Acceptance criteria:**
 - [x] classification validated vs 5-bucket allowlist; invalid → 400 `{ error: 'Invalid value for field classification: ...' }` (CONSTRAINT-01).
-- [x] Server re-derives `tracked`; client-supplied `tracked` ignored.
+- [x] Server re-derives `tracked`; client-supplied `tracked` ignored. *(Updated 2026-05-26: tracked is now user-editable; classification remains server-only.)*
 - [x] auto-earn benefit → persisted tracked=false, NO period created.
 - [x] discretionary-credit → persisted tracked=true, open period via `calculatePeriodBoundary()`.
 - [x] One `prisma.$transaction` (CONSTRAINT-06 replace-all, atomic); `lastVerifiedAt` updated.
@@ -1182,7 +1182,7 @@
 
 ---
 
-## Task 33: Enforce Decision A — PATCH/[id] strips `tracked` and `classification` (closes Task 12 gap)
+## Task 33: Enforce Decision A — PATCH/[id] strips `tracked` and `classification` (closes Task 12 gap) *(Updated 2026-05-26: tracked is now user-editable; classification remains server-only.)*
 
 **Files:**
 - `src/app/api/benefits/[id]/route.ts` — modify (`ALLOWED_PATCH_FIELDS`, `BenefitPatchData`, validators)
@@ -1193,7 +1193,7 @@
 
 **Acceptance criteria:**
 - [x] `ALLOWED_PATCH_FIELDS` excludes `tracked`/`classification`/`isTrackable`; `BenefitPatchData` drops `isTrackable`.
-- [x] PATCH body with `tracked`+`classification`+`isTrackable`+valid `name` → those 3 silently stripped, only `name` updated, persisted tracked/classification unchanged (Decision A; CONSTRAINT-06).
+- [x] PATCH body with `tracked`+`classification`+`isTrackable`+valid `name` → those 3 silently stripped, only `name` updated, persisted tracked/classification unchanged (Decision A; CONSTRAINT-06). *(Updated 2026-05-26: tracked is now user-editable; classification remains server-only — only `classification` and `isTrackable` are stripped now.)*
 - [x] No 400 solely because stripped fields present (silent strip — existing contract).
 - [x] Existing PATCH behavior preserved (enum validation, type-change resets open period usedAmount=0 in same txn, 403 ownership, 404).
 - [x] [SEC-01] userId from session; [EH-01] DB errors logged, generic 500.
