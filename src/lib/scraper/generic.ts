@@ -107,8 +107,13 @@ async function tryPlaywrightFallback(url: string, issuer: string): Promise<strin
       });
     }
 
-    await autoScroll(page);
-    await expandCollapsedSections(page);
+    // Best-effort: scroll/expand can throw on eval-locked issuer pages (Amex) — must not abort the scrape.
+    try {
+      await autoScroll(page);
+      await expandCollapsedSections(page);
+    } catch (err) {
+      debugLog(`scroll/expand skipped: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     const html = await page.content();
     const extracted = extractWithReadability(html, url);

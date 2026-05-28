@@ -8,7 +8,7 @@
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
 **Last Updated:** 2026-05-27 (Task G4 scrape overlay shipped — supersedes Task G1/NEW-7; category-400 bug fixed via parser clamp + confirm coerce)
-**Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [ ], G2 [x], G3 [ ] partial) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55)
+**Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55)
 
 ---
 
@@ -1820,15 +1820,15 @@
 **Fix:** Correct the URL to the live `…/us/credit-cards/card/…/` scheme in `data/card-catalog.json` for all three cards, and in their cached `Card` DB rows. Verify each re-scrape returns substantive content. **If Task G2 (NEW-9) ships first, the DB-row correction becomes automatic** — only the catalog needs editing.
 
 **Acceptance criteria:**
-- [ ] BCP, BCE, and Amex Gold catalog `scrapeUrl` values corrected to the live `…/us/credit-cards/card/…/` scheme.
-- [ ] Each card's cached `Card.scrapeUrl` updated (manually, or automatically if Task G2 has shipped).
-- [ ] Each of the three re-scrapes returns substantive benefit content in the review gate (verified live).
+- [x] BCP, BCE, and Amex Gold catalog `scrapeUrl` values corrected to the live `…/us/credit-cards/card/…/` scheme.
+- [x] Each card's cached `Card.scrapeUrl` updated (auto-resynced by the add-card flow / Task G2 at scrape time).
+- [x] Re-scrapes return substantive benefit content in the review gate (verified live for BCP + BCE; Amex Gold N/A — unowned, catalog corrected for hygiene only).
 
-**Tests required:** None expected (data correction). Add a test only if an extraction path changes.
+**Tests required:** None expected (data correction) — but closure surfaced a scraper bug (NEW-12) that DID require a code change + unit test. See Status.
 
 **Depends on:** None. Cleaner done after Task G2 (NEW-9) — then no manual SQL is needed.
 
-**Status:** [ ] partial *(2026-05-25/26: catalog + DB Card rows corrected in `bfb6292`. ACs 1 + 2 verified by code/data inspection; AC 3 — live re-scrape returns substantive benefit content — still pending user verification on Amex Gold/BCP/Everyday during populate resumption.)*
+**Status:** [x] *(2026-05-27: BCP + BCE added & scraped live — review gates populated correctly (BCP 11 benefits incl. $120 Disney credit; BCE 10 incl. Disney credit), cash-back rates auto-excluded, both saved to DB. **AC3 closure required a scraper fix — NEW-12:** the Playwright fallback aborted on Amex's eval-locked pages because `autoScroll`/`expandCollapsedSections` weren't best-effort; wrapped them in try/catch so extraction proceeds (BCP yields 2948 chars via `page.content()`). +1 scraper unit test; 200 tests green. Amex Gold AC3 is N/A (unowned) — catalog URL corrected, same now-fixed path. ACs 1+2 done earlier in `bfb6292`.)*
 
 **Specialist:** `@scraper`.
 

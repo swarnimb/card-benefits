@@ -176,6 +176,23 @@ describe("genericScrape", () => {
     expect(mockClose).toHaveBeenCalled();
   });
 
+  it("tolerates page.evaluate failure during scroll and still extracts from page.content() (eval-locked pages, e.g. Amex)", async () => {
+    // Fast path under threshold forces the Playwright fallback.
+    mockFetch.mockResolvedValue(ok("<html><body>short</body></html>"));
+    // Amex disables eval, so page.evaluate (scroll + the innerText fallback) rejects.
+    wirePlaywright({
+      contentImpl: vi.fn().mockResolvedValue("<html><body>rendered benefits</body></html>"),
+      evaluateImpl: vi.fn().mockRejectedValue(new Error("eval is disabled")),
+    });
+    mockReadabilityParse
+      .mockReturnValueOnce({ textContent: "too short" }) // fast path < 1500
+      .mockReturnValueOnce({ textContent: LONG_TEXT }); // playwright page.content()
+
+    const result = await genericScrape("https://example.com/benefits");
+    expect(result).toBe(LONG_TEXT.trim());
+    expect(mockClose).toHaveBeenCalled();
+  });
+
   it("calls expansion clicks for matching elements", async () => {
     mockFetch.mockRejectedValue(new Error("fail fast path"));
 

@@ -1,7 +1,7 @@
 # Known Issues: CardMaxxer
 
 > Consolidated list of known bugs, limitations, and accepted risks at launch.
-> Updated: 2026-05-27 — Task G4 (scrape overlay) shipped, resolving NEW-7 (overlay blocks nav mid-scrape) and superseding Task G1; category-400 bug fixed (parser clamp + confirm coerce); OBS-4 logged (category list duplicated across ~6 sites).
+> Updated: 2026-05-27 (PM) — Task G3 closed: BCP + BCE re-scraped & saved live, NEW-10 resolved. Closure surfaced & fixed NEW-12 (Playwright fallback aborted on Amex eval-locked pages). Earlier 2026-05-27: Task G4 (scrape overlay) shipped, resolving NEW-7 and superseding Task G1; category-400 bug fixed; OBS-4 logged.
 
 ---
 
@@ -12,7 +12,7 @@ MVP is gate-cleared. All 48 MVP tasks (Phases A–F) are complete; Phases G and 
 - **QA:** APPROVED — `docs/qa-report.md` (2026-05-21). 176/176 tests passing, clean build, 0 blocking issues.
 - **Security:** CLEAR — `docs/security-report.md` (2026-05-21). 0 Critical / 0 High / 0 Medium / 6 Low.
 - **Blocking issues:** 0.
-- **Open non-blocking items:** 11 — 2 deferred defects (NEW-10 code+data complete, live verification pending; NEW-11 pre-existing statement-anchor bug, low priority), 3 code-quality observations (OBS-2, OBS-3, OBS-4), 6 security Lows (listed below). NEW-7 resolved 2026-05-27 by Task G4.
+- **Open non-blocking items:** 10 — 1 deferred defect (NEW-11 pre-existing statement-anchor bug, low priority), 3 code-quality observations (OBS-2, OBS-3, OBS-4), 6 security Lows (listed below). NEW-7 resolved 2026-05-27 by Task G4; NEW-10 resolved + NEW-12 found-and-fixed 2026-05-27 (PM) closing Task G3.
 
 ---
 
@@ -30,10 +30,14 @@ Three defects surfaced during the Tasks 40–48 bundle were deliberately deferre
 - **Impact:** Low. Catalog URL corrections had to be hand-applied via SQL to existing `Card` rows (as Task 47 required). Maintenance friction only — no user-facing break.
 - **Fix:** Task G2 — new `src/lib/catalog/resync.ts` helper called from the scrape route before each scrape. Catalog → Card sync direction only; CONSTRAINT-04 preserved. Sync failure logs `[catalog-resync] …` and returns the input unchanged, never blocks the scrape.
 
-### NEW-10 — Blue Cash Preferred + Everyday carry the dead Amex URL
-- **What:** `data/card-catalog.json` still has the dead `/en-us/credit-cards/...` Amex URL scheme for Blue Cash Preferred and Blue Cash Everyday (Amex Gold too) — same root cause as NEW-6, fixed for Amex Platinum in Task 47.
-- **Impact:** Low. Scraping either Blue Cash card returns empty benefits. Neither card has benefits in the DB today, so nothing visible breaks; a re-scrape won't populate them until the URLs are corrected. Intersects NEW-9 — the `Card` rows must be updated directly, not just the catalog.
-- **Tracked:** `docs/plan.md` — Phase G, Task G3. Catalog + `Card` rows corrected on 2026-05-26 (commit `bfb6292`); AC 3 (live re-scrape returns substantive content) pending user verification during populate resumption.
+### NEW-10 — Blue Cash Preferred + Everyday carry the dead Amex URL ✅ RESOLVED 2026-05-27 (Task G3 closed)
+- **What:** `data/card-catalog.json` had the dead `/en-us/credit-cards/...` Amex URL scheme for Blue Cash Preferred and Blue Cash Everyday (Amex Gold too) — same root cause as NEW-6, fixed for Amex Platinum in Task 47.
+- **Fix:** Catalog + `Card` rows corrected on 2026-05-26 (`bfb6292`). Live-verified 2026-05-27: BCP + BCE added & re-scraped through the UI, review gates populated correctly (BCP 11 benefits, BCE 10), both saved. Closing AC3 required the NEW-12 scraper fix below — the corrected URL was a 200/2MB page that the Playwright fallback had been aborting on. Amex Gold not live-tested (unowned), but its catalog URL is corrected.
+
+### NEW-12 — Playwright fallback aborts on eval-locked issuer pages (Amex) ✅ RESOLVED 2026-05-27
+- **What:** In `src/lib/scraper/generic.ts`, the Playwright fallback called `autoScroll` (and `expandCollapsedSections`) *before* extracting content. Amex marketing pages monkeypatch/disable `eval` (`aexp-static` app.js), so `page.evaluate` inside `autoScroll` threw "eval is disabled" and that uncaught error aborted the whole scrape — even though the rendered DOM already held the benefits. Surfaced while live-closing Task G3 (BCP/BCE returned "Failed to scrape" despite correct URLs).
+- **Impact:** Medium pre-fix — any issuer page whose HTTP fast-path yields < 1500 chars (forcing the browser path) AND disables eval was unscrapable. Amex Platinum/Gold escaped only because their fast-path succeeds.
+- **Fix:** Wrapped `autoScroll` + `expandCollapsedSections` in a best-effort `try/catch` (debugLog on failure) so a scroll/expand failure degrades gracefully to `page.content()` extraction. Verified: BCP now yields 2948 chars, BCE 2860. +1 unit test (`scraper.test.ts`: "tolerates page.evaluate failure during scroll…"). Latent gap remaining: the `body.innerText` secondary fallback also uses `page.evaluate` and would fail on eval-locked pages — not hit here (Readability-on-content covers it), tracked as a minor follow-up.
 
 ### NEW-11 — calcStatementBoundary is monthly-only (pre-existing)
 - **What:** `src/lib/engine/periods.ts:calcStatementBoundary` produces month-long windows regardless of `resetPeriod`. The `quarterly+statement` and `annual+statement` combinations therefore silently produce monthly period windows — wrong cadence.
