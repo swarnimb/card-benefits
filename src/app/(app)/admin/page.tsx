@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AddCardModal } from "@/components/admin/add-card-modal";
 import { BenefitReviewGate } from "@/components/admin/benefit-review-gate";
 import { CardManagementList, type ManagedCard } from "@/components/admin/card-management-list";
+import { ScrapeOverlay } from "@/components/shared/scrape-overlay";
 import { CardDeleteFailedError } from "@/lib/errors/card-delete-failed";
 import type { DraftBenefit } from "@/types/benefit";
 
@@ -136,6 +137,14 @@ export default function AdminPage() {
     );
   }
 
+  // Look up the scraping card's display name for the overlay. Found for
+  // re-scrape (card is in the list); null for a fresh add (the new card isn't
+  // in `cards` yet) — the overlay falls back to generic copy in that case.
+  const scrapingCard = scraping ? cards.find((c) => c.id === scraping) : null;
+  const scrapingCardName = scrapingCard
+    ? `${scrapingCard.card.issuer} ${scrapingCard.card.name}`
+    : null;
+
   return (
     <div className="mx-auto max-w-lg p-4">
       <div className="mb-4 flex items-center justify-between">
@@ -160,16 +169,11 @@ export default function AdminPage() {
       )}
 
       {!loading && cards.length > 0 && (
-        <>
-          {scraping && (
-            <p className="mb-2 text-sm text-muted-foreground">Scraping benefits...</p>
-          )}
-          <CardManagementList
-            cards={cards}
-            onRescrape={triggerScrape}
-            onRemove={handleRemove}
-          />
-        </>
+        <CardManagementList
+          cards={cards}
+          onRescrape={triggerScrape}
+          onRemove={handleRemove}
+        />
       )}
 
       <AddCardModal
@@ -177,6 +181,8 @@ export default function AdminPage() {
         onClose={() => setAddModalOpen(false)}
         onSuccess={handleAddSuccess}
       />
+
+      <ScrapeOverlay visible={scraping !== null} cardName={scrapingCardName} />
     </div>
   );
 }

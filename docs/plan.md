@@ -1773,7 +1773,7 @@
 
 **Depends on:** Task 43 (NEW-1 base fix). Independent of Tasks 47, 48.
 
-**Status:** [ ]
+**Status:** [~] *(SUPERSEDED 2026-05-27 by Task G4. The scrape progress overlay is full-screen, non-dismissible, and sits above the bottom nav (z-[60] > z-50) — the user can no longer navigate away mid-scrape, so the NEW-7 orphan path is structurally unreachable. The sessionStorage persistence fix is therefore unnecessary. Accepted tradeoff per builder 2026-05-27: the overlay is the sole protection; no belt-and-suspenders sessionStorage backstop was added.)*
 
 **Specialist:** `@ui-cardmaxxer` (admin UI work; React state lifecycle).
 
@@ -1831,6 +1831,35 @@
 **Status:** [ ] partial *(2026-05-25/26: catalog + DB Card rows corrected in `bfb6292`. ACs 1 + 2 verified by code/data inspection; AC 3 — live re-scrape returns substantive benefit content — still pending user verification on Amex Gold/BCP/Everyday during populate resumption.)*
 
 **Specialist:** `@scraper`.
+
+---
+
+## Task G4: Scrape progress overlay (supersedes G1 / NEW-7)
+
+**Surfaced:** 2026-05-26 (handoff) — approved as the spinner-overlay direction; built 2026-05-27.
+
+**Problem:** A card scrape is a ~30–40s blocking call with no on-screen feedback — the page looks frozen ("is it broken?"). Separately, navigating away mid-scrape could orphan a fresh-add card (NEW-7 / Task G1).
+
+**Decision (brainstorm 2026-05-27):** Chose the spinner-overlay route over G1's sessionStorage fix — one UI primitive fixes the UX gap *and* prevents the orphan as a side effect (lower code surface, no storage lifecycle). **Q3 reversal:** the overlay is a pure loading spinner with NO error state — every scrape outcome (success or failure) flows to the review gate, which already surfaces scrape/parse errors and offers manual entry. Adding an error state to the overlay would have duplicated or removed that existing fallback.
+
+**Files:**
+- `src/components/shared/scrape-overlay.tsx` — new (full-screen, z-[60], non-dismissible, Framer Motion fade, `useReducedMotion`)
+- `src/app/(app)/admin/page.tsx` — render overlay off the existing `scraping` state; card name looked up from `cards` (generic fallback on fresh-add); old "Scraping benefits..." text removed
+
+**Acceptance criteria:**
+- [x] Overlay appears during both add-card and re-scrape (both funnel through `triggerScrape`), covers the bottom nav (z-[60] > z-50), no nav or dismiss while scraping.
+- [x] On finish (success or fail) the overlay clears and the user lands on the review gate exactly as before; scrape/parse errors still surface there with the manual-entry fallback intact.
+- [x] Copy "Scraping {card name}…" / "This usually takes 30–40 seconds"; Framer Motion fade; reduced-motion respected.
+- [x] `'use client'`, no `any`, files within size limits; no silent catches.
+
+**Tests required:**
+- [x] `scrape-overlay.unit` → renders loading copy with card name when visible (happy); renders nothing when not visible (edge); generic copy when no name. 3 tests pass (152 unit total).
+
+**Depends on:** None. Supersedes Task G1.
+
+**Status:** [x] *(code + tests complete 2026-05-27. 152 unit pass, zero new tsc errors. **Live browser verification at 375px pending user** — devtools MCP disconnected this session and a real scrape needs user credentials.)*
+
+**Specialist:** `@ui-cardmaxxer`.
 
 ---
 
