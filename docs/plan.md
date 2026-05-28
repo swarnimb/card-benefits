@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-05-26 (Task G2 NEW-9 closed; Task G3 NEW-10 partial; tracked toggle made user-overridable; semiannual reset period added)
+**Last Updated:** 2026-05-27 (Task G4 scrape overlay shipped — supersedes Task G1/NEW-7; category-400 bug fixed via parser clamp + confirm coerce)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [ ], G2 [x], G3 [ ] partial) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55)
 
 ---
