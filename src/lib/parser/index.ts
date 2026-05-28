@@ -51,6 +51,7 @@ function toDraftBenefit(b: RawBenefit): DraftBenefit {
     category: VALID_CATEGORIES.has(b.category) ? b.category : "general",
     classification,
     tracked: deriveTracked(classification),
+    setAndForget: false,
     confidence: b.confidence,
   };
 }

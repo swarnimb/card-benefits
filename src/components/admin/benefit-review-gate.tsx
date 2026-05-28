@@ -34,6 +34,7 @@ function makeBlankBenefit(): DraftBenefit {
     category: "general",
     classification: "discretionary-credit",
     tracked: true,
+    setAndForget: false,
     confidence: 1,
   };
 }

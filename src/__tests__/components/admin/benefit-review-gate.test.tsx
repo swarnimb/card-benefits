@@ -18,6 +18,7 @@ const DRAFT: DraftBenefit = {
   category: "travel",
   classification: "discretionary-credit",
   tracked: true,
+  setAndForget: false,
   confidence: 0.95,
 };
 
@@ -32,6 +33,7 @@ const EXCLUDED: DraftBenefit = {
   category: "travel",
   classification: "auto-earn",
   tracked: false,
+  setAndForget: false,
   confidence: 0.9,
 };
 

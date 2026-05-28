@@ -18,6 +18,8 @@ function makeBenefit(overrides: Partial<BenefitWithPeriod> = {}): BenefitWithPer
     category: "dining",
     classification: "discretionary-credit",
     tracked: true,
+    setAndForget: false,
+    activatedAt: null,
     createdAt: new Date(),
     currentPeriod: {
       id: "p1",

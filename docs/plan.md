@@ -1879,12 +1879,12 @@
 **Functions to implement:** None (schema + types only).
 
 **Acceptance criteria:**
-- [ ] `Benefit` gains `setAndForget Boolean @default(false)` and `activatedAt DateTime?`, placed after `tracked` and before the `userCard` relation (field-ordering convention).
-- [ ] `npx prisma migrate dev --name set_and_forget_benefits` runs clean; migration is additive (two defaulted/nullable columns), no backfill.
-- [ ] Per CONSTRAINT-11, datasource URL stays in `prisma.config.ts` — no `url` added to `schema.prisma`.
-- [ ] Existing `Benefit` rows unaffected after migration: `setAndForget = false`, `activatedAt = null`.
-- [ ] `src/types/benefit.ts`: DB-benefit type gains `setAndForget: boolean` + `activatedAt: Date | null`; `DraftBenefit` gains `setAndForget: boolean` (NOT `activatedAt` — activation is a post-confirm state, never on a draft).
-- [ ] [CQ-01] no `any`; files within size limits.
+- [x] `Benefit` gains `setAndForget Boolean @default(false)` and `activatedAt DateTime?`, placed after `tracked` and before the `userCard` relation (field-ordering convention).
+- [x] `npx prisma migrate dev --name set_and_forget_benefits` runs clean; migration is additive (two defaulted/nullable columns), no backfill.
+- [x] Per CONSTRAINT-11, datasource URL stays in `prisma.config.ts` — no `url` added to `schema.prisma`.
+- [x] Existing `Benefit` rows unaffected after migration: `setAndForget = false`, `activatedAt = null`.
+- [x] `src/types/benefit.ts`: DB-benefit type gains `setAndForget: boolean` + `activatedAt: Date | null`; `DraftBenefit` gains `setAndForget: boolean` (NOT `activatedAt` — activation is a post-confirm state, never on a draft).
+- [x] [CQ-01] no `any`; files within size limits.
 
 **Tests required:**
 - `schema` → `Benefit row creates and queries with setAndForget + activatedAt` (happy)
@@ -1892,7 +1892,7 @@
 
 **Depends on:** None
 
-**Status:** [ ]
+**Status:** [x] — migration `20260528051432_set_and_forget_benefits`. Construction sites updated to satisfy the new required fields: `toBenefitWithPeriod` (mappers.ts) passes DB values through; `toDraftBenefit` (parser/index.ts) + `makeBlankBenefit` (review gate) set `setAndForget: false` as the conservative default — **Task 50 replaces the `toDraftBenefit` placeholder with the deterministic derivation.** 5 test fixtures updated. Unit 156 / integration 46 green; `tsc` clean on source (only 5 pre-existing OBS-2 test-file errors).
 
 **Specialist:** `@data`
 

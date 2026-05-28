@@ -55,6 +55,8 @@ function makeBenefit(overrides: Partial<BenefitWithPeriod> = {}): BenefitWithPer
     category: "travel",
     classification: "discretionary-credit",
     tracked: true,
+    setAndForget: false,
+    activatedAt: null,
     createdAt: new Date(),
     currentPeriod: null,
     ...overrides,

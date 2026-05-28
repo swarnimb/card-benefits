@@ -39,6 +39,8 @@ export interface BenefitWithPeriod {
   category: BenefitCategory;
   classification: BenefitClassification;
   tracked: boolean;
+  setAndForget: boolean;
+  activatedAt: Date | null;
   createdAt: Date;
   currentPeriod: {
     id: string;
@@ -61,5 +63,6 @@ export interface DraftBenefit {
   category: BenefitCategory;
   classification: BenefitClassification;
   tracked: boolean;
+  setAndForget: boolean;
   confidence: number;
 }

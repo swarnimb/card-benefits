@@ -16,6 +16,8 @@ export function toBenefitWithPeriod(benefit: Benefit, period: BenefitPeriod | nu
     category: benefit.category as BenefitCategory,
     classification: benefit.classification as BenefitClassification,
     tracked: benefit.tracked,
+    setAndForget: benefit.setAndForget,
+    activatedAt: benefit.activatedAt,
     createdAt: benefit.createdAt,
     currentPeriod: period
       ? { id: period.id, periodStart: period.periodStart, periodEnd: period.periodEnd, usedAmount: period.usedAmount, status: period.status }
