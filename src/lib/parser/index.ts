@@ -16,6 +16,19 @@ const VALID_TYPES = new Set<DraftBenefit["type"]>([
   "perk",
 ]);
 
+// Haiku is given this enum in the tool schema but occasionally emits an
+// out-of-enum value (e.g. "entertainment" for a Capital One Entertainment
+// benefit). Clamp at the LLM boundary so an invalid category never reaches
+// the review gate or the confirm validator. Mirrors the VALID_TYPES clamp.
+const VALID_CATEGORIES = new Set<DraftBenefit["category"]>([
+  "dining",
+  "travel",
+  "streaming",
+  "shopping",
+  "lounge",
+  "general",
+]);
+
 /**
  * Maps one raw LLM benefit to a DraftBenefit. `classification` is normalized,
  * then run through `applyClassificationOverride` so deterministic regex
@@ -35,7 +48,7 @@ function toDraftBenefit(b: RawBenefit): DraftBenefit {
     valueUnit: b.valueUnit === "points" ? "points" : "dollars",
     resetPeriod: b.resetPeriod,
     resetAnchor: b.resetAnchor ?? "calendar", // default per CONSTRAINT-09 / task spec
-    category: b.category,
+    category: VALID_CATEGORIES.has(b.category) ? b.category : "general",
     classification,
     tracked: deriveTracked(classification),
     confidence: b.confidence,

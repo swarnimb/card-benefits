@@ -90,6 +90,19 @@ describe("parseBenefits", () => {
     }
   });
 
+  it("clamps an out-of-enum category to general, preserves valid ones", async () => {
+    // Haiku occasionally emits a category outside its tool-schema enum
+    // (e.g. "entertainment" for a Capital One Entertainment benefit). The
+    // clamp keeps it from reaching the confirm validator and 400-ing the save.
+    const offending = { ...validBenefit, category: "entertainment" };
+    const valid = { ...validBenefit, category: "streaming" };
+    mockCreate.mockResolvedValue(makeToolUseResponse([offending, valid]));
+
+    const result = await parseBenefits("Entertainment benefit + streaming credit.");
+    expect(result[0].category).toBe("general");
+    expect(result[1].category).toBe("streaming");
+  });
+
   it("throws ParserError when stop_reason is not tool_use", async () => {
     mockCreate.mockResolvedValue({
       stop_reason: "end_turn",

@@ -14,6 +14,18 @@ const VALID_CATEGORIES = new Set(["dining", "travel", "streaming", "shopping", "
 const MAX_NAME_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 1000;
 
+/**
+ * Coerce an out-of-enum category to a valid one. The parser already clamps
+ * Haiku's category at the LLM boundary, so this is a defense-in-depth backstop
+ * for drafts parsed before that fix shipped (and any future client bug). Logs
+ * loudly with context — never silently drops the bad value (EH-01).
+ */
+function coerceCategory(value: unknown): string {
+  if (typeof value === "string" && VALID_CATEGORIES.has(value)) return value;
+  console.warn(`[confirm] coerced out-of-enum category ${JSON.stringify(value)} -> "general"`);
+  return "general";
+}
+
 function validateBenefits(items: unknown[]): string | null {
   for (const item of items) {
     if (!item || typeof item !== "object") return "each benefit must be an object";
@@ -27,7 +39,8 @@ function validateBenefits(items: unknown[]): string | null {
     if (b.valueUnit !== undefined && !VALID_VALUE_UNITS.has(b.valueUnit as string)) return `invalid valueUnit: "${b.valueUnit}"`;
     if (!VALID_RESET_PERIODS.has(b.resetPeriod as string)) return `invalid resetPeriod: "${b.resetPeriod}"`;
     if (!VALID_RESET_ANCHORS.has(b.resetAnchor as string)) return `invalid resetAnchor: "${b.resetAnchor}"`;
-    if (!VALID_CATEGORIES.has(b.category as string)) return `invalid category: "${b.category}"`;
+    // category is NOT rejected — it is coerced to "general" at write time via
+    // coerceCategory (an out-of-enum LLM slip should not block the whole save).
     // `tracked` is optional: server falls back to deriveTracked(classification) when client omits it.
     // When the client DOES supply tracked, it must be a boolean and the client value wins (user override).
     if (b.tracked !== undefined && typeof b.tracked !== "boolean") return "tracked must be true or false";
@@ -62,7 +75,7 @@ async function runConfirmTransaction(
           valueUnit: b.valueUnit ?? "dollars",
           resetPeriod: b.resetPeriod,
           resetAnchor: b.resetAnchor,
-          category: b.category,
+          category: coerceCategory(b.category),
           classification: normalizeClassification(b.classification),
           tracked,
         },
