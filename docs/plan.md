@@ -2074,11 +2074,11 @@
 **Functions to implement:** None (verification task).
 
 **Acceptance criteria:**
-- [ ] Integration test covers the end-to-end flow: a set-and-forget benefit is classified (`setAndForget: true`), confirmed (persisted), activated via the route, then excluded from Overview `needsAttention` and shown in the Cards "Automatic" group.
-- [ ] Live walkthrough: re-scrape a real card with set-and-forget benefits (e.g. Amex Platinum — Walmart+, CLEAR, Uber One), activate one, verify it appears in the "Automatic" group and is absent from "needs attention". Outcome recorded in `docs/session-log.md`.
-- [ ] Classification spot-check confirmed live: Uber One → set-and-forget, Uber Cash → not.
-- [ ] Full unit + integration suites pass (`npm test`, `npm run test:integration`); `npm run build` clean.
-- [ ] On completion: recommend `@code-review` for Phase H, then `@qa`.
+- [x] Integration test covers the end-to-end flow: a set-and-forget benefit is classified (`setAndForget: true`), confirmed (persisted), activated via the route, then excluded from Overview `needsAttention` and shown in the Cards "Automatic" group. _(2026-06-02 — `feature8-set-and-forget.integration.test.ts`)_
+- [ ] Live walkthrough: re-scrape a real card with set-and-forget benefits (e.g. Amex Platinum — Walmart+, CLEAR, Uber One), activate one, verify it appears in the "Automatic" group and is absent from "needs attention". Outcome recorded in `docs/session-log.md`. **← PENDING (requires dev server + real scrape; builder-run)**
+- [~] Classification spot-check confirmed live: Uber One → set-and-forget, Uber Cash → not. _(Locked in the integration test through the real confirm route; LIVE confirmation still pending as part of the walkthrough.)_
+- [x] Full unit + integration suites pass (`npm test`, `npm run test:integration`); `npm run build` clean. _(2026-06-02 — unit 171/171, integration 61/61, build clean.)_
+- [ ] On completion: recommend `@code-review` for Phase H, then `@qa`. **← after the live walkthrough**
 
 **Tests required:**
 - Integration → `set-and-forget benefit: classify → confirm → activate → Overview/Cards reflect it`
