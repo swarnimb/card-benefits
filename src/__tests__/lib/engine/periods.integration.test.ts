@@ -3,6 +3,7 @@ import { ensureCurrentPeriod } from "@/lib/engine/periods";
 import { prisma } from "@/lib/db";
 
 let testBenefitId = "";
+let safBenefitId = "";
 
 beforeAll(async () => {
   const card = await prisma.card.create({
@@ -25,6 +26,22 @@ beforeAll(async () => {
     },
   });
   testBenefitId = benefit.id;
+
+  const saf = await prisma.benefit.create({
+    data: {
+      userCardId: userCard.id,
+      name: "__periods_test_saf__",
+      type: "subscription",
+      value: 120,
+      resetPeriod: "annual",
+      resetAnchor: "calendar",
+      category: "travel",
+      classification: "activation-perk",
+      tracked: true,
+      setAndForget: true,
+    },
+  });
+  safBenefitId = saf.id;
 });
 
 beforeEach(async () => {
@@ -32,8 +49,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await prisma.benefitPeriod.deleteMany({ where: { benefit: { name: "__periods_test__" } } });
-  await prisma.benefit.deleteMany({ where: { name: "__periods_test__" } });
+  await prisma.benefitPeriod.deleteMany({ where: { benefit: { name: { startsWith: "__periods_test" } } } });
+  await prisma.benefit.deleteMany({ where: { name: { startsWith: "__periods_test" } } });
   await prisma.userCard.deleteMany({ where: { userId: "__periods_test__" } });
   await prisma.card.deleteMany({ where: { name: "__periods_test__" } });
 });
@@ -41,10 +58,11 @@ afterAll(async () => {
 describe("ensureCurrentPeriod", () => {
   it("creates first period when none exist", async () => {
     const period = await ensureCurrentPeriod(testBenefitId);
-    expect(period.benefitId).toBe(testBenefitId);
-    expect(period.status).toBe("open");
-    expect(period.usedAmount).toBe(0);
-    expect(period.periodEnd).not.toBeNull();
+    expect(period).not.toBeNull();
+    expect(period!.benefitId).toBe(testBenefitId);
+    expect(period!.status).toBe("open");
+    expect(period!.usedAmount).toBe(0);
+    expect(period!.periodEnd).not.toBeNull();
 
     const count = await prisma.benefitPeriod.count({ where: { benefitId: testBenefitId } });
     expect(count).toBe(1);
@@ -63,8 +81,9 @@ describe("ensureCurrentPeriod", () => {
     });
 
     const period = await ensureCurrentPeriod(testBenefitId);
-    expect(period.usedAmount).toBe(25);
-    expect(period.periodEnd?.getTime()).toBe(future.getTime());
+    expect(period).not.toBeNull();
+    expect(period!.usedAmount).toBe(25);
+    expect(period!.periodEnd?.getTime()).toBe(future.getTime());
 
     const count = await prisma.benefitPeriod.count({ where: { benefitId: testBenefitId } });
     expect(count).toBe(1);
@@ -82,8 +101,9 @@ describe("ensureCurrentPeriod", () => {
     });
 
     const period = await ensureCurrentPeriod(testBenefitId);
-    expect(period.status).toBe("open");
-    expect(period.usedAmount).toBe(0);
+    expect(period).not.toBeNull();
+    expect(period!.status).toBe("open");
+    expect(period!.usedAmount).toBe(0);
 
     const closed = await prisma.benefitPeriod.findFirst({
       where: { benefitId: testBenefitId, status: "closed" },
@@ -95,5 +115,23 @@ describe("ensureCurrentPeriod", () => {
       where: { benefitId: testBenefitId, status: "open" },
     });
     expect(openCount).toBe(1);
+  });
+
+  it("does not create a period for a setAndForget benefit (CONSTRAINT-17)", async () => {
+    const period = await ensureCurrentPeriod(safBenefitId);
+    expect(period).toBeNull();
+
+    const count = await prisma.benefitPeriod.count({ where: { benefitId: safBenefitId } });
+    expect(count).toBe(0);
+  });
+
+  it("unchanged behavior for a normal benefit (regression)", async () => {
+    const period = await ensureCurrentPeriod(testBenefitId);
+    expect(period).not.toBeNull();
+    expect(period!.benefitId).toBe(testBenefitId);
+    expect(period!.status).toBe("open");
+
+    const count = await prisma.benefitPeriod.count({ where: { benefitId: testBenefitId } });
+    expect(count).toBe(1);
   });
 });

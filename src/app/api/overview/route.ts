@@ -26,7 +26,7 @@ export async function GET(_req: NextRequest) {
     for (const userCard of userCards) {
       const benefitsWithPeriods: BenefitWithPeriod[] = [];
       for (const benefit of userCard.benefits) {
-        const period = benefit.tracked ? await ensureCurrentPeriod(benefit.id) : null;
+        const period = benefit.tracked && !benefit.setAndForget ? await ensureCurrentPeriod(benefit.id) : null;
         benefitsWithPeriods.push(toBenefitWithPeriod(benefit, period));
       }
       cards.push({

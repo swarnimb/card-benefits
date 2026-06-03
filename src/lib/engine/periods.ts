@@ -153,8 +153,13 @@ export function calculatePeriodBoundary(
   throw new PeriodEngineError({ message: `unsupported resetPeriod="${resetPeriod}" resetAnchor="${resetAnchor}"`, fn: "calculatePeriodBoundary", benefitId: "n/a" });
 }
 
-/** Returns the current open period for a benefit, creating or rolling over as needed. */
-export async function ensureCurrentPeriod(benefitId: string): Promise<BenefitPeriod> {
+/**
+ * Returns the current open period for a benefit, creating or rolling over as needed.
+ * Returns `null` for a set-and-forget benefit — those never get a BenefitPeriod
+ * (CONSTRAINT-17). `null` is an expected "no applicable period" state, not a failure;
+ * callers that read a current period already treat null as "no period".
+ */
+export async function ensureCurrentPeriod(benefitId: string): Promise<BenefitPeriod | null> {
   try {
     const now = new Date();
 
@@ -162,6 +167,9 @@ export async function ensureCurrentPeriod(benefitId: string): Promise<BenefitPer
       where: { id: benefitId },
       include: { userCard: true },
     });
+
+    // CONSTRAINT-17: set-and-forget benefits never reach period logic.
+    if (benefit.setAndForget) return null;
 
     const open = await prisma.benefitPeriod.findFirst({
       where: { benefitId, status: "open" },

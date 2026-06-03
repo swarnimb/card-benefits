@@ -90,7 +90,11 @@ async function runConfirmTransaction(
           setAndForget,
         },
       });
-      if (tracked) {
+      // CONSTRAINT-17: set-and-forget benefits get NO initial BenefitPeriod.
+      // Without this guard, the period born here would be orphaned —
+      // ensureCurrentPeriod short-circuits set-and-forget benefits and would
+      // never close/roll it.
+      if (tracked && !setAndForget) {
         // Fall back to calendar if anchor requires data the card doesn't have
         let effectiveAnchor = b.resetAnchor;
         if (effectiveAnchor === "anniversary" && !userCard.anniversaryDate) effectiveAnchor = "calendar";

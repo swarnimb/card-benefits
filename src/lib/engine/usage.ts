@@ -30,6 +30,16 @@ export async function updateBenefitUsage(
 ): Promise<BenefitPeriod> {
   try {
     const period = await ensureCurrentPeriod(benefitId);
+    if (period === null) {
+      // ensureCurrentPeriod returns null only for set-and-forget benefits.
+      // usedAmount does not apply to them (no BenefitPeriod; CONSTRAINT-17).
+      throw new UsageEngineError({
+        message: `updateBenefitUsage does not apply to set-and-forget benefit "${benefitId}"`,
+        fn: "updateBenefitUsage",
+        benefitId,
+        newAmount,
+      });
+    }
     const benefit = await prisma.benefit.findUniqueOrThrow({ where: { id: benefitId } });
 
     const clamped = benefit.value !== null
@@ -41,6 +51,7 @@ export async function updateBenefitUsage(
       data: { usedAmount: clamped },
     });
   } catch (err) {
+    if (err instanceof UsageEngineError) throw err; // already contextual — don't re-wrap
     throw new UsageEngineError({
       message: `updateBenefitUsage failed for benefitId="${benefitId}"`,
       fn: "updateBenefitUsage",

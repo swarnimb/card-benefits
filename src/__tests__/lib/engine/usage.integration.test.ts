@@ -3,6 +3,7 @@ import { updateBenefitUsage } from "@/lib/engine/usage";
 import { prisma } from "@/lib/db";
 
 let testBenefitId = "";
+let safBenefitId = "";
 
 beforeAll(async () => {
   const card = await prisma.card.create({
@@ -25,6 +26,22 @@ beforeAll(async () => {
     },
   });
   testBenefitId = benefit.id;
+
+  const saf = await prisma.benefit.create({
+    data: {
+      userCardId: userCard.id,
+      name: "__usage_test_saf__",
+      type: "subscription",
+      value: 120,
+      resetPeriod: "annual",
+      resetAnchor: "calendar",
+      category: "travel",
+      classification: "activation-perk",
+      tracked: true,
+      setAndForget: true,
+    },
+  });
+  safBenefitId = saf.id;
 });
 
 beforeEach(async () => {
@@ -32,8 +49,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await prisma.benefitPeriod.deleteMany({ where: { benefit: { name: "__usage_test__" } } });
-  await prisma.benefit.deleteMany({ where: { name: "__usage_test__" } });
+  await prisma.benefitPeriod.deleteMany({ where: { benefit: { name: { startsWith: "__usage_test" } } } });
+  await prisma.benefit.deleteMany({ where: { name: { startsWith: "__usage_test" } } });
   await prisma.userCard.deleteMany({ where: { userId: "__usage_test__" } });
   await prisma.card.deleteMany({ where: { name: "__usage_test__" } });
 });
@@ -56,5 +73,16 @@ describe("updateBenefitUsage", () => {
       benefitId: "non-existent-id",
       newAmount: 10,
     });
+  });
+
+  it("rejects a set-and-forget benefit without creating a period (CONSTRAINT-17)", async () => {
+    await expect(updateBenefitUsage(safBenefitId, 30)).rejects.toMatchObject({
+      fn: "updateBenefitUsage",
+      benefitId: safBenefitId,
+      message: expect.stringContaining("set-and-forget"),
+    });
+
+    const count = await prisma.benefitPeriod.count({ where: { benefitId: safBenefitId } });
+    expect(count).toBe(0);
   });
 });
