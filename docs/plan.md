@@ -2025,7 +2025,7 @@
 
 **Depends on:** Tasks 49, 50, 52
 
-**Status:** [ ]
+**Status:** [x] 2026-06-02
 
 **Specialist:** `@data`
 

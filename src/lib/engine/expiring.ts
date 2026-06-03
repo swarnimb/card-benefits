@@ -7,6 +7,9 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 /** Returns true if the benefit has unused value and its current period ends within daysThreshold. */
 export function isExpiringSoon(benefit: BenefitWithPeriod, daysThreshold = 7): boolean {
   if (!benefit.tracked) return false;
+  // Set-and-forget benefits never "expire soon" — they have no per-period reset
+  // (CONSTRAINT-17). Active → realized; not-set-up → calm. Neither is urgent.
+  if (benefit.setAndForget) return false;
   if (benefit.resetPeriod === "once") return false;
 
   const { currentPeriod } = benefit;
@@ -32,6 +35,10 @@ function daysUntilReset(periodEnd: Date | null | undefined, now: number): number
 
 /** Unredeemed value this period. 0 for unlimited (value === null) or already-consumed benefits. */
 function unusedValue(benefit: BenefitWithPeriod): number {
+  // Set-and-forget benefits carry no money-at-risk: active ones are realized,
+  // not-set-up ones are deliberately kept calm on the Overview (their activation
+  // prompt lives in the Cards-space "Automatic" group, not as Overview urgency).
+  if (benefit.setAndForget) return 0;
   const used = benefit.currentPeriod?.usedAmount ?? 0;
   if (benefit.type === "subscription") return used === 0 ? benefit.value ?? 0 : 0;
   if (benefit.value === null) return 0;
@@ -40,6 +47,10 @@ function unusedValue(benefit: BenefitWithPeriod): number {
 
 /** True when no further action is possible this period: cap reached, or subscription already used. */
 function isDone(benefit: BenefitWithPeriod): boolean {
+  // An ACTIVE set-and-forget benefit is fully realized — treat as done. A
+  // not-set-up one still has an action (activate it), so it falls through to
+  // onTrack (calm, non-urgent), never needsAttention.
+  if (benefit.setAndForget) return benefit.activatedAt !== null;
   const used = benefit.currentPeriod?.usedAmount ?? 0;
   if (benefit.type === "subscription") return used > 0;
   if (benefit.value === null) return false; // unlimited — always actionable

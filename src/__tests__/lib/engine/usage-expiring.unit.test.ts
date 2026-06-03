@@ -168,6 +168,58 @@ describe("buildOverviewTriage", () => {
     expect(moneyAtRisk.totalUnredeemed).toBe(0); // excluded never contributes
   });
 
+  it("excludes an active set-and-forget benefit from needsAttention and treats it as realized (done)", () => {
+    // Period is deliberately urgent (resets in 1 day, fully unused) — a normal
+    // benefit here would be needsAttention. The set-and-forget guard must override.
+    const active = makeBenefit({
+      id: "saf-active", value: 120, setAndForget: true, activatedAt: new Date(),
+      currentPeriod: periodEndingInDays(1, 0),
+    });
+
+    const { moneyAtRisk, needsAttention, onTrack, done } = buildOverviewTriage([
+      makeCard("uc1", [active]),
+    ]);
+
+    expect(needsAttention).toHaveLength(0);
+    expect(onTrack).toHaveLength(0);
+    expect(done.map((r) => r.benefitId)).toEqual(["saf-active"]);
+    expect(done[0].unusedAmount).toBe(0); // realized — nothing at risk
+    expect(moneyAtRisk.totalUnredeemed).toBe(0);
+  });
+
+  it("keeps a not-set-up set-and-forget benefit calm — no urgency, no money at risk", () => {
+    const notSetUp = makeBenefit({
+      id: "saf-idle", value: 120, setAndForget: true, activatedAt: null,
+      currentPeriod: periodEndingInDays(1, 0), // would be urgent if it were a normal benefit
+    });
+
+    const { moneyAtRisk, needsAttention, onTrack, done } = buildOverviewTriage([
+      makeCard("uc1", [notSetUp]),
+    ]);
+
+    expect(needsAttention).toHaveLength(0);
+    expect(done).toHaveLength(0);
+    expect(onTrack.map((r) => r.benefitId)).toEqual(["saf-idle"]); // calm, non-urgent
+    expect(onTrack[0].unusedAmount).toBe(0);
+    expect(moneyAtRisk.totalUnredeemed).toBe(0);
+  });
+
+  it("leaves normal-benefit triage unchanged when mixed with set-and-forget (regression)", () => {
+    const normal = makeBenefit({ id: "normal", value: 30, currentPeriod: periodEndingInDays(2, 0) });
+    const active = makeBenefit({
+      id: "saf", value: 200, setAndForget: true, activatedAt: new Date(),
+      currentPeriod: periodEndingInDays(1, 0),
+    });
+
+    const { moneyAtRisk, needsAttention, onTrack, done } = buildOverviewTriage([
+      makeCard("uc1", [normal, active]),
+    ]);
+
+    expect(needsAttention.map((r) => r.benefitId)).toEqual(["normal"]);
+    expect(moneyAtRisk.totalUnredeemed).toBe(30); // only the normal benefit; set-and-forget adds nothing
+    expect(done.map((r) => r.benefitId)).toEqual(["saf"]);
+  });
+
   it("empty buckets and null soonest when no tracked", () => {
     const result = buildOverviewTriage([]);
     expect(result.needsAttention).toEqual([]);
