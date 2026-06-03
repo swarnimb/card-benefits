@@ -77,6 +77,7 @@ describe("CardsPage", () => {
       retry: vi.fn(),
       updateBenefitUsage: noopUpdateUsage,
       syncBenefitTracked: vi.fn(),
+      syncBenefitActivation: vi.fn(),
     });
 
     render(<CardsPage />);
@@ -92,6 +93,7 @@ describe("CardsPage", () => {
       retry: vi.fn(),
       updateBenefitUsage: noopUpdateUsage,
       syncBenefitTracked: vi.fn(),
+      syncBenefitActivation: vi.fn(),
     });
 
     render(<CardsPage />);

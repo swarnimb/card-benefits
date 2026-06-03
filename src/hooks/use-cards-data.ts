@@ -65,6 +65,26 @@ function applyOptimisticTrackedUpdate(
   );
 }
 
+function applyOptimisticActivationUpdate(
+  cards: UserCardWithBenefits[],
+  cardId: string,
+  benefitId: string,
+  activatedAt: Date | null
+): UserCardWithBenefits[] {
+  return cards.map((card) =>
+    card.id !== cardId
+      ? card
+      : {
+          ...card,
+          benefits: card.benefits.map((benefit) =>
+            benefit.id !== benefitId
+              ? benefit
+              : { ...benefit, activatedAt }
+          ),
+        }
+  );
+}
+
 async function fetchCardsWithBenefits(): Promise<UserCardWithBenefits[]> {
   const res = await fetch("/api/user-cards");
   if (!res.ok) throw new CardsLoadError(`GET /api/user-cards returned ${res.status}`);
@@ -102,6 +122,16 @@ export interface CardsDataResult {
     cardId: string,
     benefitId: string,
     newTracked: boolean
+  ) => void;
+  /**
+   * Sync local state after a successful activation PATCH (ActivationToggle owns
+   * the network call + optimistic local flip; this updates the cards list so
+   * subsequent renders show the correct activatedAt).
+   */
+  syncBenefitActivation: (
+    cardId: string,
+    benefitId: string,
+    activatedAt: Date | null
   ) => void;
 }
 
@@ -169,5 +199,12 @@ export function useCardsData(): CardsDataResult {
     []
   );
 
-  return { cards, loading, error, retry, updateBenefitUsage, syncBenefitTracked };
+  const syncBenefitActivation = useCallback(
+    (cardId: string, benefitId: string, activatedAt: Date | null): void => {
+      setCards((prev) => applyOptimisticActivationUpdate(prev, cardId, benefitId, activatedAt));
+    },
+    []
+  );
+
+  return { cards, loading, error, retry, updateBenefitUsage, syncBenefitTracked, syncBenefitActivation };
 }

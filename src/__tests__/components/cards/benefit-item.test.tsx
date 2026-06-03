@@ -49,6 +49,34 @@ describe("BenefitList", () => {
     expect(screen.queryByText("Access")).toBeNull();
     expect(screen.queryByText("One-time Perks")).toBeNull();
   });
+
+  it("pulls set-and-forget benefits into a separate 'Automatic' group, out of their type group", () => {
+    const benefits = [
+      makeBenefit({ id: "credit", type: "credit", name: "Travel Credit" }),
+      makeBenefit({ id: "saf", type: "subscription", name: "Walmart+", setAndForget: true }),
+    ];
+
+    render(
+      <BenefitList benefits={benefits} cardColor="#117ACA" onUsageUpdate={vi.fn()} />
+    );
+
+    expect(screen.getByText("Automatic")).toBeDefined();
+    // The set-and-forget benefit is a subscription, but must NOT create a
+    // "Subscriptions" type group — it lives only in the Automatic group.
+    expect(screen.queryByText("Subscriptions")).toBeNull();
+    expect(screen.getByTestId("activation-toggle-saf")).toBeDefined();
+  });
+
+  it("omits the 'Automatic' group when no set-and-forget benefits exist", () => {
+    render(
+      <BenefitList
+        benefits={[makeBenefit({ id: "credit", type: "credit" })]}
+        cardColor="#117ACA"
+        onUsageUpdate={vi.fn()}
+      />
+    );
+    expect(screen.queryByText("Automatic")).toBeNull();
+  });
 });
 
 describe("BenefitItem", () => {
@@ -74,6 +102,20 @@ describe("BenefitItem", () => {
     );
 
     expect(screen.getByTestId("usage-toggle-b-2")).toBeDefined();
+  });
+
+  it("renders ActivationToggle (not the per-type widget) for a set-and-forget benefit", () => {
+    render(
+      <BenefitItem
+        benefit={makeBenefit({ id: "saf-1", type: "subscription", setAndForget: true, activatedAt: null })}
+        cardColor="#117ACA"
+        onUsageUpdate={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("activation-toggle-saf-1")).toBeDefined();
+    // The per-type subscription widget must NOT render for a set-and-forget benefit.
+    expect(screen.queryByTestId("usage-toggle-saf-1")).toBeNull();
   });
 
   it("shows expiring label with correct day count", () => {

@@ -12,7 +12,7 @@ import { useCardsData } from "@/hooks/use-cards-data";
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 35 };
 
 export default function CardsPage() {
-  const { cards, loading, error, retry, updateBenefitUsage, syncBenefitTracked } = useCardsData();
+  const { cards, loading, error, retry, updateBenefitUsage, syncBenefitTracked, syncBenefitActivation } = useCardsData();
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
   const expandedCard = cards.find((c) => c.id === expandedCardId) ?? null;
@@ -89,6 +89,9 @@ export default function CardsPage() {
                       }
                       onTrackedUpdate={(benefitId, newTracked) =>
                         syncBenefitTracked(expandedCard.id, benefitId, newTracked)
+                      }
+                      onActivated={(benefitId, activatedAt) =>
+                        syncBenefitActivation(expandedCard.id, benefitId, activatedAt)
                       }
                     />
                   </motion.div>

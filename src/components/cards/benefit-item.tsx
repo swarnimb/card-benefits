@@ -6,6 +6,7 @@ import type { BenefitWithPeriod } from "@/types/benefit";
 import { UsageSlider } from "./usage-slider";
 import { UsageToggle } from "./usage-toggle";
 import { UsageCounter } from "./usage-counter";
+import { ActivationToggle } from "./activation-toggle";
 
 /** Props for a single benefit row with its usage control. */
 export interface BenefitItemProps {
@@ -19,6 +20,11 @@ export interface BenefitItemProps {
    * the toggle still works but parent state is not updated until refetch.
    */
   onTrackedUpdate?: (benefitId: string, newTracked: boolean) => void;
+  /**
+   * Sync callback invoked AFTER a successful activation PATCH (set-and-forget
+   * benefits). The PATCH is owned by ActivationToggle; this syncs parent state.
+   */
+  onActivated?: (benefitId: string, activatedAt: Date | null) => void;
 }
 
 const EXPIRING_DAYS = 7;
@@ -47,7 +53,7 @@ function daysUntilReset(benefit: BenefitWithPeriod): number | null {
 /**
  * Single benefit row — name, description, expiring label, and inline tracking UI.
  */
-export function BenefitItem({ benefit, cardColor, onUsageUpdate, onTrackedUpdate }: BenefitItemProps) {
+export function BenefitItem({ benefit, cardColor, onUsageUpdate, onTrackedUpdate, onActivated }: BenefitItemProps) {
   // Optimistic tracked state: flip immediately on click, revert if PATCH fails.
   // Synced via key=benefit.id so a parent refetch resets it to the server value.
   const [trackedLocal, setTrackedLocal] = useState<boolean>(benefit.tracked);
@@ -128,30 +134,43 @@ export function BenefitItem({ benefit, cardColor, onUsageUpdate, onTrackedUpdate
       )}
 
       <div className="mt-2">
-        {(benefit.type === "credit" || benefit.type === "perk") && (
-          <UsageSlider
+        {benefit.setAndForget ? (
+          // Set-and-forget benefits get the sticky activation toggle instead of
+          // a per-period usage widget (currentPeriod is null for them).
+          <ActivationToggle
             benefitId={benefit.id}
-            value={usedAmount}
-            max={benefit.value}
-            cardColor={sliderColor}
-            onUpdate={(v) => onUsageUpdate(benefit.id, v)}
-          />
-        )}
-        {benefit.type === "subscription" && (
-          <UsageToggle
-            benefitId={benefit.id}
-            isActivated={usedAmount > 0}
+            activatedAt={benefit.activatedAt}
             cardColor={cardColor}
-            onUpdate={(v) => onUsageUpdate(benefit.id, v)}
+            onActivated={onActivated}
           />
-        )}
-        {benefit.type === "access" && (
-          <UsageCounter
-            benefitId={benefit.id}
-            count={usedAmount}
-            max={benefit.value}
-            onUpdate={(v) => onUsageUpdate(benefit.id, v)}
-          />
+        ) : (
+          <>
+            {(benefit.type === "credit" || benefit.type === "perk") && (
+              <UsageSlider
+                benefitId={benefit.id}
+                value={usedAmount}
+                max={benefit.value}
+                cardColor={sliderColor}
+                onUpdate={(v) => onUsageUpdate(benefit.id, v)}
+              />
+            )}
+            {benefit.type === "subscription" && (
+              <UsageToggle
+                benefitId={benefit.id}
+                isActivated={usedAmount > 0}
+                cardColor={cardColor}
+                onUpdate={(v) => onUsageUpdate(benefit.id, v)}
+              />
+            )}
+            {benefit.type === "access" && (
+              <UsageCounter
+                benefitId={benefit.id}
+                count={usedAmount}
+                max={benefit.value}
+                onUpdate={(v) => onUsageUpdate(benefit.id, v)}
+              />
+            )}
+          </>
         )}
       </div>
     </div>
