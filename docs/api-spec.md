@@ -323,6 +323,29 @@ Update `usedAmount` for the current open period. Delegates entirely to `updateBe
 
 ---
 
+### PATCH /api/benefits/[id]/activation
+
+Toggle a set-and-forget benefit's activation state. Delegates the write to `setBenefitActivation()` — the sole write path for `Benefit.activatedAt` (CONSTRAINT-16). Touches no `usedAmount` and creates no `BenefitPeriod`.
+
+**Auth:** Required. Ownership verified. 403 if wrong user.
+
+**Request body:**
+```typescript
+{ activated: boolean }  // true → activatedAt = now; false → activatedAt = null
+```
+
+**Response 200:** The updated Benefit object (includes `setAndForget` and the new `activatedAt`).
+
+**Response 400:** `{ error: "activated must be true or false" }` (also returned for a malformed/non-object body)
+
+**Response 403:** Wrong user
+
+**Response 404:** Benefit not found
+
+**Response 409:** `{ error: "benefit is not set-and-forget; activation does not apply" }`
+
+---
+
 ## Overview
 
 ### GET /api/overview

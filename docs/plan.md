@@ -1964,7 +1964,7 @@
 
 **Depends on:** Task 49
 
-**Status:** [ ]
+**Status:** [x] 2026-06-02
 
 **Specialist:** `@data`
 

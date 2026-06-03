@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ensureCurrentPeriod } from "@/lib/engine/periods";
-import type { BenefitPeriod } from "@prisma/client";
+import type { Benefit, BenefitPeriod } from "@prisma/client";
 
 /** Thrown when a usage update fails. Includes benefit ID and attempted amount. */
 export class UsageEngineError extends Error {
@@ -46,6 +46,77 @@ export async function updateBenefitUsage(
       fn: "updateBenefitUsage",
       benefitId,
       newAmount,
+      cause: err,
+    });
+  }
+}
+
+/** Thrown when a set-and-forget activation toggle fails. Includes benefit ID and attempted state. */
+export class ActivationEngineError extends Error {
+  fn: string;
+  benefitId: string;
+  activated: boolean;
+
+  constructor({ message, benefitId, activated, cause }: {
+    message: string;
+    benefitId: string;
+    activated: boolean;
+    cause?: unknown;
+  }) {
+    super(message, { cause });
+    this.name = "ActivationEngineError";
+    this.fn = "setBenefitActivation";
+    this.benefitId = benefitId;
+    this.activated = activated;
+  }
+}
+
+/**
+ * The ONLY function that writes Benefit.activatedAt (CONSTRAINT-16).
+ * Sets activatedAt to now when activating, or null when deactivating.
+ * Touches no usedAmount and creates no BenefitPeriod. Set-and-forget benefits only.
+ */
+export async function setBenefitActivation(
+  benefitId: string,
+  activated: boolean
+): Promise<Benefit> {
+  let benefit: Benefit | null;
+  try {
+    benefit = await prisma.benefit.findUnique({ where: { id: benefitId } });
+  } catch (err) {
+    throw new ActivationEngineError({
+      message: `setBenefitActivation lookup failed for benefitId="${benefitId}"`,
+      benefitId,
+      activated,
+      cause: err,
+    });
+  }
+
+  if (!benefit) {
+    throw new ActivationEngineError({
+      message: `setBenefitActivation: benefit not found for benefitId="${benefitId}"`,
+      benefitId,
+      activated,
+    });
+  }
+  if (!benefit.setAndForget) {
+    throw new ActivationEngineError({
+      message: `setBenefitActivation: benefit "${benefitId}" is not set-and-forget; activation does not apply`,
+      benefitId,
+      activated,
+    });
+  }
+
+  try {
+    return await prisma.benefit.update({
+      where: { id: benefitId },
+      data: { activatedAt: activated ? new Date() : null },
+    });
+  } catch (err) {
+    throw new ActivationEngineError({
+      message: `setBenefitActivation update failed for benefitId="${benefitId}"`,
+      benefitId,
+      activated,
       cause: err,
     });
   }
