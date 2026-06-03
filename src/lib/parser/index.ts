@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { BENEFIT_EXTRACTION_TOOL } from "@/lib/parser/schema";
 import {
   applyClassificationOverride,
+  deriveSetAndForget,
   deriveTracked,
   normalizeClassification,
 } from "@/lib/parser/classification";
@@ -51,7 +52,7 @@ function toDraftBenefit(b: RawBenefit): DraftBenefit {
     category: VALID_CATEGORIES.has(b.category) ? b.category : "general",
     classification,
     tracked: deriveTracked(classification),
-    setAndForget: false,
+    setAndForget: deriveSetAndForget(b.name, description, classification),
     confidence: b.confidence,
   };
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { calculatePeriodBoundary } from "@/lib/engine/periods";
-import { deriveTracked, isValidClassification, normalizeClassification } from "@/lib/parser/classification";
+import { deriveSetAndForget, deriveTracked, isValidClassification, normalizeClassification } from "@/lib/parser/classification";
 import type { DraftBenefit } from "@/types/benefit";
 
 const VALID_TYPES = new Set(["credit", "subscription", "access", "perk"]);
@@ -65,6 +65,15 @@ async function runConfirmTransaction(
       // server-only / non-editable. Excluded benefits are still persisted
       // (tracked=false) — never dropped.
       const tracked = typeof b.tracked === "boolean" ? b.tracked : deriveTracked(b.classification);
+      // setAndForget is server-derived (code decides, never trusted from the
+      // LLM/client — mirrors `tracked`). It is a SUBSET of tracked: ANDing with
+      // the final `tracked` means a benefit the user untracks at the review
+      // gate also clears set-and-forget, so we never persist the inconsistent
+      // (tracked=false, setAndForget=true) state. `activatedAt` is intentionally
+      // omitted — Prisma defaults it to null; CONSTRAINT-16 makes
+      // setBenefitActivation() (Task 51) the sole write path for it.
+      const setAndForget =
+        tracked && deriveSetAndForget(b.name, b.description ?? null, normalizeClassification(b.classification));
       const created = await tx.benefit.create({
         data: {
           userCardId,
@@ -78,6 +87,7 @@ async function runConfirmTransaction(
           category: coerceCategory(b.category),
           classification: normalizeClassification(b.classification),
           tracked,
+          setAndForget,
         },
       });
       if (tracked) {

@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-05-27 (Task G4 scrape overlay shipped — supersedes Task G1/NEW-7; category-400 bug fixed via parser clamp + confirm coerce)
+**Last Updated:** 2026-05-28 (Task 50 — `setAndForget` derivation + persistence shipped; Phase H 2/7)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55)
 
 ---
@@ -1913,15 +1913,15 @@
 - Wire `setAndForget` into `toDraftBenefit` in `parser/index.ts`, alongside the existing `applyClassificationOverride` / `deriveTracked` calls.
 
 **Acceptance criteria:**
-- [ ] A set-and-forget benefit (Walmart+, Uber One, CLEAR, Oura, digital-entertainment credit) resolves to `setAndForget: true`.
-- [ ] **Uber Cash** (monthly credit the user must actively spend) resolves to `setAndForget: false` — the Uber One vs Uber Cash distinction is explicitly handled.
-- [ ] Recurring-action credits (airline fee, hotel, Resy dining) resolve to `setAndForget: false`.
-- [ ] `setAndForget` is decided by deterministic code, never trusted from the LLM (mirrors `tracked`).
-- [ ] `schema.ts` `BENEFIT_EXTRACTION_TOOL` descriptions tightened so Haiku can signal a membership-reimbursement benefit.
-- [ ] `toDraftBenefit` includes `setAndForget` on every `DraftBenefit`.
-- [ ] `POST /api/benefits/confirm` persists `setAndForget` on each created `Benefit`; `activatedAt` left `null` on create.
-- [ ] [EH-01] the derivation logs at debug level via the existing gated `debugLog`, not silent.
-- [ ] [CQ-02] no function exceeds 50 lines.
+- [x] A set-and-forget benefit (Walmart+, Uber One, CLEAR, Oura, digital-entertainment credit) resolves to `setAndForget: true`.
+- [x] **Uber Cash** (monthly credit the user must actively spend) resolves to `setAndForget: false` — the Uber One vs Uber Cash distinction is explicitly handled.
+- [x] Recurring-action credits (airline fee, hotel, Resy dining) resolve to `setAndForget: false`.
+- [x] `setAndForget` is decided by deterministic code, never trusted from the LLM (mirrors `tracked`).
+- [x] `schema.ts` `BENEFIT_EXTRACTION_TOOL` descriptions tightened so Haiku can signal a membership-reimbursement benefit.
+- [x] `toDraftBenefit` includes `setAndForget` on every `DraftBenefit`.
+- [x] `POST /api/benefits/confirm` persists `setAndForget` on each created `Benefit`; `activatedAt` left `null` on create.
+- [x] [EH-01] the derivation logs at debug level via the existing gated `debugLog`, not silent.
+- [x] [CQ-02] no function exceeds 50 lines.
 
 **Tests required:**
 - `classification.unit` → `detectSetAndForget` 3+ positive: Walmart+, Uber One, CLEAR (happy)
@@ -1930,7 +1930,7 @@
 
 **Depends on:** Task 49
 
-**Status:** [ ]
+**Status:** [x] — 2026-05-28. `detectSetAndForget` + `deriveSetAndForget` added (classification.ts); `toDraftBenefit` wired (replaces the Task-49 placeholder); `activation-perk` schema description tightened (membership-reimbursement + trial/Uber-Cash disambiguation); confirm route persists server-derived `setAndForget` as a strict subset of `tracked` (`activatedAt` left null per CONSTRAINT-16). +6 unit tests. Unit 162 / integration 46 green; tsc clean on source. **Period suppression for set-and-forget is NOT here — deliberately deferred to Task 52** (CONSTRAINT-17).
 
 **Specialist:** `@llm-parser`
 

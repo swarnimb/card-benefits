@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest'
 import {
   applyClassificationOverride,
   CLASSIFICATION_BUCKETS,
+  deriveSetAndForget,
   deriveTracked,
   detectAutoEarnPatterns,
   detectDiscountPatterns,
   detectPayOverTimePatterns,
+  detectSetAndForget,
   detectTrialPatterns,
   isValidClassification,
   normalizeClassification,
@@ -326,5 +328,84 @@ describe('applyClassificationOverride', () => {
     expect(
       applyClassificationOverride('Chase Pay Over Time', null, 'passive-perk')
     ).toBe('passive-perk')
+  })
+})
+
+describe('detectSetAndForget', () => {
+  it('returns true for 5 membership-reimbursement benefits (Walmart+, Uber One, CLEAR, Oura, digital entertainment)', () => {
+    // Walmart+ membership — credit auto-applies once enrolled.
+    expect(
+      detectSetAndForget('Walmart+ Membership', 'Annual Walmart+ membership statement credit')
+    ).toBe(true)
+    // Uber One membership — the half of the Uber One/Uber Cash split that IS set-and-forget.
+    expect(
+      detectSetAndForget('Uber One', 'Complimentary Uber One membership credit')
+    ).toBe(true)
+    // CLEAR Plus — the paid airport-security membership.
+    expect(
+      detectSetAndForget('CLEAR Plus Credit', 'Up to $189 toward a CLEAR Plus membership')
+    ).toBe(true)
+    // Oura — ring membership reimbursement.
+    expect(
+      detectSetAndForget('Oura Membership', 'Statement credit toward an Oura Ring membership')
+    ).toBe(true)
+    // Digital-entertainment / streaming-bundle credit — bundled subscriptions.
+    expect(
+      detectSetAndForget('Digital Entertainment Credit', 'Monthly credit for digital entertainment subscriptions')
+    ).toBe(true)
+  })
+
+  it('returns false for recurring-action credits — Uber Cash, airline fee, hotel, Resy (negative lock)', () => {
+    // Uber Cash: a monthly balance the user must actively SPEND — the canonical
+    // trap. Must NOT match the Uber One membership pattern.
+    expect(detectSetAndForget('Uber Cash', '$15 in monthly Uber Cash, $20 in December')).toBe(false)
+    // Airline incidental fee credit — must charge an airline to capture.
+    expect(
+      detectSetAndForget('$200 Airline Fee Credit', 'Annual credit for airline incidental fees')
+    ).toBe(false)
+    // Hotel property credit — must book/stay.
+    expect(
+      detectSetAndForget('$50 Hotel Credit', 'Property credit per stay at participating hotels')
+    ).toBe(false)
+    // Resy dining credit — must dine to capture.
+    expect(
+      detectSetAndForget('$10 Resy Dining Credit', 'Monthly statement credit at Resy restaurants')
+    ).toBe(false)
+  })
+})
+
+describe('deriveSetAndForget', () => {
+  it('resolves true for a tracked membership-reimbursement benefit (either tracked bucket)', () => {
+    expect(
+      deriveSetAndForget('Walmart+ Membership', 'Annual Walmart+ credit', 'activation-perk')
+    ).toBe(true)
+    expect(
+      deriveSetAndForget('CLEAR Plus Credit', 'CLEAR Plus membership', 'discretionary-credit')
+    ).toBe(true)
+  })
+
+  it('resolves false for Uber Cash even when tracked (Uber One vs Uber Cash)', () => {
+    expect(
+      deriveSetAndForget('Uber Cash', '$15 monthly Uber Cash', 'discretionary-credit')
+    ).toBe(false)
+  })
+
+  it('resolves false when the benefit is not tracked — code decides, not the membership name', () => {
+    // A Walmart+ *trial* is overridden to one-time-bonus (not tracked); even
+    // though the name matches the membership set, an untracked benefit is never
+    // set-and-forget. Mirrors the deriveTracked discipline.
+    expect(
+      deriveSetAndForget('Walmart+ 6-month trial', 'Free Walmart+ trial', 'one-time-bonus')
+    ).toBe(false)
+    // auto-earn is likewise excluded — a Walmart cash-back rate is not a membership.
+    expect(
+      deriveSetAndForget('Walmart Cash Back', '5% back at Walmart', 'auto-earn')
+    ).toBe(false)
+  })
+
+  it('resolves false for a tracked credit that is not a known membership (recurring-action)', () => {
+    expect(
+      deriveSetAndForget('$200 Airline Fee Credit', 'Annual airline incidental credit', 'discretionary-credit')
+    ).toBe(false)
   })
 })

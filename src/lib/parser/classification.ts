@@ -190,3 +190,63 @@ export function applyClassificationOverride(
   }
   return classification;
 }
+
+/* ── Set-and-forget detection (Task 50 / Feature 8) ──────────────────────────
+ * Membership-reimbursement benefits the cardholder enrolls in ONCE, after which
+ * the statement credit applies automatically every period with no recurring
+ * action. They are still tracked, but they need no period-by-period usage nudge
+ * (they render in the "Automatic" group, Task 54). The set is a deliberate
+ * allow-list of known products, mirroring the narrow detect* pattern above.
+ *
+ * The failure tradeoff is the INVERSE of the override rules: a false positive
+ * would suppress usage tracking on a spend-it-or-lose-it credit (a missed-money
+ * risk), so under-matching is the safer error — we only flip on a recognised
+ * membership token, never on bare "membership"/"credit" phrasing.
+ *
+ * Uber One vs Uber Cash is the canonical trap: Uber One is a paid membership the
+ * card reimburses (set-and-forget); Uber Cash is a monthly balance the user must
+ * actively spend (NOT set-and-forget). The pattern matches only the membership.
+ */
+const SET_AND_FORGET_PATTERNS: readonly RegExp[] = [
+  /\bwalmart\s*(?:\+|plus\b)/i, // Walmart+ membership (no \b after "+": it is a non-word char)
+  /\buber\s+one\b/i, // Uber One membership — NOT Uber Cash
+  /\bclear\s*(?:®\s*)?plus\b/i, // CLEAR Plus (the paid airport-security membership)
+  /\bclear\b(?=[^.]{0,40}\b(?:credit|membership)\b)/i, // "CLEAR ... credit/membership" without the "Plus" wording
+  /\boura\b/i, // Oura Ring membership
+  /\b(?:digital\s+entertainment|streaming\s+bundle)\b/i, // bundled streaming/entertainment credits
+];
+
+/**
+ * True when `name` + `description` names a known membership-reimbursement
+ * benefit (Walmart+, Uber One, CLEAR / CLEAR Plus, Oura, digital-entertainment /
+ * streaming-bundle credits). Concatenates both fields before testing so a match
+ * in either triggers — mirrors `detectAutoEarnPatterns` et al.
+ */
+export function detectSetAndForget(
+  name: string,
+  description: string | null
+): boolean {
+  const text = `${name} ${description ?? ""}`;
+  return SET_AND_FORGET_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+/**
+ * Deterministic set-and-forget resolution. Like `deriveTracked`, the LLM may
+ * hint (membership reimbursements steer toward the `activation-perk` bucket via
+ * the tool schema) but CODE decides. Two gates, both required:
+ *   1. The benefit must be tracked — an excluded benefit (auto-earn /
+ *      passive-perk / one-time-bonus, including a Walmart+ *trial* the override
+ *      flipped to one-time-bonus) is never a standing membership reimbursement.
+ *   2. Its name/description must match the known membership-reimbursement set.
+ * Logs the positive decision at debug level (EH-01 not silent / EH-02 context).
+ */
+export function deriveSetAndForget(
+  name: string,
+  description: string | null,
+  classification: BenefitClassification
+): boolean {
+  if (!deriveTracked(classification)) return false;
+  if (!detectSetAndForget(name, description)) return false;
+  debugLog(`setAndForget: "${name}" → true (matched membership-reimbursement set)`);
+  return true;
+}
