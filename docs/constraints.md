@@ -218,6 +218,18 @@
 
 ---
 
+### [CONSTRAINT-18] Realized/secured value is the `done` bucket, not a separate Overview figure
+
+**Decision:** An active set-and-forget benefit's "realized/secured value" (PRD Feature 8) is represented by its membership in the Overview `done` bucket — there is no separate "secured value" headline or figure on the Overview. The only money figure on the Overview is money-at-risk.
+
+**What it means in practice:** `buildOverviewTriage` routes an active set-and-forget benefit (`activatedAt != null`) into `done` with `unusedAmount: 0`; a not-set-up one is calm in `onTrack`. No `OverviewData` field tracks a realized total. The Overview stays calm with a single money number (design-decisions.md). Adding a visible "$X secured automatically" figure is a NEW surface — it requires a new task + a `@designer` pass, not an incidental change.
+
+**Who decided and when:** Builder (Task 53), 2026-06-02
+
+**What this closes off:** Treating "realized value" as a displayed number without design review. Future Overview work must not silently add a second money headline.
+
+---
+
 ## Summary Table
 
 | # | Decision | Practical impact | Decided by | Date |
@@ -239,3 +251,4 @@
 | 15 | UI-layer concat over data denormalization | Composite displays render at JSX layer; columns stay normalized | Builder (Task 41) | 2026-05-19 |
 | 16 | setBenefitActivation() only write path for activatedAt | Feature 8 activation writes route through one function | @cto (Feature 8) | 2026-05-21 |
 | 17 | Set-and-forget benefits have no BenefitPeriod records | State is Benefit.activatedAt; no per-period history | @cto (Feature 8) | 2026-05-21 |
+| 18 | Realized value = done bucket, not a separate Overview figure | No secured-value headline; a visible figure is a new task + @designer | Builder (Task 53) | 2026-06-02 |
