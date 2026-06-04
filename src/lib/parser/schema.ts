@@ -89,12 +89,20 @@ export const BENEFIT_EXTRACTION_TOOL = {
             confidence: {
               type: "number",
               description:
-                "Confidence 0.0–1.0. Use 0.85–0.95 when all fields are explicitly stated. " +
+                "Your confidence this benefit was extracted correctly, 0 to 1. " +
+                "Use 0.85–0.95 when all fields are explicitly stated. " +
                 "Use 0.70–0.84 when value is present but reset period is inferred. " +
                 "Use below 0.70 when key details are ambiguous.",
             },
+            note: {
+              type: "string",
+              description:
+                "Short reviewer-facing note about anything ambiguous; omit if none.",
+            },
           },
-          required: ["name", "type", "value", "valueUnit", "resetPeriod", "category", "classification", "confidence"],
+          // `confidence` is intentionally NOT required: when Haiku omits it (or
+          // emits a non-number) the parser defaults the tier to 'low' (Task 59).
+          required: ["name", "type", "value", "valueUnit", "resetPeriod", "category", "classification"],
         },
       },
     },

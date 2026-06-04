@@ -2190,10 +2190,10 @@
 - `toConfidenceTier(score: number): 'high' | 'low'` — threshold (<0.80 → low; A4 spike scores 0.85–0.95)
 
 **Acceptance criteria:**
-- [ ] Each `DraftBenefit` carries `confidence` ('high'|'low') + optional `note` from Haiku output
-- [ ] Fields are REVIEW-TIME ONLY — typed/commented as never-persisted (enforced in Task 60)
-- [ ] Threshold deterministic in code, not LLM-decided
-- [ ] Parser unit suite + build clean
+- [x] Each `DraftBenefit` carries `confidence` ('high'|'low') + optional `note` from Haiku output
+- [x] Fields are REVIEW-TIME ONLY — typed/commented as never-persisted (enforced in Task 60)
+- [x] Threshold deterministic in code, not LLM-decided
+- [x] Parser unit suite + build clean
 
 **Tests required:**
 - Unit → `low-confidence benefit (<0.80) tagged confidence: 'low'` (happy)
@@ -2201,7 +2201,7 @@
 
 **Depends on:** None
 
-**Status:** [ ]
+**Status:** [x]
 
 **Specialist:** `@llm-parser`
 

@@ -74,5 +74,17 @@ export interface DraftBenefit {
   classification: BenefitClassification;
   tracked: boolean;
   setAndForget: boolean;
-  confidence: number;
+  /**
+   * REVIEW-TIME ONLY — never persisted. Deterministic tier derived in code from
+   * Haiku's numeric confidence score via `toConfidenceTier` (NOT decided by the
+   * LLM). Drives the review-gate "low confidence" flag. Task 60 strips this
+   * before any Prisma write — it must never reach the `benefits` table.
+   */
+  confidence: "high" | "low";
+  /**
+   * REVIEW-TIME ONLY — never persisted. Optional reviewer-facing note from Haiku
+   * about anything ambiguous; undefined when omitted. Like `confidence`, Task 60
+   * strips this before persistence — it must never reach the DB.
+   */
+  note?: string;
 }

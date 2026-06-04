@@ -32,6 +32,19 @@ const VALID_CATEGORIES = new Set<DraftBenefit["category"]>([
 ]);
 
 /**
+ * Maps Haiku's numeric confidence SCORE (0–1) to a deterministic review tier.
+ * The threshold is decided HERE in code, never by the LLM: score < 0.80 → 'low',
+ * otherwise 'high'. A missing or non-number score (Haiku omitted it — `confidence`
+ * is intentionally not a required tool field) defaults to 'low' so an unscored
+ * benefit is always flagged for review rather than silently trusted.
+ * (A4 spike: well-extracted benefits land 0.85–0.95.)
+ */
+export function toConfidenceTier(score: unknown): "high" | "low" {
+  if (typeof score !== "number" || Number.isNaN(score)) return "low";
+  return score < 0.8 ? "low" : "high";
+}
+
+/**
  * Maps one raw LLM benefit to a DraftBenefit. `classification` is normalized,
  * then run through `applyClassificationOverride` so deterministic regex
  * correction (NEW-5 cash-back / NEW-8 trials, pay-over-time, recurring
@@ -54,7 +67,10 @@ function toDraftBenefit(b: RawBenefit): DraftBenefit {
     classification,
     tracked: deriveTracked(classification),
     setAndForget: deriveSetAndForget(b.name, description, classification),
-    confidence: b.confidence,
+    // REVIEW-ONLY (Task 59): tier is derived in code from Haiku's numeric score;
+    // note passes through (undefined when omitted). Task 60 strips both at confirm.
+    confidence: toConfidenceTier(b.confidence),
+    ...(typeof b.note === "string" && b.note.length > 0 ? { note: b.note } : {}),
   };
 }
 
@@ -143,5 +159,6 @@ type RawBenefit = {
   resetAnchor?: DraftBenefit["resetAnchor"];
   category: DraftBenefit["category"];
   classification?: unknown; // raw from LLM; normalized via deriveTracked/normalizeClassification
-  confidence: number;
+  confidence?: number; // Haiku score 0–1; optional — defaults to 'low' tier when missing (Task 59)
+  note?: string; // optional reviewer-facing note from Haiku
 };

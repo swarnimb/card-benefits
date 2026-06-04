@@ -8,7 +8,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
   })),
 }));
 
-import { parseBenefits, ParserError } from "@/lib/parser/index";
+import { parseBenefits, ParserError, toConfidenceTier } from "@/lib/parser/index";
 
 function makeToolUseResponse(benefits: unknown[], input: Record<string, unknown> = {}) {
   return {
@@ -54,7 +54,8 @@ describe("parseBenefits", () => {
     expect(benefits[0].type).toBe("credit");
     expect(benefits[0].value).toBe(10);
     expect(benefits[0].resetAnchor).toBe("calendar");
-    expect(benefits[0].confidence).toBe(0.92);
+    // Task 59: 0.92 score (>= 0.80 threshold) maps to the 'high' review tier.
+    expect(benefits[0].confidence).toBe("high");
   });
 
   it("maps classification and derives tracked=true for discretionary-credit", async () => {
@@ -176,5 +177,44 @@ describe("parseBenefits", () => {
       name: "ParserError",
       rawTextPreview: "A".repeat(200), // sliced to 200
     });
+  });
+
+  it("tags a low-confidence benefit (<0.80) as confidence: 'low' and passes the note through", async () => {
+    // Task 59: Haiku returns a numeric score; the tier is decided in code, not by
+    // the LLM. A 0.65 score sits below the 0.80 threshold → 'low'. The reviewer
+    // note flows through to the review gate verbatim.
+    const lowConf = {
+      ...validBenefit,
+      confidence: 0.65,
+      note: "reset period inferred from 'per year' wording",
+    };
+    mockCreate.mockResolvedValue(makeToolUseResponse([lowConf]));
+
+    const { benefits } = await parseBenefits("Ambiguous yearly credit.");
+    expect(benefits[0].confidence).toBe("low");
+    expect(benefits[0].note).toBe("reset period inferred from 'per year' wording");
+  });
+
+  it("defaults a benefit with missing confidence to 'low' with no note", async () => {
+    // Error/missing case: Haiku omitted the (non-required) confidence score and
+    // gave no note. Parser must default the tier to 'low' (flag for review) and
+    // leave `note` undefined rather than throwing.
+    const noConf = { ...validBenefit };
+    delete (noConf as { confidence?: number }).confidence;
+    mockCreate.mockResolvedValue(makeToolUseResponse([noConf]));
+
+    const { benefits } = await parseBenefits("Credit with no score.");
+    expect(benefits[0].confidence).toBe("low");
+    expect(benefits[0].note).toBeUndefined();
+  });
+
+  it("toConfidenceTier maps scores deterministically around the 0.80 threshold", async () => {
+    // Pure deterministic mapping — exported so the threshold can be asserted
+    // directly, independent of any Haiku payload.
+    expect(toConfidenceTier(0.95)).toBe("high");
+    expect(toConfidenceTier(0.8)).toBe("high"); // boundary is inclusive of 0.80
+    expect(toConfidenceTier(0.79)).toBe("low");
+    expect(toConfidenceTier(undefined)).toBe("low");
+    expect(toConfidenceTier(NaN)).toBe("low");
   });
 });

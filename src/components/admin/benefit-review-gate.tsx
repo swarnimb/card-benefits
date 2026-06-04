@@ -35,7 +35,9 @@ function makeBlankBenefit(): DraftBenefit {
     classification: "discretionary-credit",
     tracked: true,
     setAndForget: false,
-    confidence: 1,
+    // A manually-added benefit is user-authored, so it is high confidence by
+    // definition (review-only field; Task 60 strips it before persistence).
+    confidence: "high",
   };
 }
 
