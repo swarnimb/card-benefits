@@ -2270,20 +2270,27 @@
 - `src/types/api.ts` — `OverviewData` gains `activeByCategory` groups + `sparkbar` segments
 
 **Functions to implement:**
-- `mapCategoryToGroup(category): 'Travel'|'Dining'|'Lifestyle'|'Wellness'` — Dining←dining; Travel←travel,lounge; Lifestyle←streaming,shopping,general; Wellness←keyword-reserved
+- `mapCategoryToGroup(category): 'Travel'|'Dining'|'Lifestyle'|'Wellness'` — Dining←dining; Travel←travel,lounge; Lifestyle←streaming,shopping,general; **Wellness←wellness** (real source category — see Design decisions)
 - `buildActiveCreditsByCategory(benefits): CategoryGroup[]` — grouped, ordered by total remaining desc, empty groups omitted
 - sparkbar: per-credit segment `{ issuerColor, weight }`
+- **NEW SCOPE — wellness tag (resolved 2026-06-04):** add `wellness` to the `Benefit.category` app-level allowlist (string validation, no Prisma enum per CLAUDE.md) + update the Haiku classifier prompt (`skills/llm-parser` / `src/lib/llm`) so gym/fitness credits classify as `wellness`. Without this the Wellness group never populates.
 
 **Acceptance criteria:**
 - [ ] Active credits grouped into the 4 design groups via deterministic mapping; empty groups hidden
 - [ ] Sparkbar data = segments per at-risk credit colored by issuer dot
 - [ ] tracked-only (`tracked: false` excluded); money-at-risk math unchanged (CONSTRAINT-18)
-- [ ] Mapping confirmed with `@designer` before UI build (Task 63)
+- [x] Mapping confirmed with `@designer` (resolved 2026-06-04)
+- [ ] `wellness` added to category allowlist + Haiku classifier prompt; Wellness group populates from real benefits
 - [ ] Build + engine tests clean
 
 **Tests required:**
-- Unit → `mapCategoryToGroup maps all 6 categories correctly` (happy)
+- Unit → `mapCategoryToGroup maps all 7 categories correctly` (happy — incl. `wellness`)
 - Unit → `empty category group omitted from output` (edge)
+
+**Design decisions (resolved 2026-06-04 — `@designer` consult + builder approval):**
+- 4-group mapping confirmed: Dining←dining; Travel←travel+lounge; Lifestyle←streaming+shopping+general; **Wellness←wellness**. Empty groups hidden.
+- **Wellness is a real, populated group — not an empty placeholder.** The approved design source ships an Amex Equinox wellness credit; requires the wellness-tag scope above. Do it before Task 63 UI, or the group never renders.
+- **Issuer palette: Feature 9 design tokens are the single source of truth** (amex `#C9A961`, chase `#3B5BDB`, capitalone `#B73A3A`, citi `#2E5BC9`, discover `#E0741F`). Catalog `defaultColor` seeds migrate to these + existing rows backfilled — implemented in Task 64.
 
 **Depends on:** None
 
@@ -2329,12 +2336,14 @@
 
 **Functions to implement:**
 - Add `PortfolioStats` (annual fees / redeemed YTD / available); restyle `CardItem` face + detail to design tokens
+- **NEW SCOPE — issuer color migration (resolved 2026-06-04):** migrate `data/card-catalog.json` `defaultColor` seeds to the Feature 9 token hexes (amex `#C9A961`, chase `#3B5BDB`, capitalone `#B73A3A`, citi `#2E5BC9`, discover `#E0741F`); backfill existing `Card.defaultColor` rows that still hold the OLD seed → new hex, preserving genuine user overrides; apply to BOTH DBs (app `prisma/dev.db` + test root `dev.db`). Card faces render `defaultColor` (= token by default; user override wins).
 
 **Acceptance criteria:**
 - [ ] Matches `Cards.jsx` at 375px: portfolio stat trio, wallet stack faces, card detail (stat trio + credit sections)
 - [ ] **Stack expand/collapse animation preserved exactly as today** (AnimatePresence card-out/return) — explicit acceptance
 - [ ] Card face omits last4/opened/network (out of scope) — no placeholders
 - [ ] redeemed/available/fee figures shown here (CONSTRAINT-19); null `annualFee` → "—"
+- [ ] Issuer colors = Feature 9 design tokens; catalog seeds migrated + existing rows backfilled (user overrides preserved); cards render exactly on-spec
 - [ ] Verified at 375px AND 1280px
 
 **Tests required:**
