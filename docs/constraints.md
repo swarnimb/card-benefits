@@ -230,6 +230,42 @@
 
 ---
 
+### [CONSTRAINT-19] Realized-value figures live on Cards/Admin only, not Overview
+
+**Decision:** Aggregate "realized value" figures — Redeemed YTD, Available, and annual-fee totals (PRD Feature 9) — are permitted on the Cards and Admin screens. The Overview hero remains money-at-risk only. This refines, and does not loosen, CONSTRAINT-18.
+
+**What it means in practice:** Cards shows a portfolio stat trio (annual fees / redeemed YTD / available) and per-card redeemed/available; Admin shows a summary strip and an "up to $X/yr tracked" figure in the review gate. The Overview adds no second money headline — CONSTRAINT-18 still governs Overview. All figures are computed from existing usage data, not stored.
+
+**Who decided and when:** Builder (Feature 9 redesign), 2026-06-04
+
+**What this closes off:** Putting a realized/secured-value headline on the Overview. Realized value on Overview remains the `done` bucket only (CONSTRAINT-18).
+
+---
+
+### [CONSTRAINT-20] Toasts permitted for card add/remove only
+
+**Decision:** A toast notification is permitted for card add and card remove confirmations (PRD Feature 9 / design). All other feedback — benefit tracking, usage updates, activation — stays inline-feedback-only with no toast. This refines the design-decisions.md "no toasts" rule for these two actions only.
+
+**What it means in practice:** Adding a card (after the review-gate confirm) and removing a card may fire a toast ("… added · N benefits tracked" / "Removed …"). Benefit usage sliders, tracked toggles, and set-and-forget activation must never use a toast — they confirm visually inline, as before.
+
+**Who decided and when:** Builder (Feature 9 redesign), 2026-06-04
+
+**What this closes off:** Toasts as a general feedback pattern. The inline-feedback principle still governs everything except card add/remove.
+
+---
+
+### [CONSTRAINT-21] Annual fee is scrape-derived, product-level, nullable
+
+**Decision:** `Card.annualFee` is populated by the scrape + Haiku parse pass (PRD Feature 9), not manual entry. It is product-level (on `Card`, shared across users of that card), nullable, and surfaced pre-filled in the review gate for confirmation before save.
+
+**What it means in practice:** The parser extracts a card-level annual fee alongside the benefit list; it appears as a confirmable field in the review gate (auto-fetched, editable, not required) and saves on confirm. If the parse misses it, `annualFee` is null and the UI renders "—" (see assumptions A11). No screen requires the user to type an annual fee.
+
+**Who decided and when:** Builder (Feature 9 redesign), 2026-06-04
+
+**What this closes off:** Manual annual-fee entry, and storing annual fee per-UserCard. Annual fee is a product attribute on `Card`, fetched automatically.
+
+---
+
 ## Summary Table
 
 | # | Decision | Practical impact | Decided by | Date |
@@ -252,3 +288,6 @@
 | 16 | setBenefitActivation() only write path for activatedAt | Feature 8 activation writes route through one function | @cto (Feature 8) | 2026-05-21 |
 | 17 | Set-and-forget benefits have no BenefitPeriod records | State is Benefit.activatedAt; no per-period history | @cto (Feature 8) | 2026-05-21 |
 | 18 | Realized value = done bucket, not a separate Overview figure | No secured-value headline; a visible figure is a new task + @designer | Builder (Task 53) | 2026-06-02 |
+| 19 | Realized-value figures on Cards/Admin only | Redeemed YTD/Available/fees on Cards+Admin; Overview stays money-at-risk | Builder (Feature 9) | 2026-06-04 |
+| 20 | Toasts for card add/remove only | Benefit tracking stays inline-feedback-only | Builder (Feature 9) | 2026-06-04 |
+| 21 | annualFee scrape-derived, product-level, nullable | On Card, confirmed in review gate, "—" fallback | Builder (Feature 9) | 2026-06-04 |

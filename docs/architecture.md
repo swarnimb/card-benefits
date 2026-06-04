@@ -151,6 +151,7 @@ model Card {
   name         String     // "Sapphire Preferred"
   scrapeUrl    String?    // null for custom cards
   defaultColor String     // issuer color hex
+  annualFee    Float?     // scrape-derived annual fee in USD (Feature 9 / CONSTRAINT-21); null if not parsed
   userCards    UserCard[]
 }
 

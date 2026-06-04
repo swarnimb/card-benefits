@@ -51,39 +51,40 @@ Builds UI components for CardMaxxer: dark-background personal finance dashboard 
 
 ## Design Constants
 
-Apply these values consistently. Do not introduce new colors or spacing without checking `docs/design-decisions.md`.
+**Single source of truth:** `src/lib/ui/tokens.ts` (canonical, Task 56). Import `COLORS`, `ISSUER`, `RADII`, `SHADOWS`, `TYPE`, `SPRING`, `EASING` from there — do not hardcode hex/px in components. The values below mirror the canonical module (lifted verbatim from the gitignored `docs/design-source/`); they are reference only. If a value here disagrees with `tokens.ts`, the module wins — fix this doc.
 
 ```typescript
-// Backgrounds
-const BG_PRIMARY = '#0F0E0D'       // main app background — near-black, warm tint
-const BG_SURFACE = '#1A1917'       // card surfaces, list rows
-const BG_ELEVATED = '#252321'      // modals, dropdowns
+// Backgrounds — COLORS.*
+const BG_PRIMARY  = '#0F0E0D'      // COLORS.bg — main app canvas (near-black, warm)
+const BG_SURFACE  = '#191715'      // COLORS.surface — card surfaces, list rows
+const BG_ELEVATED = '#211E1B'      // COLORS.surface2 — modals, dropdowns
 
-// Card issuer colors — auto-assigned, user-overridable
+// Card issuer colors — ISSUER[issuer].color (use .dot for the marker, .tint for chips)
 const CARD_COLORS: Record<string, string> = {
-  amex:        '#C9A84C',  // gold / champagne
-  chase:       '#117ACA',  // sapphire blue
-  capital_one: '#C03A2B',  // deep red
-  citi:        '#1B3F8B',  // royal blue
-  discover:    '#E87722',  // bright orange
-  other:       '#6B7280',  // slate grey fallback
+  amex:        '#C9A961',  // champagne gold
+  chase:       '#3B5BDB',  // sapphire blue
+  capitalone:  '#B73A3A',  // deep red
+  citi:        '#2E5BC9',  // royal blue
+  discover:    '#E0741F',  // burnt orange
+  other:       '#6B7280',  // slate grey fallback (no design-source value)
 }
 
 // State colors
-const COLOR_EXPIRING  = '#F59E0B'  // amber — benefits resetting within 7 days
-const COLOR_COMPLETE  = '#4ADE80'  // soft green — benefit fully used
-const COLOR_INACTIVE  = '#374151'  // desaturated — unclaimed / not activated
+const COLOR_EXPIRING = '#F59E0B'   // COLORS.amber — urgency accent (resetting soon)
+const COLOR_COMPLETE = '#86EFAC'   // COLORS.green — benefit fully used
+const COLOR_INACTIVE = '#4E4944'   // COLORS.text4 — dimmest / unclaimed
 
-// Text
-const TEXT_PRIMARY    = '#F9F9F8'  // near-white
-const TEXT_SECONDARY  = '#9CA3AF'  // mid-grey — labels, metadata
-const TEXT_CAPTION    = '#6B7280'  // section headers, captions
+// Text ramp
+const TEXT_PRIMARY   = '#F5F1EA'   // COLORS.text
+const TEXT_SECONDARY = '#B6AFA4'   // COLORS.text2 — labels, metadata
+const TEXT_CAPTION   = '#7C766D'   // COLORS.text3 — section headers, captions
 
-// Typography scale
-// Amount displays:   text-3xl font-semibold tracking-tight
-// Benefit names:     text-base font-medium
-// Labels / metadata: text-sm font-normal text-secondary
-// Section headers:   text-xs font-medium uppercase tracking-wider text-caption
+// Typography — TYPE.* (fontSize/letterSpacing in px, fontWeight numeric)
+// Hero amount:       TYPE.hero    (56 / 600 / -2.2)
+// Card/screen title: TYPE.title   (20 / 600 / -0.5)
+// Benefit names:     TYPE.body    (14.5 / 500 / -0.15)
+// Labels / metadata: TYPE.meta    (11 / 500 / 0.2)
+// Section headers:   TYPE.label   (11 / 500 / 1.1, uppercase)
 ```
 
 ---

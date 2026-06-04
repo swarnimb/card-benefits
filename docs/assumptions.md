@@ -10,7 +10,7 @@
 
 **Overall:** [x] Complete — all assumptions resolved or accepted
 
-**Last updated:** 2026-05-13
+**Last updated:** 2026-06-04
 
 ---
 
@@ -263,6 +263,27 @@ Contingency: The mandatory review gate shows excluded benefits collapsed ("N aut
 
 ---
 
+### A11 — Annual fee is reliably present and parseable on scraped card pages
+
+**Category:** Data availability
+
+**Assumption:** Public card benefit/marketing pages (the same pages the scraper already fetches) state the card's annual fee in a form Claude Haiku can extract during the existing parse pass.
+
+**Why it's critical:** Feature 9 displays annual fee on Cards/Admin and a portfolio annual-fee total. If the fee can't be parsed, those figures are incomplete.
+
+**Resolution approach:** Accepted risk
+
+**Resolution detail:**
+Annual fee is commonly present on issuer card pages but not guaranteed on every `scrapeUrl` (some target a benefits-specific path). Validation deferred to the Feature 9 build. Same family as A1 (scraped pages have sufficient detail).
+
+Contingency: If the parse misses the fee, `Card.annualFee` is null and the UI renders "—" (CONSTRAINT-21). The fee is also confirmable/editable in the review gate, so the user can correct or supply it once per card without a manual-entry requirement.
+
+**Outcome:** Accepted. Null-safe fallback ("—") plus review-gate confirmation means a missed fee degrades gracefully and never blocks a save.
+
+**Status:** [x] Accepted risk
+
+---
+
 ## Summary
 
 | # | Assumption | Category | Approach | Status |
@@ -277,8 +298,9 @@ Contingency: The mandatory review gate shows excluded benefits collapsed ("N aut
 | A8 | Claude API cost stays negligible | Cost | Research + Spike | ✅ Resolved |
 | A9 | Vercel deployment as Phase 2 migration | Future architecture | Deferred | ✅ Accepted (Phase 2) |
 | A10 | Haiku reliably classifies into 5 buckets | Service capability | Accepted risk | ✅ Accepted |
+| A11 | Annual fee present/parseable on scraped pages | Data availability | Accepted risk | ✅ Accepted |
 
-**Open count: 0** — `@plan` remains unblocked. A5 dropped, A9 added (Phase 2), A10 added (Feature 3.5 classification).
+**Open count: 0** — `@plan` remains unblocked. A5 dropped, A9 added (Phase 2), A10 added (Feature 3.5 classification), A11 added (Feature 9 annual-fee scrape).
 
 ---
 

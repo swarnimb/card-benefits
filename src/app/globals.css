@@ -1,3 +1,9 @@
+/*
+ * CardMaxxer design tokens (colors, radii, shadows, type, motion) live in the
+ * canonical TS module `src/lib/ui/tokens.ts` and are applied via inline styles,
+ * mirroring the design source. This stylesheet holds only the shadcn theme and
+ * the dark `--background: #0F0E0D` (== COLORS.bg). Do not fork the palette here.
+ */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";

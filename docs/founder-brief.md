@@ -300,3 +300,18 @@ The split of responsibility matters: the AI only assigns the bucket (a judgment 
 **Check before approving:** Are you OK with users diverging from the LLM's classification permanently? (Yes — that's the point.) Are there any downstream features (recommendations, alerts) that assume `tracked` is server-deterministic? (Today: no — Overview triage, expiring-soon, and period creation all read `benefit.tracked` directly, so the override propagates everywhere automatically.)
 
 **What this closes off:** Trust-critical UX gap. Mis-classification was previously unrecoverable without a DB edit; now it's a single click. The original Decision A ("`tracked` is server-derived; never client-set") is formally evolved — recorded in `docs/architecture.md` under Decision A evolution (2026-05-26). The bucket → default mapping is unchanged, so the conservative default behavior (ambiguity → tracked) is preserved.
+
+---
+
+## FB18 — Annual Fee Is Fetched Automatically, Stored on the Card
+
+**Date:** 2026-06-04
+**Architecture section:** `docs/architecture.md` → Data Model (`Card.annualFee`), Claude Haiku Parser; `docs/prd.md` Feature 9; `docs/constraints.md` CONSTRAINT-21; assumptions A11
+
+**Decided:** Each card's annual fee is now captured automatically during the same scrape + AI parse that reads its benefits — not typed in by hand. It's stored once on the card itself (shared, since the fee is identical for everyone who holds that card), shown pre-filled in the review gate for you to confirm or correct, and saved when you confirm. We also deliberately dropped three card-face details the design mockup showed — the last-four digits, the card's open date, and the network logo — because they'd require manual data entry for no real benefit.
+
+**Means for your product:** The new Cards and Admin screens can show real money math — annual fee, redeemed-this-year, what's still available — without you entering anything. Add a card and one pass scrapes the benefits AND the fee. If the fee isn't on the page, the screen shows "—" and nothing breaks; you can still type it in the review gate if you want. You never maintain a fee field by hand.
+
+**Check before approving (the risk we accepted — A11):** The annual fee isn't guaranteed to appear on every card page in a form the AI can read. We accepted this: if the parse misses it, the field is empty ("—") rather than wrong, and the review gate lets you fill it once. A missed fee degrades quietly — it never blocks adding a card and never shows a made-up number. The fee lives on the shared `Card` record, not per-copy, so correcting it once is enough.
+
+**What this closes off:** Per-user annual-fee values (everyone with the same card shares one fee) and manual entry as the primary path. The dropped card-face details (last4 / open date / network) stay out — re-adding them later would mean new per-card data the design doesn't actually need. The AI's extraction scope now formally includes a card-level field, not only the benefit list.

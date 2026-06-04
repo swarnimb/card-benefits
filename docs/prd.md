@@ -403,6 +403,59 @@ A user re-scrapes a card with set-and-forget benefits, activates them once, and 
 
 ---
 
+## Feature 9: Pixel-Perfect Three-Screen Redesign
+
+### Problem Statement
+The Overview, Cards, and Admin screens work but predate a finalized visual design. The builder now has a complete claude.ai/design reference and wants all three rebuilt to match it like-to-like — premium and cohesive, not functional-but-rough.
+
+### User Story
+As the single user, I want all three screens to exactly match the approved design, so the app feels like a finished premium product I use daily.
+
+### User Flow (deltas from current screens)
+- **Overview:** greeting topbar → money-at-risk hero (count-up + issuer sparkbar) → Expiring-soon urgency cards → Active-credits category accordion → Settled (collapsed).
+- **Cards:** portfolio stat trio (annual fees / redeemed YTD / available) → wallet stack (existing expand/collapse animation preserved) → card detail with stat trio + credit sections.
+- **Admin:** summary strip (cards · tracked · issuers) → Add a card → managed-card rows (rescan / delete) → add flow (picker → scanning → review gate with confidence badges) → toast on add/remove.
+
+### Business Logic
+- New design tokens are the single source of truth; the two existing palettes (`OV.*` and the ui-cardmaxxer skill palette) are reconciled into one.
+- Active-credits groups by category. Mapping (6 existing → 4 design groups): **Dining** ← dining; **Travel** ← travel, lounge; **Lifestyle** ← streaming, shopping, general; **Wellness** ← reserved (renders only if a benefit matches wellness keywords, else hidden). Empty groups are hidden. Final mapping confirmed at build with `@designer`.
+- **Annual fee:** scrape-derived (extracted in the Haiku parse pass), stored on `Card.annualFee` (product-level), pre-filled and confirmable in the review gate, displayed on Cards/Admin. Null renders "—". (CONSTRAINT-21)
+- **Review confidence:** the parser emits a `confidence` (high/low) + optional `note` per draft benefit; this drives the amber "Review" badge in the review gate only and is never persisted.
+- **Toasts:** permitted for card add/remove confirmations only; benefit tracking stays inline-feedback-only. (CONSTRAINT-20)
+- **Value figures:** redeemed-YTD / available / annual-fee totals appear on Cards/Admin only; the Overview hero stays money-at-risk only. (CONSTRAINT-18, CONSTRAINT-19)
+
+### Acceptance Criteria
+- [ ] Given the design at 375px, each screen is visually indistinguishable on sample data (Overview: topbar/hero/sparkbar/accordion/settled; Cards: stat trio/stack/detail; Admin: summary/list/add-scan-review flow).
+- [ ] The Cards stack expand/collapse animation is preserved unchanged.
+- [ ] The Overview hero shows money-at-risk only; redeemed/available figures appear only on Cards/Admin.
+- [ ] `annualFee` is scrape-derived and confirmed in the review gate (never manually required); when null it renders "—".
+- [ ] Review confidence/note are review-time only and never written to the DB.
+- [ ] All three screens render from one reconciled token palette.
+- [ ] Verified at 375px AND 1280px per `skills/ui-cardmaxxer.md`.
+
+### Edge Cases
+- Annual fee not found on the scraped page → `annualFee` null → "—" everywhere, no error.
+- Empty category group → hidden (accordion renders only non-empty groups).
+- Long benefit or card names → truncate with ellipsis per design.
+- Zero cards → existing empty states restyled to the design.
+
+### Out of Scope (Feature 9)
+- `last4`, opened date, and network logo on the card face (dropped — card face omits them).
+- Real card-network detection or brand/merchant logos.
+- New benefit categories beyond the existing 6.
+- Search is a decorative affordance only (not wired to real search).
+- Transaction history, charts, streaks, or spend trends.
+
+### Success Metric
+Side-by-side, all three screens are visually indistinguishable from the design source at 375px (sample-data parity), and the app runs on real data without layout breakage.
+
+### Component Ownership
+- UI rebuild of all three screens — `@ui` (`skills/ui-cardmaxxer.md`), with `@designer` for the category-mapping and token-reconciliation decisions.
+- `Card.annualFee` schema + scrape/parse extraction — `@cto` (architecture) → `@data` / `@llm-parser`, tasked in `@create-plan`.
+- Review-gate confidence surfacing — `@llm-parser`.
+
+---
+
 ## Out of Scope (MVP)
 
 - CSV transaction import or auto-matching

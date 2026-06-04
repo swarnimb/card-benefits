@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-05-28 (Task 50 — `setAndForget` derivation + persistence shipped; Phase H 2/7)
+**Last Updated:** 2026-06-04 (Task 56 — canonical design-token module + stable design source; Feature 9 1/11)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55)
 
 ---
@@ -2092,6 +2092,321 @@
 
 ---
 
+# Feature 9: Pixel-Perfect Three-Screen Redesign (Tasks 56–66)
+
+> Source: `docs/prd.md` Feature 9. Build reference: decompressed design in `docs/design-source/` (re-extract from `Downloads/CardMaxxer (standalone).html` if absent). Cards stack expand/collapse animation is preserved unchanged throughout.
+
+## Task 56: Establish canonical design tokens + stable design source
+
+**Files:**
+- `docs/design-source/` — create (gitignored): copy `Overview.jsx`, `Cards.jsx`, `Admin.jsx`, `IOSDevice.jsx`, data model from the decompressed bundle
+- `.gitignore` — add `docs/design-source/`
+- `src/lib/ui/tokens.ts` — create canonical token module (or promote `src/components/overview/tokens.ts`)
+- `src/components/overview/tokens.ts` — re-export from canonical to kill drift
+- `skills/ui-cardmaxxer.md`, `globals.css` / `tailwind.config.ts` — align to canonical tokens
+
+**Functions to implement:**
+- Export `COLORS` (bg `#0F0E0D`, surface `#191715`, surface2 `#211E1B`, text `#F5F1EA`/`#B6AFA4`/`#7C766D`/`#4E4944`, amber `#F59E0B` + soft/border, green `#86EFAC` + dim, hairlines), `ISSUER` (amex `#C9A961`/`#D4B97A`, chase `#3B5BDB`/`#5E7BE8`, capitalone `#B73A3A`/`#D85959`, citi `#2E5BC9`/`#557DDE`, discover `#E0741F`/`#E89149`), `RADII`, `SHADOWS`, `TYPE` ramp, `SPRING` (stiffness 420/damping 26), easing `cubic-bezier(0.34,1.2,0.64,1)`
+
+**Acceptance criteria:**
+- [x] One canonical token module is the single source of truth; `OV.*` and the skill palette no longer diverge — `src/lib/ui/tokens.ts` (COLORS/ISSUER/RADII/SHADOWS/TYPE/SPRING/EASING); `overview/tokens.ts` re-exports `OV`=`COLORS`, `OV_SPRING`=`SPRING`; `skills/ui-cardmaxxer.md` palette updated to canonical
+- [x] All token values match the design source exactly (hex/px verified against `docs/design-source/`) — COLORS/ISSUER/RADII/SHADOWS/TYPE/EASING verbatim from source. Two documented translations: `SPRING` 420/26 is the Framer equivalent of the source's `cubic-bezier(0.34,1.2,0.64,1)` (source is CSS-transition based); `ISSUER.discover.tint` derived at 0.14 (Admin catalog defines only color+dot)
+- [x] `docs/design-source/` is gitignored — not committed (SEC-07 hygiene) — verified via `git check-ignore`
+- [x] `npm run build` clean; no visual change yet (tokens defined, not yet applied) — build green; 178/178 unit tests pass (overview re-export preserves all 4 prior exports)
+
+**Tests required:**
+- Unit → `tokens module exports expected canonical hex values` — `src/__tests__/lib/ui/tokens.test.ts` (5 tests, incl. OV-drift guard)
+
+**Depends on:** None
+
+**Status:** [x]
+
+**Specialist:** `@ui-cardmaxxer`
+
+---
+
+## Task 57: Add `Card.annualFee` schema field + migration
+
+**Files:**
+- `prisma/schema.prisma` — add `annualFee Float?` to `Card`
+- `prisma/migrations/<timestamp>_card_annual_fee/migration.sql` — generated
+
+**Functions to implement:** None (schema + migration).
+
+**Acceptance criteria:**
+- [ ] `Card.annualFee` is `Float?` (nullable), placed per architecture.md
+- [ ] Migration applies cleanly; existing `Card` rows get `null` (no data loss); `benefit_periods` untouched (CONSTRAINT-08 append-only)
+- [ ] `npx prisma generate` run; types updated; `npm run build` clean
+- [ ] No secrets/hardcoded values (SEC-01)
+
+**Tests required:**
+- Unit → `prisma Card model accepts null annualFee` (happy)
+- Unit → `existing card row reads annualFee as null post-migration` (migration safety)
+
+**Depends on:** None
+
+**Status:** [ ]
+
+**Specialist:** `@data`
+
+---
+
+## Task 58: Extract card-level annual fee in the Haiku parse
+
+**Files:**
+- `src/lib/parser/schema.ts` — extend the `tool_use` tool with a top-level `annualFee` (number, nullable) card property
+- `src/lib/parser/index.ts` — surface `annualFee` in the parse result alongside benefits
+- `src/types/*` — parse-result type gains `annualFee: number | null`
+
+**Functions to implement:**
+- Parser return type → `{ benefits: DraftBenefit[]; annualFee: number | null }`; map tool output's `annualFee` through (null when omitted)
+
+**Acceptance criteria:**
+- [ ] Tool schema includes a card-level `annualFee` (not a benefit field); Haiku instructed to return the card's annual fee in USD or null
+- [ ] Parse result carries `annualFee`; `null` when not found (A11 fallback)
+- [ ] Claude Haiku only, `tool_use` only, model `claude-haiku-4-5-20251001` (CONSTRAINT-09); no freeform JSON parsing
+- [ ] `npm run build` + parser unit suite clean
+
+**Tests required:**
+- Unit → `parser returns annualFee when present in tool output` (happy)
+- Unit → `parser returns annualFee null when omitted` (missing case)
+
+**Depends on:** Task 57
+
+**Status:** [ ]
+
+**Specialist:** `@llm-parser`
+
+---
+
+## Task 59: Emit per-benefit confidence + note in draft output
+
+**Files:**
+- `src/lib/parser/schema.ts` — tool output includes per-benefit `confidence` + optional `note`
+- `src/lib/parser/index.ts` — map to `DraftBenefit.confidence` ('high'|'low') + `note?`
+- `src/types/*` — `DraftBenefit` gains review-only `confidence`, `note`
+
+**Functions to implement:**
+- `toConfidenceTier(score: number): 'high' | 'low'` — threshold (<0.80 → low; A4 spike scores 0.85–0.95)
+
+**Acceptance criteria:**
+- [ ] Each `DraftBenefit` carries `confidence` ('high'|'low') + optional `note` from Haiku output
+- [ ] Fields are REVIEW-TIME ONLY — typed/commented as never-persisted (enforced in Task 60)
+- [ ] Threshold deterministic in code, not LLM-decided
+- [ ] Parser unit suite + build clean
+
+**Tests required:**
+- Unit → `low-confidence benefit (<0.80) tagged confidence: 'low'` (happy)
+- Unit → `missing confidence defaults to 'low' with no note` (error case)
+
+**Depends on:** None
+
+**Status:** [ ]
+
+**Specialist:** `@llm-parser`
+
+---
+
+## Task 60: Persist annualFee on confirm; strip confidence/note
+
+**Files:**
+- `src/app/api/benefits/confirm/route.ts` — accept optional `annualFee`, write to `Card`; strip `confidence`/`note`
+- `src/components/admin/benefit-review-gate.tsx` — pass the confirmed `annualFee`
+- `src/types/*`
+
+**Functions to implement:**
+- Confirm handler: validate `annualFee` (number ≥ 0 or null), update `Card.annualFee` in the existing transaction; never write `confidence`/`note` to `Benefit`
+
+**Acceptance criteria:**
+- [ ] On confirm, `Card.annualFee` is set from the pre-filled/editable review value; not required (null allowed) (CONSTRAINT-21)
+- [ ] `confidence`/`note` stripped server-side — never written to `Benefit` (allowlist write, LOW-5/LOW-8 pattern)
+- [ ] Review gate remains the only save path — no auto-save (CONSTRAINT-10)
+- [ ] Input validated at boundary (SEC-02); parameterized Prisma (SEC-03); loud failure on bad input (EH-01)
+
+**Tests required:**
+- Integration → `confirm persists annualFee to Card` (happy)
+- Integration → `confirm strips confidence/note; Benefit rows have neither` (security/allowlist)
+
+**Depends on:** Tasks 57, 58, 59
+
+**Status:** [ ]
+
+**Specialist:** `@data`
+
+---
+
+## Task 61: Aggregates for Cards/Admin value figures
+
+**Files:**
+- Cards data endpoint (`src/app/api/user-cards/route.ts` or the `useCardsData` source) — add `redeemedYtd`, `available`, `annualFeeTotal`
+- `src/lib/engine/*` — aggregation helper
+- `src/types/api.ts`
+
+**Functions to implement:**
+- `computePortfolioStats(cards): { annualFeeTotal: number; redeemedYtd: number; available: number }` — redeemedYtd = sum `usedAmount` across periods in current year; available = sum remaining on tracked time-bound credits; annualFeeTotal = sum `Card.annualFee`
+
+**Acceptance criteria:**
+- [ ] Cards/Admin receive redeemedYtd / available / annualFeeTotal, computed from existing usage (not stored)
+- [ ] Overview hero/data UNCHANGED — no realized figure there (CONSTRAINT-18; Cards/Admin-only per CONSTRAINT-19)
+- [ ] `usedAmount` read-only here — no writes outside `updateBenefitUsage()` (CONSTRAINT-07)
+- [ ] Parameterized queries (SEC-03); build + tests clean
+
+**Tests required:**
+- Unit → `computePortfolioStats sums redeemed/available/fees correctly` (happy)
+- Unit → `null annualFee excluded from total` (edge)
+
+**Depends on:** Task 57
+
+**Status:** [ ]
+
+**Specialist:** `@data`
+
+---
+
+## Task 62: Overview engine — category grouping + sparkbar data
+
+**Files:**
+- `src/lib/engine/expiring.ts` — extend `buildOverviewTriage` (or add `buildActiveCreditsByCategory`)
+- `src/types/api.ts` — `OverviewData` gains `activeByCategory` groups + `sparkbar` segments
+
+**Functions to implement:**
+- `mapCategoryToGroup(category): 'Travel'|'Dining'|'Lifestyle'|'Wellness'` — Dining←dining; Travel←travel,lounge; Lifestyle←streaming,shopping,general; Wellness←keyword-reserved
+- `buildActiveCreditsByCategory(benefits): CategoryGroup[]` — grouped, ordered by total remaining desc, empty groups omitted
+- sparkbar: per-credit segment `{ issuerColor, weight }`
+
+**Acceptance criteria:**
+- [ ] Active credits grouped into the 4 design groups via deterministic mapping; empty groups hidden
+- [ ] Sparkbar data = segments per at-risk credit colored by issuer dot
+- [ ] tracked-only (`tracked: false` excluded); money-at-risk math unchanged (CONSTRAINT-18)
+- [ ] Mapping confirmed with `@designer` before UI build (Task 63)
+- [ ] Build + engine tests clean
+
+**Tests required:**
+- Unit → `mapCategoryToGroup maps all 6 categories correctly` (happy)
+- Unit → `empty category group omitted from output` (edge)
+
+**Depends on:** None
+
+**Status:** [ ]
+
+**Specialist:** `@data`
+
+---
+
+## Task 63: Overview UI rebuild (pixel-perfect)
+
+**Files:**
+- `src/app/(app)/overview/page.tsx`
+- `src/components/overview/*` — hero (count-up + sparkbar), urgency cards, category accordion, settled section, topbar
+
+**Functions to implement:**
+- Rebuild components to `docs/design-source/Overview.jsx` using canonical tokens + Framer Motion
+
+**Acceptance criteria:**
+- [ ] Visually indistinguishable from `Overview.jsx` at 375px on sample data: topbar greeting, money-at-risk hero w/ count-up + issuer sparkbar, Expiring-soon cards, Active-credits category accordion, Settled (collapsed)
+- [ ] Real Framer Motion (count-up, accordion grid-rows, spring `0.34,1.2,0.64,1`) — no CSS hacks
+- [ ] Hero shows money-at-risk only (CONSTRAINT-18)
+- [ ] Empty category group hidden; long names ellipsis; zero-cards empty state restyled
+- [ ] Verified at 375px AND 1280px (per `skills/ui-cardmaxxer.md`)
+
+**Tests required:**
+- Component → `Overview renders hero + groups from mock OverviewData` (happy)
+- Component → `empty state renders when no tracked benefits` (edge)
+
+**Depends on:** Tasks 56, 62
+
+**Status:** [ ]
+
+**Specialist:** `@ui-cardmaxxer`
+
+---
+
+## Task 64: Cards UI rebuild (preserve stack animation)
+
+**Files:**
+- `src/app/(app)/cards/page.tsx`
+- `src/components/cards/*` — portfolio stat trio, card-face restyle, detail view (leave stack expand/collapse animation untouched)
+
+**Functions to implement:**
+- Add `PortfolioStats` (annual fees / redeemed YTD / available); restyle `CardItem` face + detail to design tokens
+
+**Acceptance criteria:**
+- [ ] Matches `Cards.jsx` at 375px: portfolio stat trio, wallet stack faces, card detail (stat trio + credit sections)
+- [ ] **Stack expand/collapse animation preserved exactly as today** (AnimatePresence card-out/return) — explicit acceptance
+- [ ] Card face omits last4/opened/network (out of scope) — no placeholders
+- [ ] redeemed/available/fee figures shown here (CONSTRAINT-19); null `annualFee` → "—"
+- [ ] Verified at 375px AND 1280px
+
+**Tests required:**
+- Component → `Cards renders portfolio stats + stack from mock` (happy)
+- Component → `annualFee null renders "—"` (edge)
+
+**Depends on:** Tasks 56, 61
+
+**Status:** [ ]
+
+**Specialist:** `@ui-cardmaxxer`
+
+---
+
+## Task 65: Admin UI rebuild (list + add/scan/review + toasts)
+
+**Files:**
+- `src/app/(app)/admin/page.tsx`
+- `src/components/admin/*` — summary strip, add-card picker, managed-card rows, scanning state, `benefit-review-gate.tsx` (confidence badges + annual-fee field)
+- `src/components/ui/toast.tsx` — new
+
+**Functions to implement:**
+- Summary strip (cards · tracked · issuers); restyle managed list rows (rescan/delete); add flow (picker → scanning animation → review); review gate: amber "Review" badge on low-confidence + note, pre-filled editable annual-fee field; `Toast` for add/remove only
+
+**Acceptance criteria:**
+- [ ] Matches `Admin.jsx` at 375px: summary strip, Add-a-card, managed list, add→scan→review flow
+- [ ] Review gate shows confidence badge + note (review-only) and a pre-filled, editable, non-required annual-fee field; nothing saves until confirm (CONSTRAINT-10)
+- [ ] Toast fires ONLY on card add/remove; benefit tracking stays inline (CONSTRAINT-20)
+- [ ] Admin remains a card-management hub, not settings
+- [ ] Orphan-card rollback on fresh-add cancel preserved; loud failures (EH-01)
+- [ ] Verified at 375px AND 1280px
+
+**Tests required:**
+- Component → `review gate renders confidence badge + annual-fee field` (happy)
+- Component → `toast fires on add/remove, not on tracking update` (constraint guard)
+
+**Depends on:** Tasks 56, 59, 60, 61
+
+**Status:** [ ]
+
+**Specialist:** `@ui-cardmaxxer`
+
+---
+
+## Task 66: Cross-screen verification + integration tests
+
+**Files:**
+- `src/__tests__/` — integration tests for the redesigned flows
+- `docs/session-log.md` — record screenshot verification outcome
+
+**Functions to implement:** None (verification task).
+
+**Acceptance criteria:**
+- [ ] Puppeteer screenshots of all 3 screens at 375px AND 1280px compared side-by-side to the design source; deviations triaged
+- [ ] Token reconciliation introduced no Cards/Admin regression (Risk #4)
+- [ ] Annual-fee flow end-to-end: scrape → review pre-fill → confirm → `Card.annualFee` → Cards/Admin display; null → "—"
+- [ ] Confidence badge appears for low-confidence drafts; confidence/note absent from DB
+- [ ] Full unit + integration suites pass; `npm run build` clean
+- [ ] On completion: recommend `@code-review` then `@qa`
+
+**Tests required:**
+- Integration → `annualFee: scrape → confirm → Cards display` (happy)
+- Integration → `confidence/note never persisted to Benefit` (security)
+
+**Depends on:** Tasks 63, 64, 65
+
+**Status:** [ ]
+
+**Specialist:** `@qa`
+
+---
+
 ## Completed Tasks
 
 _(none yet)_
@@ -2107,3 +2422,4 @@ _(none yet)_
 | 2026-05-19 | Task 39 added (38 → 39 total) | Generic scraper redesign — HTTP-first + Playwright fallback with Readability |
 | 2026-05-19 | Tasks 40–46 added (39 → 46 total) | `@create-plan` — Phase F: Defect Closeout + Stability bundle (5 manual-QA findings + Next.js security upgrade + gate) |
 | 2026-05-21 | Tasks 49–55 added (Phase H) | `@create-plan` — Feature 8: Set-and-Forget Benefits |
+| 2026-06-04 | Tasks 56–66 added (Feature 9) | `@create-plan` — Pixel-Perfect Three-Screen Redesign |
