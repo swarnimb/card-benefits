@@ -3,16 +3,22 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
 import { CardStack } from "@/components/cards/card-stack";
 import { CardItem } from "@/components/cards/card-item";
 import { BenefitList } from "@/components/cards/benefit-list";
+import { CardsTopBar } from "@/components/cards/cards-topbar";
+import { PortfolioStats } from "@/components/cards/portfolio-stats";
+import { CardDetailStats } from "@/components/cards/card-detail-stats";
 import { useCardsData } from "@/hooks/use-cards-data";
+import { usePortfolioStats } from "@/hooks/use-portfolio-stats";
+import { COLORS, TYPE } from "@/lib/ui/tokens";
+import { humanizeIssuer } from "@/components/overview/format";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 35 };
 
 export default function CardsPage() {
   const { cards, loading, error, retry, updateBenefitUsage, syncBenefitTracked, syncBenefitActivation } = useCardsData();
+  const portfolio = usePortfolioStats();
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
   const expandedCard = cards.find((c) => c.id === expandedCardId) ?? null;
@@ -21,13 +27,33 @@ export default function CardsPage() {
   if (error) return <CardsError onRetry={retry} />;
   if (cards.length === 0) return <CardsEmpty />;
 
+  const issuerCount = new Set(cards.map((c) => c.card.issuer)).size;
+
   return (
     <>
-      <CardStack
-        cards={cards}
-        expandedId={expandedCardId}
-        onExpand={setExpandedCardId}
-      />
+      {/* Wallet (list) view */}
+      <div
+        style={{
+          opacity: expandedCardId ? 0.3 : 1,
+          transition: "opacity 0.3s ease",
+          pointerEvents: expandedCardId ? "none" : "auto",
+        }}
+      >
+        <div style={{ paddingTop: 8 }}>
+          <CardsTopBar cardCount={cards.length} issuerCount={issuerCount} />
+          <PortfolioStats state={portfolio} />
+          <div style={{ padding: "0 24px 8px" }}>
+            <div className="uppercase" style={{ ...TYPE.label, color: COLORS.text3 }}>
+              Your cards
+            </div>
+          </div>
+        </div>
+        <CardStack
+          cards={cards}
+          expandedId={expandedCardId}
+          onExpand={setExpandedCardId}
+        />
+      </div>
 
       {/* Full-screen overlay when a card is selected */}
       <AnimatePresence>
@@ -41,31 +67,54 @@ export default function CardsPage() {
           >
             {/* Backdrop */}
             <motion.div
-              className="absolute inset-0 bg-[#0F0E0D]/90"
+              className="absolute inset-0"
+              style={{ background: "rgba(15,14,13,0.9)" }}
               onClick={() => setExpandedCardId(null)}
             />
 
             {/* Scrollable content */}
             <motion.div
-              className="relative z-10 overflow-y-auto hide-scrollbar flex-1 pb-20"
+              className="relative z-10 flex-1 overflow-y-auto hide-scrollbar pb-20"
               initial={{ y: 80, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 80, opacity: 0 }}
               transition={SPRING}
             >
-              {/* Close button */}
-              <div className="flex justify-end px-[10%] pt-4 pb-2">
-                <button
-                  onClick={() => setExpandedCardId(null)}
-                  className="p-2 rounded-full bg-white/10 text-white/60 hover:bg-white/20 transition-colors"
-                  aria-label="Close"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Card */}
               <div className="mx-auto" style={{ width: "80%" }}>
+                {/* Detail header: back + issuer eyebrow + card name */}
+                <div className="flex items-center gap-3" style={{ padding: "16px 0 14px" }}>
+                  <button
+                    onClick={() => setExpandedCardId(null)}
+                    aria-label="Back"
+                    className="flex items-center justify-center transition-colors hover:bg-white/[0.07]"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 99,
+                      background: "rgba(255,255,255,0.04)",
+                      border: `1px solid ${COLORS.hairline}`,
+                      color: COLORS.text2,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M10 3l-5 5 5 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, letterSpacing: 0.3, color: COLORS.text3 }}>
+                      {humanizeIssuer(expandedCard.card.issuer)}
+                    </div>
+                    <div
+                      className="truncate"
+                      style={{ fontSize: 16, fontWeight: 600, letterSpacing: -0.3, color: COLORS.text }}
+                    >
+                      {expandedCard.card.name}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hero card (animation untouched) */}
                 <CardItem
                   userCard={expandedCard}
                   benefits={expandedCard.benefits}
@@ -73,13 +122,22 @@ export default function CardsPage() {
                   onTap={() => setExpandedCardId(null)}
                 />
 
+                {/* Per-card realized stats */}
+                <div style={{ paddingTop: 18, paddingBottom: 4 }}>
+                  <CardDetailStats
+                    annualFee={expandedCard.card.annualFee ?? null}
+                    benefits={expandedCard.benefits}
+                  />
+                </div>
+
                 {/* Benefits panel */}
                 {expandedCard.benefits.length > 0 ? (
                   <motion.div
                     initial={{ y: 30, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ ...SPRING, delay: 0.1 }}
-                    className="rounded-2xl bg-[#1A1917] mt-3"
+                    className="mt-3 rounded-2xl"
+                    style={{ background: COLORS.surface }}
                   >
                     <BenefitList
                       benefits={expandedCard.benefits}
@@ -100,9 +158,10 @@ export default function CardsPage() {
                     initial={{ y: 30, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ ...SPRING, delay: 0.1 }}
-                    className="rounded-2xl bg-[#1A1917] mt-3"
+                    className="mt-3 rounded-2xl"
+                    style={{ background: COLORS.surface }}
                   >
-                    <p className="px-4 py-6 text-sm text-[#6B7280] text-center">
+                    <p className="px-4 py-6 text-center text-sm" style={{ color: COLORS.text3 }}>
                       No benefits yet — scrape or add manually in Admin
                     </p>
                   </motion.div>
@@ -127,8 +186,8 @@ function CardsSkeleton() {
         {Array.from({ length: 4 }, (_, i) => (
           <div
             key={i}
-            className="w-full animate-pulse rounded-2xl bg-[#1A1917]"
-            style={{ aspectRatio: "85.6 / 53.98" }}
+            className="w-full animate-pulse rounded-2xl"
+            style={{ aspectRatio: "85.6 / 53.98", background: COLORS.surface }}
           />
         ))}
       </div>
@@ -139,12 +198,13 @@ function CardsSkeleton() {
 function CardsError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex h-[calc(100dvh-64px)] flex-col items-center justify-center gap-4 px-4">
-      <p className="text-center text-[#9CA3AF]">
+      <p className="text-center" style={{ color: COLORS.text2 }}>
         Could not load cards — tap to retry
       </p>
       <button
         onClick={onRetry}
-        className="min-h-[48px] rounded-full bg-[#1A1917] px-6 py-3 text-sm font-medium text-[#F9F9F8]"
+        className="min-h-[48px] rounded-full px-6 py-3 text-sm font-medium"
+        style={{ background: COLORS.surface, color: COLORS.text }}
       >
         Retry
       </button>
@@ -155,8 +215,10 @@ function CardsError({ onRetry }: { onRetry: () => void }) {
 function CardsEmpty() {
   return (
     <div className="flex h-[calc(100dvh-64px)] flex-col items-center justify-center gap-2 px-4">
-      <p className="text-center text-[#9CA3AF]">No cards added yet.</p>
-      <Link href="/admin" className="text-sm text-[#F9F9F8] underline">
+      <p className="text-center" style={{ color: COLORS.text2 }}>
+        No cards added yet.
+      </p>
+      <Link href="/admin" className="text-sm underline" style={{ color: COLORS.text }}>
         Go to Admin →
       </Link>
     </div>

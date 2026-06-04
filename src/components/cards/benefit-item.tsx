@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import type { BenefitWithPeriod } from "@/types/benefit";
+import { COLORS } from "@/lib/ui/tokens";
 import { UsageSlider } from "./usage-slider";
 import { UsageToggle } from "./usage-toggle";
 import { UsageCounter } from "./usage-counter";
@@ -96,12 +97,23 @@ export function BenefitItem({ benefit, cardColor, onUsageUpdate, onTrackedUpdate
   }
 
   return (
-    <div className="px-4 py-3 border-b border-white/10 last:border-0">
+    <div
+      className="px-4 py-3 last:border-0"
+      style={{ borderBottom: `1px solid ${COLORS.hairline}` }}
+    >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-[#F9F9F8] flex-1 min-w-0 truncate">{benefit.name}</p>
-        <div className="flex items-center gap-2 shrink-0">
+        <p
+          className="min-w-0 flex-1 truncate font-medium"
+          style={{ fontSize: 13.5, letterSpacing: -0.1, color: COLORS.text }}
+        >
+          {benefit.name}
+        </p>
+        <div className="flex shrink-0 items-center gap-2">
           {benefit.value !== null && (
-            <span className="text-sm font-medium text-[#F9F9F8]">
+            <span
+              className="font-semibold"
+              style={{ fontSize: 13.5, color: COLORS.text, fontVariantNumeric: "tabular-nums" }}
+            >
               {formatValue(benefit.value, benefit.valueUnit)}
             </span>
           )}
@@ -113,22 +125,25 @@ export function BenefitItem({ benefit, cardColor, onUsageUpdate, onTrackedUpdate
             aria-pressed={trackedLocal}
             title={trackedLocal ? "Currently tracked — click to exclude from Overview" : "Currently excluded — click to track"}
             data-testid={`tracked-toggle-${benefit.id}`}
-            className="p-1 rounded-md text-[#9CA3AF] hover:text-[#F9F9F8] hover:bg-white/10 transition-colors disabled:opacity-50"
+            className="rounded-md p-1 transition-colors hover:bg-white/10 disabled:opacity-50"
+            style={{ color: COLORS.text3 }}
           >
             {trackedLocal ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
           </button>
         </div>
       </div>
       {benefit.description && (
-        <p className="text-xs text-[#9CA3AF] mt-0.5 truncate">{benefit.description}</p>
+        <p className="mt-0.5 truncate" style={{ fontSize: 10.5, color: COLORS.text3 }}>
+          {benefit.description}
+        </p>
       )}
       {expiring && daysLeft !== null && (
-        <p className="text-xs text-[#F59E0B] mt-1">
+        <p className="mt-1" style={{ fontSize: 10.5, color: COLORS.amber }}>
           ⚠ Resets in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
         </p>
       )}
       {trackedError && (
-        <p className="text-xs text-destructive mt-1" role="alert" aria-live="polite">
+        <p className="mt-1 text-xs text-destructive" role="alert" aria-live="polite">
           {trackedError}
         </p>
       )}

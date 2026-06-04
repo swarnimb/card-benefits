@@ -1,8 +1,21 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import CardsPage from "@/app/(app)/cards/page";
 
 afterEach(() => cleanup());
+
+// usePortfolioStats fires GET /api/portfolio/stats on mount; stub it so the
+// loading/empty paths don't hit a real (absolute-URL-less) fetch.
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ annualFeeTotal: 0, redeemedYtd: 0, available: 0 }),
+    })
+  );
+});
 
 // Mock the data hook — tests control loading/cards state
 vi.mock("@/hooks/use-cards-data", () => ({

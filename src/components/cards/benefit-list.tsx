@@ -1,6 +1,7 @@
 "use client";
 
 import type { BenefitWithPeriod, BenefitType } from "@/types/benefit";
+import { COLORS, TYPE } from "@/lib/ui/tokens";
 import { BenefitItem } from "./benefit-item";
 
 /** Props for the scrollable benefits list inside an expanded card. */
@@ -53,7 +54,10 @@ export function BenefitList({ benefits, cardColor, onUsageUpdate, onTrackedUpdat
 
         return (
           <div key={type}>
-            <p className="px-4 pt-3 pb-1 text-xs font-medium uppercase tracking-wider text-[#6B7280]">
+            <p
+              className="px-4 pb-1 pt-3 uppercase"
+              style={{ ...TYPE.label, color: COLORS.text3 }}
+            >
               {GROUP_LABELS[type]}
             </p>
             {renderItems(group)}
@@ -62,8 +66,11 @@ export function BenefitList({ benefits, cardColor, onUsageUpdate, onTrackedUpdat
       })}
 
       {automatic.length > 0 && (
-        <div className="mt-2 border-t border-white/10">
-          <p className="px-4 pt-3 pb-1 text-xs font-medium uppercase tracking-wider text-[#6B7280]/70">
+        <div className="mt-2" style={{ borderTop: `1px solid ${COLORS.hairline}` }}>
+          <p
+            className="px-4 pb-1 pt-3 uppercase"
+            style={{ ...TYPE.label, color: COLORS.text4 }}
+          >
             Automatic
           </p>
           {renderItems(automatic)}

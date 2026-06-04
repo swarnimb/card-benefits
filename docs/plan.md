@@ -2339,18 +2339,20 @@
 - **NEW SCOPE — issuer color migration (resolved 2026-06-04):** migrate `data/card-catalog.json` `defaultColor` seeds to the Feature 9 token hexes (amex `#C9A961`, chase `#3B5BDB`, capitalone `#B73A3A`, citi `#2E5BC9`, discover `#E0741F`); backfill existing `Card.defaultColor` rows that still hold the OLD seed → new hex, preserving genuine user overrides; apply to BOTH DBs (app `prisma/dev.db` + test root `dev.db`). Card faces render `defaultColor` (= token by default; user override wins).
 
 **Acceptance criteria:**
-- [ ] Matches `Cards.jsx` at 375px: portfolio stat trio, wallet stack faces, card detail (stat trio + credit sections)
-- [ ] **Stack expand/collapse animation preserved exactly as today** (AnimatePresence card-out/return) — explicit acceptance
-- [ ] Card face omits last4/opened/network (out of scope) — no placeholders
-- [ ] redeemed/available/fee figures shown here (CONSTRAINT-19); null `annualFee` → "—"
-- [ ] Issuer colors = Feature 9 design tokens; catalog seeds migrated + existing rows backfilled (user overrides preserved); cards render exactly on-spec
-- [ ] Verified at 375px AND 1280px
+- [x] Matches `Cards.jsx` at 375px: portfolio stat trio, wallet stack faces, card detail (stat trio + credit sections) — verified live 375px
+- [x] **Stack expand/collapse animation preserved exactly as today** (AnimatePresence card-out/return) — verified: `page.tsx` overlay/SPRING + `card-item.tsx` `layoutId` untouched; expand confirmed live (Framer `onTap`)
+- [x] Card face omits last4/opened/network (out of scope) — no placeholders — verified live
+- [x] redeemed/available/fee figures shown here (CONSTRAINT-19); null `annualFee` → "—" — verified live (Platinum detail Annual shows "—")
+- [x] Issuer colors = Feature 9 design tokens; catalog seeds migrated + existing rows backfilled (user overrides preserved); cards render exactly on-spec — catalog 5 issuers migrated; 8 app-DB rows backfilled (both DBs backed up); colors token-exact live (Chase/CapOne/Amex)
+- [x] Verified at 375px AND 1280px — 1280px does not break (cards balloon full-width; app-wide max-width container still pending — see Task 63 note)
 
 **Tests required:**
 - Component → `Cards renders portfolio stats + stack from mock` (happy)
 - Component → `annualFee null renders "—"` (edge)
 
 **Depends on:** Tasks 56, 61
+
+**Status:** [x] — done 2026-06-04. UI restyled to `Cards.jsx` (faces/portfolio trio/detail) keeping the wallet stack animation + interactive controls (restyle, not rewrite). Issuer-color migration done (catalog + DB backfill via `scripts/backfill-issuer-colors.ts`, idempotent/override-safe). Decisions: keep+restyle controls; "+" links to `/admin`. Added `annualFee` to `CatalogCard` + surfaced in `GET /api/user-cards` (api-spec note pending). 27/27 cards tests pass; prod build clean. Open: desktop full-bleed (app-wide max-width container).
 
 **Status:** [ ]
 

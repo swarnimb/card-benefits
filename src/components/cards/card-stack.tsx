@@ -8,11 +8,12 @@ const PEEK_RATIO = 0.4;
 
 export interface CardStackProps {
   cards: UserCardWithBenefits[];
+  /** Kept for API compatibility; dimming is now owned by the page wrapper. */
   expandedId: string | null;
   onExpand: (id: string) => void;
 }
 
-export function CardStack({ cards, expandedId, onExpand }: CardStackProps) {
+export function CardStack({ cards, onExpand }: CardStackProps) {
   const firstCardRef = useRef<HTMLDivElement>(null);
   const [cardHeight, setCardHeight] = useState(0);
 
@@ -31,17 +32,7 @@ export function CardStack({ cards, expandedId, onExpand }: CardStackProps) {
   const overlap = cardHeight > 0 ? cardHeight - peekHeight : 0;
 
   return (
-    <div
-      className="overflow-y-auto hide-scrollbar flex justify-center"
-      style={{
-        height: "calc(100dvh - 64px)",
-        paddingTop: 24,
-        paddingBottom: 32,
-        opacity: expandedId ? 0.3 : 1,
-        transition: "opacity 0.3s ease",
-        pointerEvents: expandedId ? "none" : "auto",
-      }}
-    >
+    <div className="flex justify-center" style={{ paddingBottom: 96 }}>
       <div style={{ width: "80%" }}>
         {cards.map((card, index) => {
           const isLast = index === cards.length - 1;

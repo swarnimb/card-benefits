@@ -98,6 +98,7 @@ export async function GET(_request: NextRequest) {
           name: uc.card.name,
           defaultColor: uc.card.defaultColor,
           scrapeUrl: uc.card.scrapeUrl,
+          annualFee: uc.card.annualFee,
         },
       }))
     );

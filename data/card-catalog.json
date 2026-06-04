@@ -4,105 +4,105 @@
     "issuer": "Chase",
     "name": "Sapphire Preferred",
     "scrapeUrl": "https://creditcards.chase.com/rewards-credit-cards/sapphire/preferred",
-    "defaultColor": "#1a56db"
+    "defaultColor": "#3B5BDB"
   },
   {
     "id": "chase-sapphire-reserve",
     "issuer": "Chase",
     "name": "Sapphire Reserve",
     "scrapeUrl": "https://creditcards.chase.com/rewards-credit-cards/sapphire/reserve",
-    "defaultColor": "#1a56db"
+    "defaultColor": "#3B5BDB"
   },
   {
     "id": "chase-freedom-unlimited",
     "issuer": "Chase",
     "name": "Freedom Unlimited",
     "scrapeUrl": "https://creditcards.chase.com/cash-back-credit-cards/freedom/unlimited",
-    "defaultColor": "#1a56db"
+    "defaultColor": "#3B5BDB"
   },
   {
     "id": "chase-amazon-prime-visa",
     "issuer": "Chase",
     "name": "Amazon Prime Visa",
     "scrapeUrl": "https://creditcards.chase.com/cash-back-credit-cards/amazon-prime-rewards",
-    "defaultColor": "#1a56db"
+    "defaultColor": "#3B5BDB"
   },
   {
     "id": "chase-freedom-flex",
     "issuer": "Chase",
     "name": "Freedom Flex",
     "scrapeUrl": "https://creditcards.chase.com/cash-back-credit-cards/freedom/flex",
-    "defaultColor": "#1a56db"
+    "defaultColor": "#3B5BDB"
   },
   {
     "id": "amex-gold",
     "issuer": "Amex",
     "name": "Gold Card",
     "scrapeUrl": "https://www.americanexpress.com/us/credit-cards/card/gold-card/",
-    "defaultColor": "#B8952A"
+    "defaultColor": "#C9A961"
   },
   {
     "id": "amex-platinum",
     "issuer": "Amex",
     "name": "Platinum Card",
     "scrapeUrl": "https://www.americanexpress.com/us/credit-cards/card/platinum/",
-    "defaultColor": "#B8952A"
+    "defaultColor": "#C9A961"
   },
   {
     "id": "amex-blue-cash-preferred",
     "issuer": "Amex",
     "name": "Blue Cash Preferred",
     "scrapeUrl": "https://www.americanexpress.com/us/credit-cards/card/blue-cash-preferred/",
-    "defaultColor": "#B8952A"
+    "defaultColor": "#C9A961"
   },
   {
     "id": "amex-blue-cash-everyday",
     "issuer": "Amex",
     "name": "Blue Cash Everyday",
     "scrapeUrl": "https://www.americanexpress.com/us/credit-cards/card/blue-cash-everyday/",
-    "defaultColor": "#B8952A"
+    "defaultColor": "#C9A961"
   },
   {
     "id": "capital-one-venture-x",
     "issuer": "Capital One",
     "name": "Venture X",
     "scrapeUrl": "https://www.capitalone.com/credit-cards/venture-x/",
-    "defaultColor": "#9b1c1c"
+    "defaultColor": "#B73A3A"
   },
   {
     "id": "capital-one-venture",
     "issuer": "Capital One",
     "name": "Venture",
     "scrapeUrl": "https://www.capitalone.com/credit-cards/venture/",
-    "defaultColor": "#9b1c1c"
+    "defaultColor": "#B73A3A"
   },
   {
     "id": "capital-one-quicksilver",
     "issuer": "Capital One",
     "name": "Quicksilver",
     "scrapeUrl": "https://www.capitalone.com/credit-cards/quicksilver/",
-    "defaultColor": "#9b1c1c"
+    "defaultColor": "#B73A3A"
   },
   {
     "id": "citi-strata-premier",
     "issuer": "Citi",
     "name": "Strata Premier",
     "scrapeUrl": "https://www.citi.com/credit-cards/citi-strata-premier-credit-card",
-    "defaultColor": "#1e40af"
+    "defaultColor": "#2E5BC9"
   },
   {
     "id": "citi-double-cash",
     "issuer": "Citi",
     "name": "Double Cash",
     "scrapeUrl": "https://www.citi.com/credit-cards/citi-double-cash-credit-card",
-    "defaultColor": "#1e40af"
+    "defaultColor": "#2E5BC9"
   },
   {
     "id": "discover-it-cash-back",
     "issuer": "Discover",
     "name": "it Cash Back",
     "scrapeUrl": "https://www.discover.com/credit-cards/cash-back/it-card.html",
-    "defaultColor": "#c2410c"
+    "defaultColor": "#E0741F"
   },
   {
     "id": "wells-fargo-active-cash",
@@ -116,13 +116,13 @@
     "issuer": "Citi",
     "name": "Diamond Preferred",
     "scrapeUrl": "https://www.citi.com/credit-cards/citi-diamond-preferred-credit-card",
-    "defaultColor": "#1e40af"
+    "defaultColor": "#2E5BC9"
   },
   {
     "id": "capital-one-savor-one",
     "issuer": "Capital One",
     "name": "SavorOne",
     "scrapeUrl": "https://www.capitalone.com/credit-cards/savorone/",
-    "defaultColor": "#9b1c1c"
+    "defaultColor": "#B73A3A"
   }
 ]
