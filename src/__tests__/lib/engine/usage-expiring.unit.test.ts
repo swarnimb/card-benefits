@@ -204,6 +204,31 @@ describe("buildOverviewTriage", () => {
     expect(moneyAtRisk.totalUnredeemed).toBe(0);
   });
 
+  it("moves a set-and-forget benefit from done back to onTrack when it is deactivated", () => {
+    // Verified live in the 2026-06-03 walkthrough; locked in here. Same benefit,
+    // same urgent period — only the activation state changes. Active → realized
+    // (done); deactivated → calm onTrack, never needsAttention or money-at-risk.
+    const urgentPeriod = periodEndingInDays(1, 0);
+
+    const activated = buildOverviewTriage([
+      makeCard("uc1", [
+        makeBenefit({ id: "saf", value: 120, setAndForget: true, activatedAt: new Date(), currentPeriod: urgentPeriod }),
+      ]),
+    ]);
+    expect(activated.done.map((r) => r.benefitId)).toEqual(["saf"]);
+    expect(activated.onTrack).toHaveLength(0);
+
+    const deactivated = buildOverviewTriage([
+      makeCard("uc1", [
+        makeBenefit({ id: "saf", value: 120, setAndForget: true, activatedAt: null, currentPeriod: urgentPeriod }),
+      ]),
+    ]);
+    expect(deactivated.done).toHaveLength(0);
+    expect(deactivated.onTrack.map((r) => r.benefitId)).toEqual(["saf"]); // back to calm onTrack
+    expect(deactivated.needsAttention).toHaveLength(0);
+    expect(deactivated.moneyAtRisk.totalUnredeemed).toBe(0);
+  });
+
   it("leaves normal-benefit triage unchanged when mixed with set-and-forget (regression)", () => {
     const normal = makeBenefit({ id: "normal", value: 30, currentPeriod: periodEndingInDays(2, 0) });
     const active = makeBenefit({

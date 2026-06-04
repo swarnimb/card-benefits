@@ -1,25 +1,24 @@
 /**
  * Deterministic classification → tracked policy. The LLM assigns the
  * `classification` bucket; this module — never the model, prompt, or routes —
- * decides whether a benefit is tracked. Pure: no DB/LLM/fetch/Prisma.
+ * decides whether a benefit is tracked. Pure logic; the only side effect is a
+ * DEBUG-gated log.
  */
 
-/** The five benefit classification buckets the LLM assigns. */
-export type BenefitClassification =
-  | "discretionary-credit"
-  | "activation-perk"
-  | "auto-earn"
-  | "passive-perk"
-  | "one-time-bonus";
+import { createDebugLog } from "@/lib/debug";
 
-/** All valid buckets, for validation and iteration. */
-export const CLASSIFICATION_BUCKETS: readonly BenefitClassification[] = [
+/** All valid buckets, for validation and iteration. Single source of truth —
+ *  the BenefitClassification type is derived from this array (OBS-4). */
+export const CLASSIFICATION_BUCKETS = [
   "discretionary-credit",
   "activation-perk",
   "auto-earn",
   "passive-perk",
   "one-time-bonus",
 ] as const;
+
+/** The five benefit classification buckets the LLM assigns. */
+export type BenefitClassification = (typeof CLASSIFICATION_BUCKETS)[number];
 
 /** Buckets tracked by default. Excluded buckets are persisted, never dropped. */
 const TRACKED_BUCKETS: ReadonlySet<BenefitClassification> = new Set([
@@ -140,11 +139,7 @@ export function detectDiscountPatterns(
  * runs stay quiet but override decisions remain observable on demand (EH-01
  * not-silent + EH-02 context). Not a magic log — explicit prefix + reason.
  */
-function debugLog(message: string): void {
-  if (process.env.DEBUG === "true") {
-    console.log(`[classification] ${message}`);
-  }
-}
+const debugLog = createDebugLog("classification");
 
 /**
  * Override dispatch table. Order = priority — the first rule that matches

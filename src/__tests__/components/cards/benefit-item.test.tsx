@@ -67,6 +67,28 @@ describe("BenefitList", () => {
     expect(screen.getByTestId("activation-toggle-saf")).toBeDefined();
   });
 
+  it("renders a card whose benefits are 100% set-and-forget without a blank panel", () => {
+    // A card with only set-and-forget benefits must still render the Automatic
+    // group and every benefit — not an empty/blank panel (Feature 8 edge case).
+    const benefits = [
+      makeBenefit({ id: "saf-a", type: "subscription", name: "Walmart+", setAndForget: true }),
+      makeBenefit({ id: "saf-b", type: "perk", name: "CLEAR Plus", setAndForget: true }),
+    ];
+
+    render(
+      <BenefitList benefits={benefits} cardColor="#117ACA" onUsageUpdate={vi.fn()} />
+    );
+
+    expect(screen.getByText("Automatic")).toBeDefined();
+    expect(screen.getByText("Walmart+")).toBeDefined();
+    expect(screen.getByText("CLEAR Plus")).toBeDefined();
+    expect(screen.getByTestId("activation-toggle-saf-a")).toBeDefined();
+    expect(screen.getByTestId("activation-toggle-saf-b")).toBeDefined();
+    // No per-type group headers — everything lives only in the Automatic group.
+    expect(screen.queryByText("Subscriptions")).toBeNull();
+    expect(screen.queryByText("One-time Perks")).toBeNull();
+  });
+
   it("omits the 'Automatic' group when no set-and-forget benefits exist", () => {
     render(
       <BenefitList

@@ -22,7 +22,9 @@ function mockFetch(overrides?: Partial<Record<string, { status: number; json: un
 
   vi.stubGlobal("fetch", vi.fn((url: string) => {
     const key = Object.keys(merged).find((k) => url.endsWith(k));
-    const resp = key ? merged[key] : { status: 404, json: { error: "Not found" } };
+    // `(key && merged[key])` narrows away the `undefined` from indexed access
+    // (noUncheckedIndexedAccess) so `resp` is a defined object (TS18048).
+    const resp = (key && merged[key]) || { status: 404, json: { error: "Not found" } };
     return Promise.resolve({
       ok: resp.status >= 200 && resp.status < 300,
       status: resp.status,

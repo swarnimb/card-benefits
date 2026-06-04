@@ -19,6 +19,7 @@
 import { chromium, type Page } from "playwright";
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
+import { createDebugLog } from "@/lib/debug";
 
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -191,15 +192,6 @@ async function expandCollapsedSections(page: Page): Promise<void> {
   }
 }
 
-/**
- * Gated debug log — EH-01 (not silent) / EH-02 (context). Visible only when
- * DEBUG=true. Third copy of the Task 45 pattern (also in parser/index.ts and
- * parser/classification.ts). The shared-util extraction the Task 45 comment
- * anticipated is deliberately deferred — pulling parser files into this probe
- * task's scope would widen its blast radius. Tracked as a follow-up cleanup.
- */
-function debugLog(message: string): void {
-  if (process.env.DEBUG === "true") {
-    console.log("[scraper] " + message);
-  }
-}
+/** Gated debug log — EH-01 (not silent) / EH-02 (context). Visible only when
+ *  DEBUG=true. Shares the consolidated logger in `@/lib/debug` (OBS-3). */
+const debugLog = createDebugLog("scraper");

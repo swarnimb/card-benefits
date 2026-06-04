@@ -110,6 +110,15 @@ export function BenefitEditRow({ benefit, onChange, onRemove, showNameError }: B
           >
             {benefit.tracked ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
           </button>
+          {benefit.setAndForget && (
+            <span
+              className="rounded-full border border-white/15 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground"
+              aria-label="Set and forget"
+              title="Set-and-forget — activate once; not tracked per period"
+            >
+              Auto
+            </span>
+          )}
           <span
             className="text-xs uppercase tracking-wider text-muted-foreground"
             aria-label="Classification"

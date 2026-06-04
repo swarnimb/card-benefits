@@ -6,6 +6,7 @@ import {
   deriveTracked,
   normalizeClassification,
 } from "@/lib/parser/classification";
+import { createDebugLog } from "@/lib/debug";
 import type { DraftBenefit } from "@/types/benefit";
 
 const MODEL = "claude-haiku-4-5-20251001"; // CONSTRAINT-09: hardcoded, never substituted
@@ -121,14 +122,9 @@ export async function parseBenefits(rawText: string): Promise<DraftBenefit[]> {
   return benefits.map(toDraftBenefit);
 }
 
-/** Gated debug log — EH-01 (not silent) / EH-02 (context). Visible when DEBUG=true.
- *  Duplicates the pattern in classification.ts intentionally; extract to a shared util
- *  the moment a third consumer needs it (see Task 45 session-log). */
-function debugLog(message: string): void {
-  if (process.env.DEBUG === "true") {
-    console.log("[parser] " + message);
-  }
-}
+/** Gated debug log — EH-01 (not silent) / EH-02 (context). Visible when
+ *  DEBUG=true. Shares the consolidated logger in `@/lib/debug` (OBS-3). */
+const debugLog = createDebugLog("parser");
 
 type RawBenefit = {
   name: string;
