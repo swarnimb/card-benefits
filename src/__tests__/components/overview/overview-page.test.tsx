@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, waitFor, fireEvent } from "@testing-library/react";
-import type { OverviewData, OverviewBenefit } from "@/types/api";
+import type { OverviewData, OverviewBenefit, CategoryGroup } from "@/types/api";
 
 afterEach(() => cleanup());
 
@@ -33,6 +33,18 @@ function makeRow(overrides: Partial<OverviewBenefit> = {}): OverviewBenefit {
   };
 }
 
+function makeGroup(group: CategoryGroup["group"], credits: OverviewBenefit[]): CategoryGroup {
+  return {
+    group,
+    credits,
+    totalRemaining: credits.reduce((s, c) => s + c.unusedAmount, 0),
+    totalUsed: credits.reduce((s, c) => s + c.usedAmount, 0),
+    totalValue: credits.reduce((s, c) => s + (c.value ?? 0), 0),
+    creditCount: credits.length,
+    cardCount: new Set(credits.map((c) => c.cardId)).size,
+  };
+}
+
 const emptyData: OverviewData = {
   moneyAtRisk: { totalUnredeemed: 0, soonestDaysUntilReset: null },
   needsAttention: [],
@@ -50,14 +62,19 @@ describe("OverviewPage", () => {
   beforeEach(() => vi.stubGlobal("fetch", vi.fn()));
   afterEach(() => vi.unstubAllGlobals());
 
-  it("renders hero above Needs attention, On track, then Done", async () => {
+  it("renders hero + groups from mock OverviewData", async () => {
+    const travel = makeRow({ benefitId: "t1", benefitName: "Airline Credit", category: "travel", daysUntilReset: 90, cardId: "uc2" });
+    const dining = makeRow({ benefitId: "t2", benefitName: "Restaurant Credit", category: "dining", daysUntilReset: 80 });
     const data: OverviewData = {
       moneyAtRisk: { totalUnredeemed: 200, soonestDaysUntilReset: 5 },
-      needsAttention: [makeRow({ benefitId: "n1", benefitName: "Urgent Dining" })],
-      onTrack: [makeRow({ benefitId: "t1", benefitName: "Steady Travel", daysUntilReset: 90 })],
-      done: [makeRow({ benefitId: "d1", benefitName: "Used Streaming", unusedAmount: 0 })],
-      activeByCategory: [],
-      sparkbar: [],
+      needsAttention: [makeRow({ benefitId: "n1", benefitName: "Urgent Dining", unusedAmount: 200 })],
+      onTrack: [travel, dining],
+      done: [
+        makeRow({ benefitId: "d1", benefitName: "Used Streaming", value: 20, unusedAmount: 0, usedAmount: 20 }),
+        makeRow({ benefitId: "d2", benefitName: "Lounge Access", value: null, unusedAmount: 0 }),
+      ],
+      activeByCategory: [makeGroup("Travel", [travel]), makeGroup("Dining", [dining])],
+      sparkbar: [{ benefitId: "n1", issuerColor: "#C9A84C", weight: 1, remaining: 200 }],
     };
     vi.mocked(fetch).mockImplementation(makeFetchOk(data));
 
@@ -65,19 +82,19 @@ describe("OverviewPage", () => {
 
     await waitFor(() => expect(screen.getByText("Money at risk")).toBeDefined());
 
-    const hero = screen.getByText("Money at risk");
-    const needs = screen.getByText("Needs attention");
-    const onTrack = screen.getByText("On track");
-    const done = screen.getByText("Done");
-
-    expect(hero.compareDocumentPosition(needs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(needs.compareDocumentPosition(onTrack) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(onTrack.compareDocumentPosition(done) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // hero total (count-up resolves to final value via the framer mock)
+    expect(screen.getByText("$200")).toBeDefined();
+    // expiring row
     expect(screen.getByText("Urgent Dining")).toBeDefined();
-    expect(screen.getByText("Steady Travel")).toBeDefined();
+    // category group headers
+    expect(screen.getByText("Active credits")).toBeDefined();
+    expect(screen.getByText("Travel")).toBeDefined();
+    expect(screen.getByText("Dining")).toBeDefined();
+    // settled header reflects the value-split (1 used, 1 nothing to do)
+    expect(screen.getByText(/1 used, 1 nothing to do/i)).toBeDefined();
   });
 
-  it("renders add-a-card empty state when API returns no tracked benefits", async () => {
+  it("empty state renders when no tracked benefits", async () => {
     vi.mocked(fetch).mockImplementation(makeFetchOk(emptyData));
 
     render(<OverviewPage />);
@@ -113,12 +130,13 @@ describe("OverviewPage", () => {
   it("does not render any tracked=false benefit row", async () => {
     // The API contract excludes tracked=false from every bucket; the page must
     // render only what the buckets contain — nothing more.
+    const credit = makeRow({ benefitId: "v1", benefitName: "Visible Tracked Credit", category: "dining", daysUntilReset: 60 });
     const data: OverviewData = {
       moneyAtRisk: { totalUnredeemed: 0, soonestDaysUntilReset: null },
       needsAttention: [],
-      onTrack: [makeRow({ benefitId: "v1", benefitName: "Visible Tracked Credit" })],
+      onTrack: [credit],
       done: [],
-      activeByCategory: [],
+      activeByCategory: [makeGroup("Dining", [credit])],
       sparkbar: [],
     };
     vi.mocked(fetch).mockImplementation(makeFetchOk(data));

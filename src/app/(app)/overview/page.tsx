@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { TopBar } from "@/components/overview/topbar";
 import { MoneyAtRiskHero } from "@/components/overview/money-at-risk-hero";
-import { UrgencySection } from "@/components/overview/urgency-section";
+import { ExpiringSection } from "@/components/overview/expiring-section";
+import { CategorySection } from "@/components/overview/category-section";
+import { SettledSection } from "@/components/overview/settled-section";
 import { OV } from "@/components/overview/tokens";
 import type { OverviewData } from "@/types/api";
 
@@ -53,7 +56,8 @@ export default function OverviewPage() {
   if (state.status === "error")
     return <OverviewError onRetry={() => loadOverview(true)} />;
 
-  const { moneyAtRisk, needsAttention, onTrack, done } = state.data;
+  const { moneyAtRisk, needsAttention, onTrack, done, activeByCategory, sparkbar } =
+    state.data;
   const isEmpty =
     needsAttention.length === 0 && onTrack.length === 0 && done.length === 0;
 
@@ -61,26 +65,36 @@ export default function OverviewPage() {
 
   return (
     <div
-      className="min-h-[calc(100dvh-64px)]"
+      className="relative min-h-[calc(100dvh-64px)] overflow-hidden"
       style={{ background: OV.bg, color: OV.text }}
     >
-      <MoneyAtRiskHero
-        totalUnredeemed={moneyAtRisk.totalUnredeemed}
-        soonestDaysUntilReset={moneyAtRisk.soonestDaysUntilReset}
+      {/* Warm halo behind the hero */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute"
+        style={{
+          top: -120,
+          left: -60,
+          right: -60,
+          height: 360,
+          background:
+            "radial-gradient(60% 60% at 50% 50%, rgba(245,158,11,0.10) 0%, rgba(245,158,11,0) 70%)",
+          zIndex: 0,
+        }}
       />
-      <div style={{ height: 1, background: OV.hairline }} />
-      <UrgencySection
-        title="Needs attention"
-        tone="attention"
-        benefits={needsAttention}
-      />
-      <UrgencySection title="On track" tone="track" benefits={onTrack} />
-      <UrgencySection
-        title="Done"
-        tone="settled"
-        benefits={done}
-        defaultCollapsed
-      />
+
+      <div className="relative pb-24" style={{ zIndex: 1 }}>
+        <TopBar />
+        <MoneyAtRiskHero
+          moneyAtRisk={moneyAtRisk}
+          needsAttention={needsAttention}
+          sparkbar={sparkbar}
+        />
+        <div style={{ height: 1, background: OV.hairline, margin: "4px 0" }} />
+        <ExpiringSection items={needsAttention} />
+        <CategorySection groups={activeByCategory} />
+        <SettledSection done={done} />
+      </div>
     </div>
   );
 }
