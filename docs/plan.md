@@ -2218,10 +2218,10 @@
 - Confirm handler: validate `annualFee` (number ≥ 0 or null), update `Card.annualFee` in the existing transaction; never write `confidence`/`note` to `Benefit`
 
 **Acceptance criteria:**
-- [ ] On confirm, `Card.annualFee` is set from the pre-filled/editable review value; not required (null allowed) (CONSTRAINT-21)
-- [ ] `confidence`/`note` stripped server-side — never written to `Benefit` (allowlist write, LOW-5/LOW-8 pattern)
-- [ ] Review gate remains the only save path — no auto-save (CONSTRAINT-10)
-- [ ] Input validated at boundary (SEC-02); parameterized Prisma (SEC-03); loud failure on bad input (EH-01)
+- [x] On confirm, `Card.annualFee` is set from the pre-filled/editable review value; not required (null allowed) (CONSTRAINT-21)
+- [x] `confidence`/`note` stripped server-side — never written to `Benefit` (allowlist write, LOW-5/LOW-8 pattern)
+- [x] Review gate remains the only save path — no auto-save (CONSTRAINT-10)
+- [x] Input validated at boundary (SEC-02); parameterized Prisma (SEC-03); loud failure on bad input (EH-01)
 
 **Tests required:**
 - Integration → `confirm persists annualFee to Card` (happy)
@@ -2229,7 +2229,7 @@
 
 **Depends on:** Tasks 57, 58, 59
 
-**Status:** [ ]
+**Status:** [x]
 
 **Specialist:** `@data`
 

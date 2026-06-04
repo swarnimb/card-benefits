@@ -47,9 +47,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   }
 
   let benefits: DraftBenefit[];
+  let annualFee: number | null;
   try {
-    // TODO(Task 60): also surface/persist the parsed annualFee through the review gate.
-    ({ benefits } = await parseBenefits(rawText));
+    // Task 60: surface the parsed annualFee alongside the drafts so the review
+    // gate can show it pre-filled/editable and POST it back to confirm (where it
+    // is persisted on Card). null when the parser didn't find a fee (A11).
+    ({ benefits, annualFee } = await parseBenefits(rawText));
   } catch (err) {
     if (err instanceof ParserError) {
       return NextResponse.json({ benefits: [], parseError: err.message });
@@ -58,5 +61,5 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
-  return NextResponse.json({ benefits });
+  return NextResponse.json({ benefits, annualFee });
 }

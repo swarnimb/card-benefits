@@ -13,6 +13,8 @@ import type { DraftBenefit } from "@/types/benefit";
 interface ScrapeResult {
   userCardId: string;
   benefits: DraftBenefit[];
+  /** Parsed card-level annual fee (USD); null when not found. Pre-fills the review gate. */
+  annualFee: number | null;
   scrapeError?: string;
   parseError?: string;
 }
@@ -54,6 +56,7 @@ export default function AdminPage() {
       setScrapeResult({
         userCardId,
         benefits: data.benefits ?? [],
+        annualFee: typeof data.annualFee === "number" ? data.annualFee : null,
         scrapeError: data.scrapeError,
         parseError: data.parseError,
       });
@@ -61,6 +64,7 @@ export default function AdminPage() {
       setScrapeResult({
         userCardId,
         benefits: [],
+        annualFee: null,
         scrapeError: "Failed to scrape card benefits",
       });
     } finally {
@@ -124,6 +128,7 @@ export default function AdminPage() {
         <BenefitReviewGate
           userCardId={scrapeResult.userCardId}
           initialBenefits={scrapeResult.benefits}
+          initialAnnualFee={scrapeResult.annualFee}
           scrapeError={scrapeResult.scrapeError}
           parseError={scrapeResult.parseError}
           onSave={() => {

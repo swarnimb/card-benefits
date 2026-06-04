@@ -318,4 +318,98 @@ describe("POST /api/benefits/confirm", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).error).toContain("invalid type");
   });
+
+  // ---------------------------------------------------------------------------
+  // Task 60 — annualFee persistence + confidence/note allowlist stripping.
+  // ---------------------------------------------------------------------------
+
+  function confirmReqWith(extra: Record<string, unknown>) {
+    return new NextRequest("http://localhost/api/benefits/confirm", {
+      method: "POST",
+      body: JSON.stringify({
+        userCardId: testUserCard.id,
+        benefits: [{ ...baseBenefit, name: "Task60 Benefit", classification: "discretionary-credit" }],
+        ...extra,
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  it("confirm persists annualFee to Card (happy path, CONSTRAINT-21)", async () => {
+    const res = await CONFIRM(confirmReqWith({ annualFee: 550 }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    // The fee is persisted on the shared Card row, not the UserCard.
+    const uc = await prisma.userCard.findUnique({
+      where: { id: testUserCard.id },
+      include: { card: true },
+    });
+    expect(uc!.card.annualFee).toBe(550);
+
+    // null is allowed and clears the fee (not all cards expose one / user blanked it).
+    const res2 = await CONFIRM(confirmReqWith({ annualFee: null }));
+    expect(res2.status).toBe(200);
+    const uc2 = await prisma.userCard.findUnique({
+      where: { id: testUserCard.id },
+      include: { card: true },
+    });
+    expect(uc2!.card.annualFee).toBeNull();
+  });
+
+  it("rejects a negative annualFee with a LOUD 400 (SEC-02 / EH-01)", async () => {
+    const res = await CONFIRM(confirmReqWith({ annualFee: -10 }));
+    expect(res.status).toBe(400);
+    const err = (await res.json()).error;
+    expect(err).toContain("annualFee must be a non-negative number or null");
+    expect(err).toContain("-10"); // error carries the bad value as context
+
+    // Bad input must not have written any benefit row.
+    const b = await prisma.benefit.findFirst({ where: { userCardId: testUserCard.id, name: "Task60 Benefit" } });
+    expect(b).toBeNull();
+  });
+
+  it("confirm strips confidence/note; Benefit rows have neither (allowlist write)", async () => {
+    const res = await CONFIRM(
+      new NextRequest("http://localhost/api/benefits/confirm", {
+        method: "POST",
+        body: JSON.stringify({
+          userCardId: testUserCard.id,
+          benefits: [{
+            name: "Allowlist Benefit",
+            description: null,
+            type: "credit",
+            value: 100,
+            resetPeriod: "annual",
+            resetAnchor: "calendar",
+            category: "travel",
+            classification: "discretionary-credit",
+            // Review-only fields a malicious/buggy client might send — must be
+            // stripped server-side and never persisted to the Benefit table.
+            confidence: "low",
+            note: "this should never reach the DB",
+          }],
+        }),
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    expect(res.status).toBe(200);
+
+    const b = await prisma.benefit.findFirst({
+      where: { userCardId: testUserCard.id, name: "Allowlist Benefit" },
+    });
+    expect(b).not.toBeNull();
+    // The Benefit table has no confidence/note columns at all — prove the row
+    // object that came back from Prisma carries neither key.
+    expect(b).not.toHaveProperty("confidence");
+    expect(b).not.toHaveProperty("note");
+
+    // Defense-in-depth: query the raw SQLite row and assert no such columns hold data.
+    const rawRows = await prisma.$queryRaw<Array<Record<string, unknown>>>`
+      SELECT * FROM "Benefit" WHERE id = ${b!.id}
+    `;
+    expect(rawRows).toHaveLength(1);
+    expect(rawRows[0]).not.toHaveProperty("confidence");
+    expect(rawRows[0]).not.toHaveProperty("note");
+  });
 });

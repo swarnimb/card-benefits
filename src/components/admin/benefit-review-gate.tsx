@@ -11,6 +11,13 @@ import type { DraftBenefit } from "@/types/benefit";
 export interface BenefitReviewGateProps {
   userCardId: string;
   initialBenefits: DraftBenefit[];
+  /**
+   * Scrape-derived card annual fee (USD), pre-filled into the editable fee
+   * input; null when the parser found none (A11). Confirmed on save → persisted
+   * to Card.annualFee (Task 60 / CONSTRAINT-21). Optional so existing callers /
+   * tests that don't pass it default to null.
+   */
+  initialAnnualFee?: number | null;
   scrapeError?: string | null;
   parseError?: string | null;
   onSave: () => void;
@@ -45,12 +52,19 @@ function makeBlankBenefit(): DraftBenefit {
 export function BenefitReviewGate({
   userCardId,
   initialBenefits,
+  initialAnnualFee = null,
   scrapeError,
   parseError,
   onSave,
   onCancel,
 }: BenefitReviewGateProps) {
   const [benefits, setBenefits] = useState<DraftBenefit[]>(initialBenefits);
+  // Annual fee is held as the raw input STRING so the field can be cleared to
+  // "" (→ persisted as null). Parsed/validated only at save time. Pre-filled
+  // from the scrape; "" when none was found.
+  const [annualFeeInput, setAnnualFeeInput] = useState<string>(
+    initialAnnualFee === null || initialAnnualFee === undefined ? "" : String(initialAnnualFee),
+  );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [triedSave, setTriedSave] = useState(false);
@@ -106,12 +120,26 @@ export function BenefitReviewGate({
     const hasEmptyName = benefits.some((b) => !b.name.trim());
     if (hasEmptyName) return;
 
+    // Resolve the editable fee to number|null. Empty → null. A non-empty value
+    // that isn't a finite, non-negative number is surfaced LOUDLY (EH-01) and
+    // blocks the save — never silently coerced (mirrors the server boundary).
+    const trimmedFee = annualFeeInput.trim();
+    let annualFee: number | null = null;
+    if (trimmedFee !== "") {
+      const parsed = Number(trimmedFee);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        setSaveError("Annual fee must be a non-negative number (or left blank).");
+        return;
+      }
+      annualFee = parsed;
+    }
+
     setSaving(true);
     try {
       const res = await fetch("/api/benefits/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userCardId, benefits }),
+        body: JSON.stringify({ userCardId, benefits, annualFee }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: "Save failed" }));
@@ -128,7 +156,7 @@ export function BenefitReviewGate({
     } finally {
       setSaving(false);
     }
-  }, [benefits, userCardId, onSave]);
+  }, [benefits, annualFeeInput, userCardId, onSave]);
 
   return (
     <div className="space-y-4">
@@ -181,6 +209,25 @@ export function BenefitReviewGate({
         <Plus className="size-4" />
         Add benefit
       </Button>
+
+      <div className="flex items-center gap-2 border-t border-white/10 pt-3">
+        <label htmlFor="annual-fee" className="text-sm text-muted-foreground">
+          Annual fee
+        </label>
+        <span className="text-sm text-muted-foreground">$</span>
+        <input
+          id="annual-fee"
+          type="number"
+          min={0}
+          step="0.01"
+          inputMode="decimal"
+          value={annualFeeInput}
+          onChange={(e) => setAnnualFeeInput(e.target.value)}
+          placeholder="—"
+          aria-label="Annual fee in dollars"
+          className="w-24 rounded-md border border-white/10 bg-transparent px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:border-white/30 focus:outline-none"
+        />
+      </div>
 
       {saveError && <p className="text-sm text-destructive">{saveError}</p>}
       {cancelError && (

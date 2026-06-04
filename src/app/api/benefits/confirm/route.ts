@@ -26,6 +26,21 @@ function coerceCategory(value: unknown): string {
   return "general";
 }
 
+/**
+ * Boundary validation for the optional card-level annual fee (CONSTRAINT-21).
+ * Returns a LOUD, context-bearing error string for anything that is not
+ * (finite number >= 0) | null | undefined; returns null when valid. Mirrors the
+ * existing `value` rule (non-negative finite number or null) — never coerces a
+ * bad value silently (EH-01 / SEC-02).
+ */
+function validateAnnualFee(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return `annualFee must be a non-negative number or null (got ${JSON.stringify(value)})`;
+  }
+  return null;
+}
+
 function validateBenefits(items: unknown[]): string | null {
   for (const item of items) {
     if (!item || typeof item !== "object") return "each benefit must be an object";
@@ -77,18 +92,28 @@ async function createBenefitWithPeriod(
   const tracked = typeof b.tracked === "boolean" ? b.tracked : deriveTracked(b.classification);
   const setAndForget =
     tracked && deriveSetAndForget(b.name, b.description ?? null, normalizeClassification(b.classification));
+  // SECURITY / allowlist write (Task 60): every column persisted to `Benefit` is
+  // listed EXPLICITLY below — there is NO object spread of the client draft.
+  // `confidence` and `note` (DraftBenefit, review-only) are intentionally
+  // omitted from this allowlist, so they are impossible to write to the DB even
+  // if a client supplies them. `ignoreRestSiblings` lets us name them in the
+  // rest-destructure purely to document the exclusion without an unused-var
+  // lint error. Do NOT replace this explicit field list with a spread of `b`.
+  const { confidence, note, ...allowlistedDraft } = b;
+  void confidence; // review-only — never persisted (allowlist)
+  void note; // review-only — never persisted (allowlist)
   const created = await tx.benefit.create({
     data: {
       userCardId,
-      name: b.name,
-      description: b.description ?? null,
-      type: b.type,
-      value: b.value ?? null,
-      valueUnit: b.valueUnit ?? "dollars",
-      resetPeriod: b.resetPeriod,
-      resetAnchor: b.resetAnchor,
-      category: coerceCategory(b.category),
-      classification: normalizeClassification(b.classification),
+      name: allowlistedDraft.name,
+      description: allowlistedDraft.description ?? null,
+      type: allowlistedDraft.type,
+      value: allowlistedDraft.value ?? null,
+      valueUnit: allowlistedDraft.valueUnit ?? "dollars",
+      resetPeriod: allowlistedDraft.resetPeriod,
+      resetAnchor: allowlistedDraft.resetAnchor,
+      category: coerceCategory(allowlistedDraft.category),
+      classification: normalizeClassification(allowlistedDraft.classification),
       tracked,
       setAndForget,
     },
@@ -115,8 +140,10 @@ async function createBenefitWithPeriod(
 
 async function runConfirmTransaction(
   userCardId: string,
+  cardId: string,
   benefits: DraftBenefit[],
-  userCard: { statementDay: number | null; anniversaryDate: Date | null }
+  userCard: { statementDay: number | null; anniversaryDate: Date | null },
+  annualFee: number | null,
 ): Promise<void> {
   const now = new Date();
   await prisma.$transaction(async (tx) => {
@@ -125,6 +152,11 @@ async function runConfirmTransaction(
       await createBenefitWithPeriod(tx, userCardId, b, userCard, now);
     }
     await tx.userCard.update({ where: { id: userCardId }, data: { lastVerifiedAt: now } });
+    // CONSTRAINT-21 (Task 60): persist the reviewed annual fee on the shared
+    // Card row, inside the SAME transaction as the benefit replacement. null is
+    // allowed (not all cards expose a fee / user cleared it). Parameterized by
+    // Prisma (SEC-03) — no raw SQL.
+    await tx.card.update({ where: { id: cardId }, data: { annualFee } });
   });
 }
 
@@ -144,7 +176,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { userCardId, benefits } = body;
+  const { userCardId, benefits, annualFee: rawAnnualFee } = body;
   if (!userCardId || typeof userCardId !== "string") {
     return NextResponse.json({ error: "userCardId is required" }, { status: 400 });
   }
@@ -153,6 +185,14 @@ export async function POST(request: NextRequest) {
   }
   const validationError = validateBenefits(benefits);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+
+  // annualFee boundary validation (SEC-02 / EH-01): accept a finite number >= 0,
+  // OR null, OR omitted (→ null). Reject anything else LOUDLY with context — no
+  // silent coercion of negatives / NaN / strings.
+  const annualFeeError = validateAnnualFee(rawAnnualFee);
+  if (annualFeeError) return NextResponse.json({ error: annualFeeError }, { status: 400 });
+  const annualFee: number | null =
+    rawAnnualFee === undefined || rawAnnualFee === null ? null : (rawAnnualFee as number);
 
   let userCard;
   try {
@@ -167,7 +207,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await runConfirmTransaction(userCardId, benefits as DraftBenefit[], userCard);
+    await runConfirmTransaction(userCardId, userCard.cardId, benefits as DraftBenefit[], userCard, annualFee);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(`POST /api/benefits/confirm transaction error userCardId=${userCardId}:`, err);
