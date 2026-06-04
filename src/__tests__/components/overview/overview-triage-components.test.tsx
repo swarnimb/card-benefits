@@ -21,6 +21,10 @@ function makeBenefit(overrides: Partial<OverviewBenefit> = {}): OverviewBenefit 
     category: "dining",
     unusedAmount: 50,
     daysUntilReset: 4,
+    cardId: "uc1",
+    value: 50,
+    usedAmount: 0,
+    resetPeriod: "monthly",
     ...overrides,
   };
 }

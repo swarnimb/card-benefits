@@ -23,7 +23,8 @@ export type BenefitCategory =
   | "streaming"
   | "shopping"
   | "lounge"
-  | "general";
+  | "general"
+  | "wellness";
 
 /** A benefit joined with its current period data — the primary shape used in API responses and UI. */
 export interface BenefitWithPeriod {

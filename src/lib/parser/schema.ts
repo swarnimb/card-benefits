@@ -63,8 +63,9 @@ export const BENEFIT_EXTRACTION_TOOL = {
             },
             category: {
               type: "string",
-              enum: ["dining", "travel", "streaming", "shopping", "lounge", "general"],
-              description: "Primary category for the benefit",
+              enum: ["dining", "travel", "streaming", "shopping", "lounge", "general", "wellness"],
+              description:
+                "Primary category for the benefit. Use 'wellness' for gym/fitness/spa/wellness benefits (e.g., Equinox, SoulCycle, fitness credits).",
             },
             classification: {
               type: "string",

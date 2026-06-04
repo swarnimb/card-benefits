@@ -1,6 +1,12 @@
-import type { BenefitWithPeriod } from "@/types/benefit";
+import type { BenefitWithPeriod, BenefitCategory } from "@/types/benefit";
 import type { UserCardWithBenefits } from "@/types/card";
-import type { OverviewBenefit, OverviewData } from "@/types/api";
+import type {
+  OverviewBenefit,
+  OverviewData,
+  OverviewCategoryGroup,
+  CategoryGroup,
+  SparkbarSegment,
+} from "@/types/api";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -72,7 +78,77 @@ function toOverviewRow(
     category: benefit.category,
     unusedAmount: unusedValue(benefit),
     daysUntilReset: daysUntilReset(benefit.currentPeriod?.periodEnd, now),
+    cardId: card.id,
+    value: benefit.value,
+    usedAmount: benefit.currentPeriod?.usedAmount ?? 0,
+    resetPeriod: benefit.resetPeriod,
   };
+}
+
+/**
+ * Maps a benefit's source category onto one of the 4 Overview display groups.
+ * The `default` is a resilient catch-all so a stale/unknown category string
+ * (e.g. a row written before a schema change) still renders rather than vanishing.
+ */
+export function mapCategoryToGroup(category: BenefitCategory): OverviewCategoryGroup {
+  switch (category) {
+    case "dining": return "Dining";
+    case "travel":
+    case "lounge": return "Travel";
+    case "streaming":
+    case "shopping":
+    case "general": return "Lifestyle";
+    case "wellness": return "Wellness";
+    default: return "Lifestyle"; // resilient catch-all for stale/unknown category strings
+  }
+}
+
+/** Aggregates one group's credit list into a CategoryGroup row. */
+function toCategoryGroup(group: OverviewCategoryGroup, credits: OverviewBenefit[]): CategoryGroup {
+  const sorted = [...credits].sort((a, b) => b.unusedAmount - a.unusedAmount);
+  return {
+    group,
+    credits: sorted,
+    totalRemaining: sorted.reduce((s, c) => s + c.unusedAmount, 0),
+    totalUsed: sorted.reduce((s, c) => s + c.usedAmount, 0),
+    totalValue: sorted.reduce((s, c) => s + (c.value ?? 0), 0),
+    creditCount: sorted.length,
+    cardCount: new Set(sorted.map((c) => c.cardId)).size,
+  };
+}
+
+/**
+ * Groups onTrack credits into the 4 Overview display groups. Only non-empty
+ * groups are returned, sorted by totalRemaining desc, tie-broken by group name
+ * asc for deterministic output.
+ */
+export function buildActiveCreditsByCategory(credits: OverviewBenefit[]): CategoryGroup[] {
+  const byGroup = new Map<OverviewCategoryGroup, OverviewBenefit[]>();
+  for (const c of credits) {
+    const group = mapCategoryToGroup(c.category);
+    const bucket = byGroup.get(group) ?? [];
+    bucket.push(c);
+    byGroup.set(group, bucket);
+  }
+  return Array.from(byGroup.entries())
+    .map(([group, list]) => toCategoryGroup(group, list))
+    .sort((a, b) => b.totalRemaining - a.totalRemaining || a.group.localeCompare(b.group));
+}
+
+/**
+ * Builds the hero sparkbar from the at-risk (needsAttention) set. Each segment's
+ * weight is its share of the total unredeemed value; input order is preserved
+ * (needsAttention is already sorted soonest-first). Returns [] when nothing is at risk.
+ */
+export function buildSparkbarSegments(atRisk: OverviewBenefit[]): SparkbarSegment[] {
+  const total = atRisk.reduce((s, c) => s + c.unusedAmount, 0);
+  if (total <= 0) return [];
+  return atRisk.map((c) => ({
+    benefitId: c.benefitId,
+    issuerColor: c.cardColor,
+    weight: c.unusedAmount / total,
+    remaining: c.unusedAmount,
+  }));
 }
 
 /**
@@ -111,5 +187,7 @@ export function buildOverviewTriage(cards: UserCardWithBenefits[]): OverviewData
     needsAttention,
     onTrack,
     done,
+    activeByCategory: buildActiveCreditsByCategory(onTrack),
+    sparkbar: buildSparkbarSegments(needsAttention),
   };
 }

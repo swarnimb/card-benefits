@@ -9,7 +9,7 @@ const BENEFIT_TYPES: BenefitType[] = ["credit", "subscription", "access", "perk"
 const VALUE_UNITS: ValueUnit[] = ["dollars", "points"];
 const RESET_PERIODS: ResetPeriod[] = ["monthly", "quarterly", "semiannual", "annual", "once"];
 const RESET_ANCHORS: ResetAnchor[] = ["calendar", "statement", "anniversary"];
-const CATEGORIES: BenefitCategory[] = ["dining", "travel", "streaming", "shopping", "lounge", "general"];
+const CATEGORIES: BenefitCategory[] = ["dining", "travel", "streaming", "shopping", "lounge", "general", "wellness"];
 
 /** Props for BenefitEditRow. */
 export interface BenefitEditRowProps {

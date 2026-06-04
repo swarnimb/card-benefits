@@ -2276,12 +2276,12 @@
 - **NEW SCOPE — wellness tag (resolved 2026-06-04):** add `wellness` to the `Benefit.category` app-level allowlist (string validation, no Prisma enum per CLAUDE.md) + update the Haiku classifier prompt (`skills/llm-parser` / `src/lib/llm`) so gym/fitness credits classify as `wellness`. Without this the Wellness group never populates.
 
 **Acceptance criteria:**
-- [ ] Active credits grouped into the 4 design groups via deterministic mapping; empty groups hidden
-- [ ] Sparkbar data = segments per at-risk credit colored by issuer dot
-- [ ] tracked-only (`tracked: false` excluded); money-at-risk math unchanged (CONSTRAINT-18)
+- [x] Active credits grouped into the 4 design groups via deterministic mapping; empty groups hidden
+- [x] Sparkbar data = segments per at-risk credit colored by issuer dot
+- [x] tracked-only (`tracked: false` excluded); money-at-risk math unchanged (CONSTRAINT-18)
 - [x] Mapping confirmed with `@designer` (resolved 2026-06-04)
-- [ ] `wellness` added to category allowlist + Haiku classifier prompt; Wellness group populates from real benefits
-- [ ] Build + engine tests clean
+- [x] `wellness` added to category allowlist + Haiku classifier prompt; Wellness group populates from real benefits
+- [x] Build + engine tests clean
 
 **Tests required:**
 - Unit → `mapCategoryToGroup maps all 7 categories correctly` (happy — incl. `wellness`)
@@ -2294,7 +2294,7 @@
 
 **Depends on:** None
 
-**Status:** [ ]
+**Status:** [x]
 
 **Specialist:** `@data`
 

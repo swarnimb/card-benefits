@@ -25,6 +25,10 @@ function makeRow(overrides: Partial<OverviewBenefit> = {}): OverviewBenefit {
     category: "dining",
     unusedAmount: 50,
     daysUntilReset: 5,
+    cardId: "uc1",
+    value: 50,
+    usedAmount: 0,
+    resetPeriod: "monthly",
     ...overrides,
   };
 }
@@ -34,6 +38,8 @@ const emptyData: OverviewData = {
   needsAttention: [],
   onTrack: [],
   done: [],
+  activeByCategory: [],
+  sparkbar: [],
 };
 
 function makeFetchOk(data: OverviewData) {
@@ -50,6 +56,8 @@ describe("OverviewPage", () => {
       needsAttention: [makeRow({ benefitId: "n1", benefitName: "Urgent Dining" })],
       onTrack: [makeRow({ benefitId: "t1", benefitName: "Steady Travel", daysUntilReset: 90 })],
       done: [makeRow({ benefitId: "d1", benefitName: "Used Streaming", unusedAmount: 0 })],
+      activeByCategory: [],
+      sparkbar: [],
     };
     vi.mocked(fetch).mockImplementation(makeFetchOk(data));
 
@@ -110,6 +118,8 @@ describe("OverviewPage", () => {
       needsAttention: [],
       onTrack: [makeRow({ benefitId: "v1", benefitName: "Visible Tracked Credit" })],
       done: [],
+      activeByCategory: [],
+      sparkbar: [],
     };
     vi.mocked(fetch).mockImplementation(makeFetchOk(data));
 

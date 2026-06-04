@@ -29,6 +29,7 @@ const VALID_CATEGORIES = new Set<DraftBenefit["category"]>([
   "shopping",
   "lounge",
   "general",
+  "wellness",
 ]);
 
 /**
