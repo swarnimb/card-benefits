@@ -266,6 +266,18 @@
 
 ---
 
+### [CONSTRAINT-22] Issuer card color — Feature 9 design tokens are the source of truth
+
+**Decision:** A card's rendered face color comes from `Card.defaultColor`, seeded to the Feature 9 design-token hex per issuer (amex `#C9A961`, chase `#3B5BDB`, capitalone `#B73A3A`, citi `#2E5BC9`, discover `#E0741F`). The design tokens — not the legacy catalog seeds — are the single source of truth. A `defaultColor` that differs from its issuer's token hex is treated as a deliberate user override and wins at render.
+
+**What it means in practice:** `data/card-catalog.json` `defaultColor` seeds equal the token hexes; existing `Card.defaultColor` rows still on the OLD seed are backfilled to the token hex (genuine user overrides preserved). The UI renders `defaultColor` directly at the card face — no separate token lookup. To restyle issuer colors, change the tokens AND the catalog seeds together; do not reintroduce the legacy catalog hexes.
+
+**Who decided and when:** Builder (Feature 9 redesign, `@designer` consult), 2026-06-04
+
+**What this closes off:** Two divergent issuer-color sets (catalog vs tokens). Card color is now token-derived with a user-override escape hatch; a future palette change is a coordinated token + seed + backfill update, not an ad-hoc per-surface choice.
+
+---
+
 ## Summary Table
 
 | # | Decision | Practical impact | Decided by | Date |
@@ -291,3 +303,4 @@
 | 19 | Realized-value figures on Cards/Admin only | Redeemed YTD/Available/fees on Cards+Admin; Overview stays money-at-risk | Builder (Feature 9) | 2026-06-04 |
 | 20 | Toasts for card add/remove only | Benefit tracking stays inline-feedback-only | Builder (Feature 9) | 2026-06-04 |
 | 21 | annualFee scrape-derived, product-level, nullable | On Card, confirmed in review gate, "—" fallback | Builder (Feature 9) | 2026-06-04 |
+| 22 | Issuer color = Feature 9 design tokens (defaultColor seeded to token; override wins) | One color source; catalog seeds = tokens; backfill on migration | Builder (Feature 9) | 2026-06-04 |

@@ -148,7 +148,7 @@ DraftBenefit {
   valueUnit: "dollars" | "points"
   resetPeriod: "monthly" | "quarterly" | "annual" | "once"
   resetAnchor: "calendar" | "statement" | "anniversary"
-  category: "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"
+  category: "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general" | "wellness"
   classification: "discretionary-credit" | "activation-perk" | "auto-earn" | "passive-perk" | "one-time-bonus"  // assigned by Haiku tool_use
   tracked: boolean   // derived deterministically from classification by src/lib/parser/classification.ts — NOT from the LLM
   confidence: number
@@ -197,7 +197,7 @@ Returns all benefits for a UserCard, with current period data. Calls `ensureCurr
   value: number | null
   resetPeriod: "monthly" | "quarterly" | "annual" | "once"
   resetAnchor: "calendar" | "statement" | "anniversary"
-  category: "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"
+  category: "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general" | "wellness"
   tracked: boolean
   currentPeriod: {
     id: string
@@ -230,7 +230,7 @@ Bulk-save confirmed benefits for a UserCard. **Replaces all existing benefits fo
     value?: number
     resetPeriod: "monthly" | "quarterly" | "annual" | "once"
     resetAnchor?: "calendar" | "statement" | "anniversary"
-    category: "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"
+    category: "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general" | "wellness"
     classification: "discretionary-credit" | "activation-perk" | "auto-earn" | "passive-perk" | "one-time-bonus"
     tracked?: boolean   // OPTIONAL — when supplied, the client value wins (user override at the review gate). When omitted, server falls back to deriveTracked(classification).
   }[]
@@ -358,7 +358,7 @@ Returns aggregated credit + perk benefits across all user cards, plus expiring-s
 ```typescript
 {
   categories: {
-    name: "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"
+    name: "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general" | "wellness"
     totalAvailable: number    // sum of benefit.value for this category
     totalUsed: number         // sum of currentPeriod.usedAmount for this category
     cards: {
@@ -384,6 +384,32 @@ Returns aggregated credit + perk benefits across all user cards, plus expiring-s
 - Empty categories (totalAvailable = 0) excluded from response
 - `expiringSoon` sorted by `daysUntilReset` ASC (most urgent first)
 - Calls `ensureCurrentPeriod()` for each trackable benefit — write side-effect on GET
+
+> ⚠ **Stale (pre-existing):** the response shape above predates the urgency-triage Overview redesign and the Task 62 additions (`moneyAtRisk`, `needsAttention`/`onTrack`/`done`, `activeByCategory`, `sparkbar`). Reconcile this section against `OverviewData` in `src/types/api.ts` during the Task 63 Overview UI rebuild.
+
+---
+
+## Portfolio
+
+### GET /api/portfolio/stats
+
+Portfolio-wide value figures for the Cards/Admin spaces (CONSTRAINT-19). Read-only; computed from existing usage, never stored. Added in Task 61 (Feature 9).
+
+**Auth:** Required.
+
+**Response 200:**
+```typescript
+{
+  annualFeeTotal: number   // sum of Card.annualFee across the user's cards (null fees excluded)
+  redeemedYtd: number      // sum of BenefitPeriod.usedAmount across all current-year periods (open + closed)
+  available: number        // sum of remaining cap on the OPEN period of tracked, recurring, capped benefits
+}
+```
+
+**Notes:**
+- Read-only — no writes to `usedAmount` (CONSTRAINT-07); does not call `ensureCurrentPeriod()`.
+- `available` counts only `tracked`, non-`once`, non-`setAndForget`, capped (`value != null`) benefits.
+- Overview hero is unaffected — these figures are Cards/Admin-only (CONSTRAINT-18/19).
 
 ---
 
