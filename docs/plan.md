@@ -2134,10 +2134,10 @@
 **Functions to implement:** None (schema + migration).
 
 **Acceptance criteria:**
-- [ ] `Card.annualFee` is `Float?` (nullable), placed per architecture.md
-- [ ] Migration applies cleanly; existing `Card` rows get `null` (no data loss); `benefit_periods` untouched (CONSTRAINT-08 append-only)
-- [ ] `npx prisma generate` run; types updated; `npm run build` clean
-- [ ] No secrets/hardcoded values (SEC-01)
+- [x] `Card.annualFee` is `Float?` (nullable), placed per architecture.md
+- [x] Migration applies cleanly; existing `Card` rows get `null` (no data loss); `benefit_periods` untouched (CONSTRAINT-08 append-only)
+- [x] `npx prisma generate` run; types updated; `npm run build` clean
+- [x] No secrets/hardcoded values (SEC-01)
 
 **Tests required:**
 - Unit → `prisma Card model accepts null annualFee` (happy)
@@ -2145,7 +2145,7 @@
 
 **Depends on:** None
 
-**Status:** [ ]
+**Status:** [x]
 
 **Specialist:** `@data`
 

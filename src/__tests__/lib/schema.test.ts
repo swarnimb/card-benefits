@@ -120,4 +120,50 @@ describe('schema', () => {
     expect(benefit.setAndForget).toBe(false)
     expect(benefit.activatedAt).toBeNull()
   })
+
+  // Task 57: Card.annualFee (Float?, nullable)
+  it('prisma Card model accepts null annualFee', async () => {
+    const card = await prisma.card.create({
+      data: {
+        issuer: 'Amex',
+        name: '__test__',
+        scrapeUrl: null,
+        defaultColor: '#016fd0',
+        annualFee: null,
+      },
+    })
+    expect(card.id).toBeDefined()
+    expect(card.annualFee).toBeNull()
+
+    // A non-null value also round-trips as a Float
+    const paidCard = await prisma.card.create({
+      data: {
+        issuer: 'Amex',
+        name: '__test__',
+        scrapeUrl: null,
+        defaultColor: '#016fd0',
+        annualFee: 695,
+      },
+    })
+    expect(paidCard.annualFee).toBe(695)
+  })
+
+  it('existing card row reads annualFee as null post-migration', async () => {
+    // Simulate a row created without specifying annualFee (as existing rows
+    // were before the card_annual_fee migration). The migration adds the column
+    // with no default, so the value reads back as null — no data loss.
+    const card = await prisma.card.create({
+      data: {
+        issuer: 'Chase',
+        name: '__test__',
+        scrapeUrl: null,
+        defaultColor: '#1a56db',
+        // annualFee intentionally omitted
+      },
+    })
+
+    const fetched = await prisma.card.findUnique({ where: { id: card.id } })
+    expect(fetched).not.toBeNull()
+    expect(fetched?.annualFee).toBeNull()
+  })
 })
