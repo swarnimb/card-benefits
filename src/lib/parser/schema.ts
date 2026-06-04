@@ -9,6 +9,13 @@ export const BENEFIT_EXTRACTION_TOOL = {
   input_schema: {
     type: "object" as const,
     properties: {
+      annualFee: {
+        type: ["number", "null"],
+        description:
+          "The card's annual fee in USD as a plain number (e.g. 95, 550, 0). " +
+          "This is a CARD-LEVEL field, not a per-benefit field. " +
+          "Return null if the annual fee is not stated in the text.",
+      },
       benefits: {
         type: "array",
         description: "All benefits extracted from the text",

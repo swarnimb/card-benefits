@@ -10,7 +10,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
 
 import { parseBenefits, ParserError } from "@/lib/parser/index";
 
-function makeToolUseResponse(benefits: unknown[]) {
+function makeToolUseResponse(benefits: unknown[], input: Record<string, unknown> = {}) {
   return {
     stop_reason: "tool_use",
     content: [
@@ -18,7 +18,7 @@ function makeToolUseResponse(benefits: unknown[]) {
         type: "tool_use",
         id: "tu_1",
         name: "extract_benefits",
-        input: { benefits },
+        input: { benefits, ...input },
       },
     ],
     // Task 45: parseBenefits reads response.usage.output_tokens for the gated debugLog.
@@ -48,23 +48,23 @@ describe("parseBenefits", () => {
   it("returns DraftBenefit[] for a valid tool_use response", async () => {
     mockCreate.mockResolvedValue(makeToolUseResponse([validBenefit]));
 
-    const result = await parseBenefits("Monthly $10 dining credit.");
-    expect(result).toHaveLength(1);
-    expect(result[0].name).toBe("Dining Credit");
-    expect(result[0].type).toBe("credit");
-    expect(result[0].value).toBe(10);
-    expect(result[0].resetAnchor).toBe("calendar");
-    expect(result[0].confidence).toBe(0.92);
+    const { benefits } = await parseBenefits("Monthly $10 dining credit.");
+    expect(benefits).toHaveLength(1);
+    expect(benefits[0].name).toBe("Dining Credit");
+    expect(benefits[0].type).toBe("credit");
+    expect(benefits[0].value).toBe(10);
+    expect(benefits[0].resetAnchor).toBe("calendar");
+    expect(benefits[0].confidence).toBe(0.92);
   });
 
   it("maps classification and derives tracked=true for discretionary-credit", async () => {
     mockCreate.mockResolvedValue(makeToolUseResponse([validBenefit]));
 
-    const result = await parseBenefits("Monthly $10 dining credit.");
-    expect(result[0].classification).toBe("discretionary-credit");
-    expect(result[0].tracked).toBe(true);
+    const { benefits } = await parseBenefits("Monthly $10 dining credit.");
+    expect(benefits[0].classification).toBe("discretionary-credit");
+    expect(benefits[0].tracked).toBe(true);
     // tracked is policy-derived, never read from the LLM payload
-    expect("isTrackable" in result[0]).toBe(false);
+    expect("isTrackable" in benefits[0]).toBe(false);
   });
 
   it("derives tracked=false for auto-earn", async () => {
@@ -72,9 +72,9 @@ describe("parseBenefits", () => {
       makeToolUseResponse([{ ...validBenefit, classification: "auto-earn" }])
     );
 
-    const result = await parseBenefits("Earn 3x points on dining.");
-    expect(result[0].classification).toBe("auto-earn");
-    expect(result[0].tracked).toBe(false);
+    const { benefits } = await parseBenefits("Earn 3x points on dining.");
+    expect(benefits[0].classification).toBe("auto-earn");
+    expect(benefits[0].tracked).toBe(false);
   });
 
   it("normalizes missing/invalid classification to discretionary-credit tracked=true", async () => {
@@ -83,8 +83,8 @@ describe("parseBenefits", () => {
     const invalid = { ...validBenefit, classification: "lifestyle" };
     mockCreate.mockResolvedValue(makeToolUseResponse([missing, invalid]));
 
-    const result = await parseBenefits("Ambiguous benefit text.");
-    for (const b of result) {
+    const { benefits } = await parseBenefits("Ambiguous benefit text.");
+    for (const b of benefits) {
       expect(b.classification).toBe("discretionary-credit");
       expect(b.tracked).toBe(true);
     }
@@ -98,9 +98,9 @@ describe("parseBenefits", () => {
     const valid = { ...validBenefit, category: "streaming" };
     mockCreate.mockResolvedValue(makeToolUseResponse([offending, valid]));
 
-    const result = await parseBenefits("Entertainment benefit + streaming credit.");
-    expect(result[0].category).toBe("general");
-    expect(result[1].category).toBe("streaming");
+    const { benefits } = await parseBenefits("Entertainment benefit + streaming credit.");
+    expect(benefits[0].category).toBe("general");
+    expect(benefits[1].category).toBe("streaming");
   });
 
   it("throws ParserError when stop_reason is not tool_use", async () => {
@@ -138,8 +138,8 @@ describe("parseBenefits", () => {
   it("returns [] when model returns 0 benefits", async () => {
     mockCreate.mockResolvedValue(makeToolUseResponse([]));
 
-    const result = await parseBenefits("No benefits found in this text.");
-    expect(result).toEqual([]);
+    const { benefits } = await parseBenefits("No benefits found in this text.");
+    expect(benefits).toEqual([]);
   });
 
   it("defaults resetAnchor to calendar when omitted by model", async () => {
@@ -147,8 +147,25 @@ describe("parseBenefits", () => {
     delete (benefitWithoutAnchor as { resetAnchor?: string }).resetAnchor;
     mockCreate.mockResolvedValue(makeToolUseResponse([benefitWithoutAnchor]));
 
-    const result = await parseBenefits("Monthly dining credit.");
-    expect(result[0].resetAnchor).toBe("calendar");
+    const { benefits } = await parseBenefits("Monthly dining credit.");
+    expect(benefits[0].resetAnchor).toBe("calendar");
+  });
+
+  it("returns annualFee when present in tool output", async () => {
+    // Card-level annualFee (Task 58): Haiku returns it as a sibling of `benefits`.
+    mockCreate.mockResolvedValue(makeToolUseResponse([validBenefit], { annualFee: 550 }));
+
+    const { benefits, annualFee } = await parseBenefits("Annual fee $550. Monthly $10 dining credit.");
+    expect(annualFee).toBe(550);
+    expect(benefits).toHaveLength(1); // benefits still flow through unchanged
+  });
+
+  it("returns annualFee null when omitted", async () => {
+    // A11 fallback: no annualFee key in the tool input → result carries null.
+    mockCreate.mockResolvedValue(makeToolUseResponse([validBenefit]));
+
+    const { annualFee } = await parseBenefits("Monthly $10 dining credit.");
+    expect(annualFee).toBeNull();
   });
 
   it("throws ParserError with rawTextPreview when API call fails", async () => {

@@ -2162,10 +2162,10 @@
 - Parser return type → `{ benefits: DraftBenefit[]; annualFee: number | null }`; map tool output's `annualFee` through (null when omitted)
 
 **Acceptance criteria:**
-- [ ] Tool schema includes a card-level `annualFee` (not a benefit field); Haiku instructed to return the card's annual fee in USD or null
-- [ ] Parse result carries `annualFee`; `null` when not found (A11 fallback)
-- [ ] Claude Haiku only, `tool_use` only, model `claude-haiku-4-5-20251001` (CONSTRAINT-09); no freeform JSON parsing
-- [ ] `npm run build` + parser unit suite clean
+- [x] Tool schema includes a card-level `annualFee` (not a benefit field); Haiku instructed to return the card's annual fee in USD or null
+- [x] Parse result carries `annualFee`; `null` when not found (A11 fallback)
+- [x] Claude Haiku only, `tool_use` only, model `claude-haiku-4-5-20251001` (CONSTRAINT-09); no freeform JSON parsing
+- [x] `npm run build` + parser unit suite clean
 
 **Tests required:**
 - Unit → `parser returns annualFee when present in tool output` (happy)
@@ -2173,7 +2173,7 @@
 
 **Depends on:** Task 57
 
-**Status:** [ ]
+**Status:** [x]
 
 **Specialist:** `@llm-parser`
 

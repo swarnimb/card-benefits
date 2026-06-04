@@ -93,7 +93,7 @@ describe("POST /api/user-cards/[id]/scrape", () => {
       confidence: 0.95,
     };
     mockScrapeCard.mockResolvedValue("raw page text");
-    mockParseBenefits.mockResolvedValue([draft]);
+    mockParseBenefits.mockResolvedValue({ benefits: [draft], annualFee: null });
 
     const req = new NextRequest(
       `http://localhost/api/user-cards/${userCardWithUrl.id}/scrape`,

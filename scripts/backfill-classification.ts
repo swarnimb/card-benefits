@@ -65,7 +65,7 @@ async function processBenefit(b: {
   const cardLabel = `${b.userCard.card.issuer} ${b.userCard.card.name}`;
   const rawText = `${b.name}. ${b.description ?? "(no description provided)"}`;
 
-  const drafts = await parseBenefits(rawText);
+  const { benefits: drafts } = await parseBenefits(rawText);
   if (!drafts.length) {
     console.warn(
       `[skip] parser returned 0 drafts for id=${b.id} name="${b.name}" card="${cardLabel}"`

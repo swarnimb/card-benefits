@@ -51,6 +51,16 @@ export interface BenefitWithPeriod {
   } | null;
 }
 
+/**
+ * Full result of a Haiku parse: the draft benefits plus the card-level annual
+ * fee (USD, null when not found — A11 fallback). Task 58 surfaces annualFee;
+ * persistence is deferred to Task 60 (review gate + DB write).
+ */
+export interface ParseResult {
+  benefits: DraftBenefit[];
+  annualFee: number | null;
+}
+
 /** Returned by the LLM parser — not yet saved to DB. Requires user confirmation before persisting. */
 export interface DraftBenefit {
   name: string;

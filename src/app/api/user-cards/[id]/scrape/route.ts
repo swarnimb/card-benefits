@@ -48,7 +48,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   let benefits: DraftBenefit[];
   try {
-    benefits = await parseBenefits(rawText);
+    // TODO(Task 60): also surface/persist the parsed annualFee through the review gate.
+    ({ benefits } = await parseBenefits(rawText));
   } catch (err) {
     if (err instanceof ParserError) {
       return NextResponse.json({ benefits: [], parseError: err.message });

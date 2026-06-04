@@ -7,7 +7,7 @@ import {
   normalizeClassification,
 } from "@/lib/parser/classification";
 import { createDebugLog } from "@/lib/debug";
-import type { DraftBenefit } from "@/types/benefit";
+import type { DraftBenefit, ParseResult } from "@/types/benefit";
 
 const MODEL = "claude-haiku-4-5-20251001"; // CONSTRAINT-09: hardcoded, never substituted
 
@@ -69,8 +69,11 @@ export class ParserError extends Error {
   }
 }
 
-/** Sends raw scraped text to Claude Haiku and returns structured DraftBenefits via tool_use. */
-export async function parseBenefits(rawText: string): Promise<DraftBenefit[]> {
+/**
+ * Sends raw scraped text to Claude Haiku and returns structured DraftBenefits
+ * plus the card-level annual fee (USD, null when omitted) via tool_use.
+ */
+export async function parseBenefits(rawText: string): Promise<ParseResult> {
   const client = new Anthropic(); // picks up ANTHROPIC_API_KEY from process.env automatically
 
   let response: Anthropic.Message;
@@ -114,12 +117,16 @@ export async function parseBenefits(rawText: string): Promise<DraftBenefit[]> {
   }
 
   const toolBlock = response.content.find((b) => b.type === "tool_use");
-  if (!toolBlock || toolBlock.type !== "tool_use") return [];
+  if (!toolBlock || toolBlock.type !== "tool_use") return { benefits: [], annualFee: null };
 
-  const { benefits } = toolBlock.input as { benefits?: RawBenefit[] };
-  if (!benefits?.length) return [];
-
-  return benefits.map(toDraftBenefit);
+  const { benefits, annualFee } = toolBlock.input as {
+    benefits?: RawBenefit[];
+    annualFee?: number | null;
+  };
+  return {
+    benefits: benefits?.length ? benefits.map(toDraftBenefit) : [],
+    annualFee: typeof annualFee === "number" ? annualFee : null, // A11 fallback: null when omitted
+  };
 }
 
 /** Gated debug log — EH-01 (not silent) / EH-02 (context). Visible when
