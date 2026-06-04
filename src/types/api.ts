@@ -37,3 +37,10 @@ export interface OverviewData {
   onTrack: OverviewBenefit[];
   done: OverviewBenefit[];
 }
+
+/** Portfolio-wide value figures for the Cards/Admin spaces (CONSTRAINT-18/19). Computed, never stored. */
+export interface PortfolioStats {
+  annualFeeTotal: number;
+  redeemedYtd: number;
+  available: number;
+}

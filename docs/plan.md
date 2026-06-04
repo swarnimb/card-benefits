@@ -2246,10 +2246,10 @@
 - `computePortfolioStats(cards): { annualFeeTotal: number; redeemedYtd: number; available: number }` — redeemedYtd = sum `usedAmount` across periods in current year; available = sum remaining on tracked time-bound credits; annualFeeTotal = sum `Card.annualFee`
 
 **Acceptance criteria:**
-- [ ] Cards/Admin receive redeemedYtd / available / annualFeeTotal, computed from existing usage (not stored)
-- [ ] Overview hero/data UNCHANGED — no realized figure there (CONSTRAINT-18; Cards/Admin-only per CONSTRAINT-19)
-- [ ] `usedAmount` read-only here — no writes outside `updateBenefitUsage()` (CONSTRAINT-07)
-- [ ] Parameterized queries (SEC-03); build + tests clean
+- [x] Cards/Admin receive redeemedYtd / available / annualFeeTotal, computed from existing usage (not stored) — served via new `GET /api/portfolio/stats`
+- [x] Overview hero/data UNCHANGED — no realized figure there (CONSTRAINT-18; Cards/Admin-only per CONSTRAINT-19)
+- [x] `usedAmount` read-only here — no writes outside `updateBenefitUsage()` (CONSTRAINT-07)
+- [x] Parameterized queries (SEC-03); build + tests clean
 
 **Tests required:**
 - Unit → `computePortfolioStats sums redeemed/available/fees correctly` (happy)
@@ -2257,7 +2257,7 @@
 
 **Depends on:** Task 57
 
-**Status:** [ ]
+**Status:** [x]
 
 **Specialist:** `@data`
 
