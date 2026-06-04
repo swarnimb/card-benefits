@@ -49,6 +49,70 @@ function validateBenefits(items: unknown[]): string | null {
   return null;
 }
 
+// Prisma transaction client type, derived without importing the generated
+// client (Prisma 7 generates to a non-default path on this project).
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+/**
+ * Creates one benefit and, for tracked non-set-and-forget benefits, its initial
+ * open BenefitPeriod. `tracked` and `setAndForget` are server-derived in code,
+ * never trusted from the LLM/client:
+ * - tracked: defaults to deriveTracked(classification); a client-supplied
+ *   boolean WINS — the user's explicit review-gate override (Decision A,
+ *   2026-05-26). classification itself stays server-only / non-editable.
+ *   Excluded benefits are still persisted (tracked=false) — never dropped.
+ * - setAndForget: a SUBSET of tracked (ANDed), so a benefit the user untracks
+ *   also clears set-and-forget — we never persist the inconsistent
+ *   (tracked=false, setAndForget=true) state. `activatedAt` is omitted; Prisma
+ *   defaults it to null and CONSTRAINT-16 makes setBenefitActivation() its sole
+ *   write path.
+ */
+async function createBenefitWithPeriod(
+  tx: TransactionClient,
+  userCardId: string,
+  b: DraftBenefit,
+  userCard: { statementDay: number | null; anniversaryDate: Date | null },
+  now: Date,
+): Promise<void> {
+  const tracked = typeof b.tracked === "boolean" ? b.tracked : deriveTracked(b.classification);
+  const setAndForget =
+    tracked && deriveSetAndForget(b.name, b.description ?? null, normalizeClassification(b.classification));
+  const created = await tx.benefit.create({
+    data: {
+      userCardId,
+      name: b.name,
+      description: b.description ?? null,
+      type: b.type,
+      value: b.value ?? null,
+      valueUnit: b.valueUnit ?? "dollars",
+      resetPeriod: b.resetPeriod,
+      resetAnchor: b.resetAnchor,
+      category: coerceCategory(b.category),
+      classification: normalizeClassification(b.classification),
+      tracked,
+      setAndForget,
+    },
+  });
+  // CONSTRAINT-17: set-and-forget (and untracked) benefits get NO initial
+  // BenefitPeriod. ensureCurrentPeriod short-circuits set-and-forget benefits,
+  // so a period born here would be orphaned — never closed/rolled.
+  if (!tracked || setAndForget) return;
+
+  // Fall back to calendar if the anchor requires data the card doesn't have.
+  let effectiveAnchor = b.resetAnchor;
+  if (effectiveAnchor === "anniversary" && !userCard.anniversaryDate) effectiveAnchor = "calendar";
+  if (effectiveAnchor === "statement" && !userCard.statementDay) effectiveAnchor = "calendar";
+
+  const { periodStart, periodEnd } = calculatePeriodBoundary(
+    b.resetPeriod, effectiveAnchor, now,
+    userCard.statementDay ?? undefined,
+    userCard.anniversaryDate ?? undefined,
+  );
+  await tx.benefitPeriod.create({
+    data: { benefitId: created.id, periodStart, periodEnd, usedAmount: 0, status: "open" },
+  });
+}
+
 async function runConfirmTransaction(
   userCardId: string,
   benefits: DraftBenefit[],
@@ -58,57 +122,7 @@ async function runConfirmTransaction(
   await prisma.$transaction(async (tx) => {
     await tx.benefit.deleteMany({ where: { userCardId } });
     for (const b of benefits) {
-      // tracked: server uses `deriveTracked(classification)` as the DEFAULT
-      // (when the client omits the field). A client-supplied boolean WINS —
-      // it represents the user's explicit override at the review gate
-      // (Decision A updated 2026-05-26). `classification` itself remains
-      // server-only / non-editable. Excluded benefits are still persisted
-      // (tracked=false) — never dropped.
-      const tracked = typeof b.tracked === "boolean" ? b.tracked : deriveTracked(b.classification);
-      // setAndForget is server-derived (code decides, never trusted from the
-      // LLM/client — mirrors `tracked`). It is a SUBSET of tracked: ANDing with
-      // the final `tracked` means a benefit the user untracks at the review
-      // gate also clears set-and-forget, so we never persist the inconsistent
-      // (tracked=false, setAndForget=true) state. `activatedAt` is intentionally
-      // omitted — Prisma defaults it to null; CONSTRAINT-16 makes
-      // setBenefitActivation() (Task 51) the sole write path for it.
-      const setAndForget =
-        tracked && deriveSetAndForget(b.name, b.description ?? null, normalizeClassification(b.classification));
-      const created = await tx.benefit.create({
-        data: {
-          userCardId,
-          name: b.name,
-          description: b.description ?? null,
-          type: b.type,
-          value: b.value ?? null,
-          valueUnit: b.valueUnit ?? "dollars",
-          resetPeriod: b.resetPeriod,
-          resetAnchor: b.resetAnchor,
-          category: coerceCategory(b.category),
-          classification: normalizeClassification(b.classification),
-          tracked,
-          setAndForget,
-        },
-      });
-      // CONSTRAINT-17: set-and-forget benefits get NO initial BenefitPeriod.
-      // Without this guard, the period born here would be orphaned —
-      // ensureCurrentPeriod short-circuits set-and-forget benefits and would
-      // never close/roll it.
-      if (tracked && !setAndForget) {
-        // Fall back to calendar if anchor requires data the card doesn't have
-        let effectiveAnchor = b.resetAnchor;
-        if (effectiveAnchor === "anniversary" && !userCard.anniversaryDate) effectiveAnchor = "calendar";
-        if (effectiveAnchor === "statement" && !userCard.statementDay) effectiveAnchor = "calendar";
-
-        const { periodStart, periodEnd } = calculatePeriodBoundary(
-          b.resetPeriod, effectiveAnchor, now,
-          userCard.statementDay ?? undefined,
-          userCard.anniversaryDate ?? undefined,
-        );
-        await tx.benefitPeriod.create({
-          data: { benefitId: created.id, periodStart, periodEnd, usedAmount: 0, status: "open" },
-        });
-      }
+      await createBenefitWithPeriod(tx, userCardId, b, userCard, now);
     }
     await tx.userCard.update({ where: { id: userCardId }, data: { lastVerifiedAt: now } });
   });

@@ -2075,10 +2075,10 @@
 
 **Acceptance criteria:**
 - [x] Integration test covers the end-to-end flow: a set-and-forget benefit is classified (`setAndForget: true`), confirmed (persisted), activated via the route, then excluded from Overview `needsAttention` and shown in the Cards "Automatic" group. _(2026-06-02 — `feature8-set-and-forget.integration.test.ts`)_
-- [ ] Live walkthrough: re-scrape a real card with set-and-forget benefits (e.g. Amex Platinum — Walmart+, CLEAR, Uber One), activate one, verify it appears in the "Automatic" group and is absent from "needs attention". Outcome recorded in `docs/session-log.md`. **← PENDING (requires dev server + real scrape; builder-run)**
-- [~] Classification spot-check confirmed live: Uber One → set-and-forget, Uber Cash → not. _(Locked in the integration test through the real confirm route; LIVE confirmation still pending as part of the walkthrough.)_
+- [x] Live walkthrough: activated CLEAR+ in the Amex "Automatic" group → flipped to ✓ Active with the card color; confirmed absent from Overview "needs attention" and excluded from the money-at-risk total. _(2026-06-03 — builder-run live verification on localhost:3002)_
+- [x] Classification spot-check confirmed live: Uber One → set-and-forget (in Automatic group), Uber Cash → not. _(2026-06-03 — confirmed live during walkthrough)_
 - [x] Full unit + integration suites pass (`npm test`, `npm run test:integration`); `npm run build` clean. _(2026-06-02 — unit 171/171, integration 61/61, build clean.)_
-- [ ] On completion: recommend `@code-review` for Phase H, then `@qa`. **← after the live walkthrough**
+- [x] On completion: recommend `@code-review` for Phase H, then `@qa`. _(2026-06-03 — recommended at Task 55 close)_
 
 **Tests required:**
 - Integration → `set-and-forget benefit: classify → confirm → activate → Overview/Cards reflect it`
@@ -2086,7 +2086,7 @@
 
 **Depends on:** Tasks 49, 50, 51, 52, 53, 54
 
-**Status:** [ ]
+**Status:** [x]
 
 **Specialist:** `@qa`
 
