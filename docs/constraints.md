@@ -278,6 +278,18 @@
 
 ---
 
+### [CONSTRAINT-23] App shell on desktop = centered phone-width column
+
+**Decision:** The `(app)` layout renders content in a centered `max-w-[420px]` column (`min-h-dvh` + hairline side borders); the fixed `BottomNav` is constrained to the same width (`left-1/2 -translate-x-1/2 max-w-[420px]`). The UI is mobile-first (designed at 375px); on a wide window it stays centered rather than stretching full-bleed.
+
+**What it means in practice:** All three screens — and any new screen — live inside this column; do not build full-bleed desktop layouts. Verify UI at 375px AND 1280px (both must read correctly inside the column). The MVP is desktop-only, so this centered column IS the daily view.
+
+**Who decided and when:** Builder (Feature 9), 2026-06-04
+
+**What this closes off:** A separate responsive/multi-column desktop layout. Widening the column or adding desktop-specific breakpoints is a future decision, not an ad-hoc per-screen choice.
+
+---
+
 ## Summary Table
 
 | # | Decision | Practical impact | Decided by | Date |
@@ -304,3 +316,4 @@
 | 20 | Toasts for card add/remove only | Benefit tracking stays inline-feedback-only | Builder (Feature 9) | 2026-06-04 |
 | 21 | annualFee scrape-derived, product-level, nullable | On Card, confirmed in review gate, "—" fallback | Builder (Feature 9) | 2026-06-04 |
 | 22 | Issuer color = Feature 9 design tokens (defaultColor seeded to token; override wins) | One color source; catalog seeds = tokens; backfill on migration | Builder (Feature 9) | 2026-06-04 |
+| 23 | App shell on desktop = centered max-w-[420px] column | Mobile-first design centered on desktop (desktop-only MVP); BottomNav constrained to same width; new UI lives in this column | Builder (Feature 9) | 2026-06-04 |
