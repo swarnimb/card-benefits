@@ -30,6 +30,7 @@ const makeCard = (overrides: Partial<Card> = {}): Card => ({
   name: "Gold Card",
   scrapeUrl: "https://old.example.com/gold",
   defaultColor: "#000000",
+  annualFee: null,
   ...overrides,
 });
 

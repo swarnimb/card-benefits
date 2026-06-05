@@ -2397,12 +2397,12 @@
 **Functions to implement:** None (verification task).
 
 **Acceptance criteria:**
-- [ ] Puppeteer screenshots of all 3 screens at 375px AND 1280px compared side-by-side to the design source; deviations triaged
-- [ ] Token reconciliation introduced no Cards/Admin regression (Risk #4)
-- [ ] Annual-fee flow end-to-end: scrape → review pre-fill → confirm → `Card.annualFee` → Cards/Admin display; null → "—"
-- [ ] Confidence badge appears for low-confidence drafts; confidence/note absent from DB
-- [ ] Full unit + integration suites pass; `npm run build` clean
-- [ ] On completion: recommend `@code-review` then `@qa`
+- [x] Puppeteer screenshots of all 3 screens at 375px AND 1280px compared side-by-side to the design source; deviations triaged — verified live (pre- and post-refactor); deviations all explained (calm $0 hero = no benefits in 7-day window; Wellness group absent until a wellness-classified row exists; picker omits per-card fee = catalog has none; fresh-add toast generic label = known polish)
+- [x] Token reconciliation introduced no Cards/Admin regression (Risk #4) — colors token-exact, no regression
+- [x] Annual-fee flow end-to-end: scrape → review pre-fill → confirm → `Card.annualFee` → Cards/Admin display; null → "—" — integration test (confirm→persist→GET) + live "—" on Platinum detail
+- [x] Confidence badge appears for low-confidence drafts; confidence/note absent from DB — unit test (badge) + integration test (never persisted; asserts exact allowlisted column set)
+- [x] Full unit + integration suites pass; `npm run build` clean — 225 unit + 67 integration pass; build clean
+- [x] On completion: recommend `@code-review` then `@qa` — `@code-review` done (PASS, commit b137f2f); `@qa` recommended next
 
 **Tests required:**
 - Integration → `annualFee: scrape → confirm → Cards display` (happy)
@@ -2410,7 +2410,7 @@
 
 **Depends on:** Tasks 63, 64, 65
 
-**Status:** [ ]
+**Status:** [x] — done 2026-06-04. Cross-screen verification complete: all 3 screens screenshotted at 375+1280 (no regression after the code-review refactor); 2 required integration tests + 4 folded code-review unit tests added (225 unit / 67 integration pass); fixed the last pre-existing resync type error → `tsc` clean; build clean. Feature 9 (Tasks 56–66) COMPLETE. Next: `@qa` shippability sign-off.
 
 **Specialist:** `@qa`
 
