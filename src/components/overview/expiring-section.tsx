@@ -99,7 +99,7 @@ function ExpiringRow({ c, i }: { c: OverviewBenefit; i: number }) {
         used={c.usedAmount}
         amt={c.value}
         color={OV.amber}
-        track="rgba(245,158,11,0.10)"
+        track={OV.amberTrack}
         height={2.5}
       />
 

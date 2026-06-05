@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { COLORS, EASING, RADII } from "@/lib/ui/tokens";
+import { motion, useReducedMotion } from "framer-motion";
+import { COLORS, RADII } from "@/lib/ui/tokens";
 import { MiniCard } from "./mini-card";
+import { DeleteConfirm } from "./delete-confirm";
 import { RescrapeIcon, TrashIcon } from "./icons";
 
 /** Shape of a card row in the management list. */
@@ -182,76 +183,17 @@ export function ManagedRow({ card, onRescrape, onRemove, busy }: ManagedRowProps
       </div>
 
       {/* inline delete confirm */}
-      <AnimatePresence initial={false}>
-        {confirming && (
-          <motion.div
-            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={reduceMotion ? { height: 0, opacity: 1 } : { height: 0, opacity: 0 }}
-            transition={{ duration: 0.28, ease: EASING }}
-            style={{ overflow: "hidden" }}
-          >
-            <div
-              style={{
-                padding: "12px 14px 14px",
-                borderTop: `1px solid ${COLORS.hairline}`,
-                background: "rgba(255,255,255,0.02)",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12.5,
-                  color: COLORS.text2,
-                  lineHeight: 1.45,
-                  marginBottom: 11,
-                }}
-              >
-                Remove {issuer} {name} and its {count} benefit{count !== 1 ? "s" : ""}? All usage
-                history will be deleted.
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => setConfirming(false)}
-                  style={{
-                    flex: 1,
-                    padding: "10px",
-                    borderRadius: RADII.input + 1,
-                    cursor: "pointer",
-                    background: "rgba(255,255,255,0.05)",
-                    border: `1px solid ${COLORS.hairline2}`,
-                    color: COLORS.text2,
-                    fontSize: 13,
-                    fontWeight: 500,
-                    fontFamily: "inherit",
-                  }}
-                >
-                  Keep card
-                </button>
-                <button
-                  onClick={() => {
-                    setConfirming(false);
-                    onRemove(card.id);
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: "10px",
-                    borderRadius: RADII.input + 1,
-                    cursor: "pointer",
-                    background: COLORS.text,
-                    border: "1px solid transparent",
-                    color: COLORS.bg,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    fontFamily: "inherit",
-                  }}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <DeleteConfirm
+        open={confirming}
+        issuer={issuer}
+        name={name}
+        count={count}
+        onKeep={() => setConfirming(false)}
+        onRemove={() => {
+          setConfirming(false);
+          onRemove(card.id);
+        }}
+      />
     </div>
   );
 }

@@ -1,12 +1,21 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { COLORS, RADII } from "@/lib/ui/tokens";
-import { usd } from "@/components/overview/format";
 import { FlowShell } from "./flow-shell";
-import { BenefitEditRow } from "./benefit-edit-row";
-import { ExcludedDisclosure, type IndexedBenefit } from "./excluded-disclosure";
-import { CheckIcon, PlusIcon, SparkIcon } from "./icons";
+import { type IndexedBenefit } from "./excluded-disclosure";
+import { GateBenefitList } from "./gate-benefit-list";
+import {
+  AiBanner,
+  ScrapeErrorBanner,
+  AnnualFeeField,
+  RunningTotal,
+  GateErrorMessage,
+} from "./review-gate-parts";
+import {
+  makeBlankBenefit,
+  ConfirmFooterButton,
+  AddBenefitButton,
+} from "./review-gate-controls";
 import type { DraftBenefit } from "@/types/benefit";
 
 /** Props for BenefitReviewGate. */
@@ -15,53 +24,14 @@ export interface BenefitReviewGateProps {
   initialBenefits: DraftBenefit[];
   /** Card subtitle ("{issuer} {name}") for the flow header; optional. */
   cardName?: string | null;
-  /**
-   * Scrape-derived card annual fee (USD), pre-filled into the editable fee input;
-   * null when the parser found none (A11). Confirmed on save → Card.annualFee
-   * (CONSTRAINT-21). Optional so callers/tests that omit it default to null.
-   */
+  /** Scrape-derived annual fee (USD), pre-filled into the fee input; null when none found (A11). Confirmed on save → Card.annualFee (CONSTRAINT-21). */
   initialAnnualFee?: number | null;
   scrapeError?: string | null;
   parseError?: string | null;
   onSave: () => void;
-  /**
-   * Cancel handler. May be async — the gate awaits it and surfaces any thrown
-   * error in `cancelError` (EH-01). Used by the admin page to DELETE orphan cards
-   * on fresh-add cancel (NEW-1).
-   */
+  /** Cancel handler. May be async — the gate awaits it and surfaces a thrown error in `cancelError` (EH-01); admin page DELETEs orphan cards on fresh-add cancel (NEW-1). */
   onCancel: () => Promise<void> | void;
 }
-
-function makeBlankBenefit(): DraftBenefit {
-  return {
-    name: "",
-    description: null,
-    type: "credit",
-    value: null,
-    valueUnit: "dollars",
-    resetPeriod: "monthly",
-    resetAnchor: "calendar",
-    category: "general",
-    classification: "discretionary-credit",
-    tracked: true,
-    setAndForget: false,
-    // User-authored → high confidence (review-only; stripped before persistence).
-    confidence: "high",
-  };
-}
-
-const feeInputStyle = {
-  width: "100%",
-  boxSizing: "border-box" as const,
-  background: COLORS.bg,
-  border: `1px solid ${COLORS.hairline2}`,
-  borderRadius: RADII.input,
-  padding: "9px 11px",
-  color: COLORS.text,
-  fontSize: 14,
-  fontFamily: "inherit",
-  outline: "none",
-};
 
 /**
  * Review gate (design source `Review`) — the user must confirm all LLM-parsed
@@ -186,228 +156,37 @@ export function BenefitReviewGate({
       onClose={handleCancelClick}
       closeLabel="Cancel"
       footer={
-        <button
-          onClick={handleSave}
-          disabled={saveDisabled}
-          style={{
-            width: "100%",
-            padding: "15px",
-            borderRadius: RADII.button,
-            cursor: saveDisabled ? "not-allowed" : "pointer",
-            background: saveDisabled ? "rgba(255,255,255,0.06)" : COLORS.amber,
-            border: "none",
-            color: saveDisabled ? COLORS.text4 : "#1A1208",
-            fontSize: 14.5,
-            fontWeight: 600,
-            fontFamily: "inherit",
-            letterSpacing: -0.1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
-        >
-          {!saveDisabled && <CheckIcon s={13} />}
-          {saveLabel}
-        </button>
+        <ConfirmFooterButton label={saveLabel} disabled={saveDisabled} onClick={handleSave} />
       }
     >
-      {/* AI banner */}
-      <div style={{ padding: "0 16px 14px" }}>
-        <div
-          style={{
-            padding: "13px 15px",
-            borderRadius: RADII.button,
-            background: "rgba(255,255,255,0.025)",
-            border: `1px solid ${COLORS.hairline}`,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <span
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: RADII.icon - 1,
-                background: COLORS.amberSoft,
-                color: COLORS.amber,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              {SparkIcon}
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, letterSpacing: -0.1 }}>
-              AI found {benefits.length} benefit{benefits.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-          <div style={{ fontSize: 12, color: COLORS.text3, lineHeight: 1.5 }}>
-            {lowCount > 0 ? (
-              <>
-                Check the {lowCount} marked{" "}
-                <span style={{ color: COLORS.amber, fontWeight: 500 }}>Review</span>, edit anything,
-                then confirm. Nothing is saved until you do.
-              </>
-            ) : (
-              <>Edit anything that looks off, then confirm. Nothing is saved until you do.</>
-            )}
-          </div>
-        </div>
-      </div>
+      <AiBanner benefitCount={benefits.length} lowCount={lowCount} />
 
-      {/* scrape/parse error banner */}
-      {errorMessage && (
-        <div style={{ padding: "0 16px 14px" }}>
-          <div
-            style={{
-              padding: "13px 15px",
-              borderRadius: RADII.button,
-              background: COLORS.amberSoft,
-              border: "1px solid rgba(245,158,11,0.3)",
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.amber }}>{errorMessage}</div>
-            <div style={{ fontSize: 12, color: COLORS.text3, marginTop: 4 }}>
-              Add benefits manually below
-            </div>
-          </div>
-        </div>
-      )}
+      {errorMessage && <ScrapeErrorBanner message={errorMessage} />}
 
-      {/* tracked benefit rows */}
-      <div
-        style={{ padding: "0 16px 8px", display: "flex", flexDirection: "column", gap: 9 }}
-      >
-        {trackedItems.map(({ benefit, index }) => (
-          <BenefitEditRow
-            key={index}
-            benefit={benefit}
-            onChange={(updated) => updateBenefit(index, updated)}
-            onRemove={() => removeBenefit(index)}
-            showNameError={triedSave}
-          />
-        ))}
-      </div>
+      <GateBenefitList
+        trackedItems={trackedItems}
+        excludedItems={excludedItems}
+        showExcluded={showExcluded}
+        onToggleExcluded={() => setShowExcluded((v) => !v)}
+        updateBenefit={updateBenefit}
+        removeBenefit={removeBenefit}
+        triedSave={triedSave}
+      />
 
-      {/* excluded disclosure (A10) */}
-      {excludedItems.length > 0 && (
-        <div style={{ padding: "0 16px 12px" }}>
-          <ExcludedDisclosure
-            items={excludedItems}
-            expanded={showExcluded}
-            onToggle={() => setShowExcluded((v) => !v)}
-            onChange={updateBenefit}
-            onRemove={removeBenefit}
-            showNameError={triedSave}
-          />
-        </div>
-      )}
+      <AddBenefitButton onClick={addBenefit} />
 
-      {/* add benefit */}
-      <div style={{ padding: "0 16px 12px" }}>
-        <button
-          type="button"
-          onClick={addBenefit}
-          aria-label="Add benefit"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 7,
-            padding: "9px 13px",
-            borderRadius: RADII.input + 1,
-            cursor: "pointer",
-            background: "rgba(255,255,255,0.04)",
-            border: `1px solid ${COLORS.hairline2}`,
-            color: COLORS.text2,
-            fontSize: 12.5,
-            fontWeight: 500,
-            fontFamily: "inherit",
-          }}
-        >
-          {PlusIcon} Add benefit
-        </button>
-      </div>
+      <AnnualFeeField value={annualFeeInput} onChange={setAnnualFeeInput} />
 
-      {/* editable annual fee (CONSTRAINT-21) */}
-      <div style={{ padding: "0 16px 12px" }}>
-        <div
-          style={{
-            fontSize: 10.5,
-            fontWeight: 500,
-            letterSpacing: 0.7,
-            color: COLORS.text3,
-            textTransform: "uppercase",
-            marginBottom: 7,
-          }}
-        >
-          Annual fee
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 2, ...feeInputStyle, width: 140 }}>
-          <span style={{ color: COLORS.text3, fontSize: 14 }}>$</span>
-          <input
-            id="annual-fee"
-            type="number"
-            min={0}
-            step="0.01"
-            inputMode="decimal"
-            value={annualFeeInput}
-            onChange={(e) => setAnnualFeeInput(e.target.value)}
-            placeholder="—"
-            aria-label="Annual fee in dollars"
-            style={{
-              background: "transparent",
-              border: 0,
-              outline: "none",
-              color: COLORS.text,
-              fontSize: 14,
-              fontFamily: "inherit",
-              width: "100%",
-              fontVariantNumeric: "tabular-nums",
-            }}
-          />
-        </div>
-      </div>
-
-      {/* running total */}
-      <div
-        style={{
-          margin: "0 16px 8px",
-          padding: "12px 15px",
-          borderRadius: RADII.control,
-          background: "rgba(255,255,255,0.02)",
-          border: `1px dashed ${COLORS.hairline2}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <span style={{ fontSize: 12.5, color: COLORS.text3 }}>
-          {trackedItems.length} of {benefits.length} tracked
-        </span>
-        <span style={{ fontSize: 13, color: COLORS.text2 }}>
-          up to{" "}
-          <span style={{ color: COLORS.text, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-            {usd(trackedTotal)}
-          </span>
-          /yr tracked
-        </span>
-      </div>
+      <RunningTotal
+        trackedCount={trackedItems.length}
+        totalCount={benefits.length}
+        trackedTotal={trackedTotal}
+      />
 
       {/* error surfaces */}
-      {saveError && (
-        <p style={{ padding: "0 16px 8px", fontSize: 12.5, color: COLORS.amber }} role="alert">
-          {saveError}
-        </p>
-      )}
+      {saveError && <GateErrorMessage message={saveError} />}
       {cancelError && (
-        <p
-          style={{ padding: "0 16px 12px", fontSize: 12.5, color: COLORS.amber }}
-          role="alert"
-          data-testid="cancel-error"
-        >
-          {cancelError}
-        </p>
+        <GateErrorMessage message={cancelError} testId="cancel-error" padBottom={12} />
       )}
     </FlowShell>
   );

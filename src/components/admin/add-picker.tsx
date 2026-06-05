@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { COLORS, EASING, RADII } from "@/lib/ui/tokens";
+import { COLORS } from "@/lib/ui/tokens";
 import type { CatalogCard } from "@/types/card";
 import { FlowShell } from "./flow-shell";
-import { MiniCard } from "./mini-card";
-import { ChevronRight, PlusIcon, SearchIcon } from "./icons";
+import { CatalogRow } from "./catalog-row";
+import { CustomCardForm } from "./custom-card-form";
+import { PickerSearch } from "./picker-search";
 
 /** Props for AddPicker. */
 export interface AddPickerProps {
@@ -15,31 +15,6 @@ export interface AddPickerProps {
   onAdded: (userCardId: string) => void;
 }
 
-const inputBase = {
-  flex: 1,
-  background: "transparent",
-  border: 0,
-  outline: "none",
-  color: COLORS.text,
-  fontSize: 14,
-  fontFamily: "inherit",
-  letterSpacing: -0.1,
-} as const;
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box" as const,
-  background: COLORS.surface,
-  border: `1px solid ${COLORS.hairline2}`,
-  borderRadius: RADII.control,
-  padding: "11px 14px",
-  color: COLORS.text,
-  fontSize: 14,
-  fontFamily: "inherit",
-  outline: "none",
-  letterSpacing: -0.1,
-};
-
 /**
  * Full-screen add-card picker (design source `AddPicker`): search box + catalog
  * list from GET /api/catalog. Picking a card POSTs /api/user-cards then hands the
@@ -47,7 +22,6 @@ const fieldStyle = {
  * path via a "+ Add a custom card" affordance, and surfaces duplicate-409 inline.
  */
 export function AddPicker({ onClose, onAdded }: AddPickerProps) {
-  const reduceMotion = useReducedMotion();
   const [catalog, setCatalog] = useState<CatalogCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +44,10 @@ export function AddPicker({ onClose, onAdded }: AddPickerProps) {
         return res.json();
       })
       .then((data: CatalogCard[]) => setCatalog(data))
-      .catch(() => setError("Could not load card catalog"))
+      .catch((err) => {
+        console.error("catalog fetch failed:", err);
+        setError("Could not load card catalog");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -96,7 +73,8 @@ export function AddPicker({ onClose, onAdded }: AddPickerProps) {
         if (!res.ok) throw new Error("Failed to add card");
         const data = await res.json();
         onAdded(data.id);
-      } catch {
+      } catch (err) {
+        console.error("addCatalogCard failed:", err);
         setError("Failed to add card");
       } finally {
         setAddingId(null);
@@ -117,7 +95,8 @@ export function AddPicker({ onClose, onAdded }: AddPickerProps) {
       if (!res.ok) throw new Error("Failed to add card");
       const data = await res.json();
       onAdded(data.id);
-    } catch {
+    } catch (err) {
+      console.error("addCustomCard failed:", err);
       setError("Failed to add custom card");
     } finally {
       setAddingCustom(false);
@@ -128,31 +107,7 @@ export function AddPicker({ onClose, onAdded }: AddPickerProps) {
 
   return (
     <FlowShell title="Add a card" subtitle="Pick the card you want to track" onClose={onClose}>
-      {/* search */}
-      <div style={{ padding: "0 16px 16px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            padding: "11px 14px",
-            borderRadius: RADII.control,
-            background: COLORS.surface,
-            border: `1px solid ${COLORS.hairline2}`,
-          }}
-        >
-          <span style={{ color: COLORS.text3, display: "inline-flex", flexShrink: 0 }}>
-            {SearchIcon}
-          </span>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search issuers and cards"
-            aria-label="Search issuers and cards"
-            style={inputBase}
-          />
-        </div>
-      </div>
+      <PickerSearch query={query} onChange={setQuery} />
 
       {loading && (
         <p style={{ padding: "0 18px 16px", fontSize: 13, color: COLORS.text3 }}>
@@ -183,55 +138,14 @@ export function AddPicker({ onClose, onAdded }: AddPickerProps) {
             style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 9 }}
           >
             {list.map((c) => (
-              <motion.button
+              <CatalogRow
                 key={c.id}
-                onClick={() => addCatalogCard(c.id)}
+                card={c}
                 disabled={isAdding}
-                initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, ease: EASING }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 13,
-                  padding: "12px 14px",
-                  borderRadius: RADII.button,
-                  background: COLORS.surface,
-                  border: `1px solid ${COLORS.hairline}`,
-                  cursor: isAdding ? "default" : "pointer",
-                  textAlign: "left",
-                  fontFamily: "inherit",
-                  width: "100%",
-                }}
-              >
-                <MiniCard color={c.defaultColor} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: COLORS.text,
-                      letterSpacing: -0.2,
-                    }}
-                  >
-                    {c.name}
-                  </div>
-                  <div style={{ fontSize: 11.5, color: COLORS.text3, marginTop: 3 }}>
-                    {c.issuer}
-                  </div>
-                </div>
-                {addingId === c.id ? (
-                  <span style={{ fontSize: 11.5, color: COLORS.amber, flexShrink: 0 }}>Adding…</span>
-                ) : duplicateId === c.id ? (
-                  <span style={{ fontSize: 11, color: COLORS.amber, flexShrink: 0 }}>
-                    Already added
-                  </span>
-                ) : (
-                  <span style={{ color: COLORS.text4, display: "inline-flex", flexShrink: 0 }}>
-                    {ChevronRight}
-                  </span>
-                )}
-              </motion.button>
+                adding={addingId === c.id}
+                duplicate={duplicateId === c.id}
+                onAdd={addCatalogCard}
+              />
             ))}
             {list.length === 0 && (
               <div style={{ textAlign: "center", padding: "24px 0", color: COLORS.text4, fontSize: 13 }}>
@@ -240,83 +154,17 @@ export function AddPicker({ onClose, onAdded }: AddPickerProps) {
             )}
           </div>
 
-          {/* custom-card affordance (preserves the custom add path) */}
-          <div style={{ padding: "0 16px 28px" }}>
-            {!customOpen ? (
-              <button
-                onClick={() => setCustomOpen(true)}
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  borderRadius: RADII.button,
-                  cursor: "pointer",
-                  background: "transparent",
-                  border: `1px dashed ${COLORS.hairline2}`,
-                  color: COLORS.text2,
-                  fontFamily: "inherit",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                }}
-              >
-                {PlusIcon} Add a custom card
-              </button>
-            ) : (
-              <div
-                style={{
-                  padding: "14px",
-                  borderRadius: RADII.button,
-                  background: COLORS.surface,
-                  border: `1px solid ${COLORS.hairline}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
-                <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text }}>Custom card</div>
-                <input
-                  placeholder="Issuer (e.g. US Bank)"
-                  aria-label="Custom issuer"
-                  value={customIssuer}
-                  onChange={(e) => setCustomIssuer(e.target.value)}
-                  style={fieldStyle}
-                />
-                <input
-                  placeholder="Card name"
-                  aria-label="Custom card name"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  style={fieldStyle}
-                />
-                <button
-                  onClick={addCustomCard}
-                  disabled={!customIssuer.trim() || !customName.trim() || isAdding}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    borderRadius: RADII.button,
-                    cursor:
-                      !customIssuer.trim() || !customName.trim() || isAdding
-                        ? "not-allowed"
-                        : "pointer",
-                    background:
-                      !customIssuer.trim() || !customName.trim() ? "rgba(255,255,255,0.06)" : COLORS.amber,
-                    border: "none",
-                    color:
-                      !customIssuer.trim() || !customName.trim() ? COLORS.text4 : "#1A1208",
-                    fontSize: 13.5,
-                    fontWeight: 600,
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {addingCustom ? "Adding…" : "Add custom card"}
-                </button>
-              </div>
-            )}
-          </div>
+          <CustomCardForm
+            open={customOpen}
+            issuer={customIssuer}
+            name={customName}
+            adding={addingCustom}
+            disabled={isAdding}
+            onOpen={() => setCustomOpen(true)}
+            onIssuerChange={setCustomIssuer}
+            onNameChange={setCustomName}
+            onSubmit={addCustomCard}
+          />
         </>
       )}
     </FlowShell>

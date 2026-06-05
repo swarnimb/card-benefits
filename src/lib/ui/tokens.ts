@@ -29,8 +29,17 @@ export const COLORS = {
   text4: "#4E4944",
   amber: "#F59E0B",
   amberSoft: "rgba(245,158,11,0.14)",
+  amberBorder: "rgba(245,158,11,0.30)", // amber-tinted row/field border
+  amberBorderStrong: "rgba(245,158,11,0.35)", // active chip-picker border
+  amberTrack: "rgba(245,158,11,0.10)", // amber progress-bar track
   green: "#86EFAC",
   greenDim: "rgba(134,239,172,0.18)",
+  greenBorder: "rgba(134,239,172,0.40)", // green step/badge border
+  greenTrack: "rgba(134,239,172,0.10)", // green progress-bar track
+  /** Text/icon color on a solid amber fill (dark warm near-black). */
+  onAmber: "#1A1208",
+  /** Full-screen backdrop scrim = bg at 0.9 alpha (card-detail overlay). */
+  scrim: "rgba(15,14,13,0.90)",
 } as const;
 
 /**
