@@ -23,6 +23,8 @@ export const motion = {
     React.createElement("div", props, children),
   span: ({ children, whileTap: _w, animate: _a, exit: _e, initial: _i, transition: _t, ...props }: MotionProps) =>
     React.createElement("span", props, children),
+  button: ({ children, whileTap: _w, animate: _a, exit: _e, initial: _i, transition: _t, ...props }: MotionProps) =>
+    React.createElement("button", props, children),
 };
 
 export const AnimatePresence = ({ children }: { children: React.ReactNode }) =>

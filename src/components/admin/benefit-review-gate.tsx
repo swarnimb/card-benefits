@@ -1,21 +1,24 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { AlertTriangle, Plus, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { COLORS, RADII } from "@/lib/ui/tokens";
+import { usd } from "@/components/overview/format";
+import { FlowShell } from "./flow-shell";
 import { BenefitEditRow } from "./benefit-edit-row";
 import { ExcludedDisclosure, type IndexedBenefit } from "./excluded-disclosure";
+import { CheckIcon, PlusIcon, SparkIcon } from "./icons";
 import type { DraftBenefit } from "@/types/benefit";
 
 /** Props for BenefitReviewGate. */
 export interface BenefitReviewGateProps {
   userCardId: string;
   initialBenefits: DraftBenefit[];
+  /** Card subtitle ("{issuer} {name}") for the flow header; optional. */
+  cardName?: string | null;
   /**
-   * Scrape-derived card annual fee (USD), pre-filled into the editable fee
-   * input; null when the parser found none (A11). Confirmed on save → persisted
-   * to Card.annualFee (Task 60 / CONSTRAINT-21). Optional so existing callers /
-   * tests that don't pass it default to null.
+   * Scrape-derived card annual fee (USD), pre-filled into the editable fee input;
+   * null when the parser found none (A11). Confirmed on save → Card.annualFee
+   * (CONSTRAINT-21). Optional so callers/tests that omit it default to null.
    */
   initialAnnualFee?: number | null;
   scrapeError?: string | null;
@@ -23,8 +26,8 @@ export interface BenefitReviewGateProps {
   onSave: () => void;
   /**
    * Cancel handler. May be async — the gate awaits it and surfaces any thrown
-   * error in `cancelError` rather than silently swallowing (EH-01). Used by
-   * the admin page to DELETE orphan cards on fresh-add cancel (NEW-1).
+   * error in `cancelError` (EH-01). Used by the admin page to DELETE orphan cards
+   * on fresh-add cancel (NEW-1).
    */
   onCancel: () => Promise<void> | void;
 }
@@ -42,16 +45,36 @@ function makeBlankBenefit(): DraftBenefit {
     classification: "discretionary-credit",
     tracked: true,
     setAndForget: false,
-    // A manually-added benefit is user-authored, so it is high confidence by
-    // definition (review-only field; Task 60 strips it before persistence).
+    // User-authored → high confidence (review-only; stripped before persistence).
     confidence: "high",
   };
 }
 
-/** Review gate — user must confirm all LLM-parsed benefits before DB write. */
+const feeInputStyle = {
+  width: "100%",
+  boxSizing: "border-box" as const,
+  background: COLORS.bg,
+  border: `1px solid ${COLORS.hairline2}`,
+  borderRadius: RADII.input,
+  padding: "9px 11px",
+  color: COLORS.text,
+  fontSize: 14,
+  fontFamily: "inherit",
+  outline: "none",
+};
+
+/**
+ * Review gate (design source `Review`) — the user must confirm all LLM-parsed
+ * benefits before any DB write (CONSTRAINT-10). Restyled into the full-screen
+ * FlowShell with an AI banner, a sticky-footer confirm, and a running total.
+ * Preserves: confidence badge/note (review-only), the editable annual-fee field
+ * (CONSTRAINT-21), the excluded-benefits disclosure (A10), full editability, and
+ * the loud cancel/save error surfaces (EH-01).
+ */
 export function BenefitReviewGate({
   userCardId,
   initialBenefits,
+  cardName,
   initialAnnualFee = null,
   scrapeError,
   parseError,
@@ -59,9 +82,7 @@ export function BenefitReviewGate({
   onCancel,
 }: BenefitReviewGateProps) {
   const [benefits, setBenefits] = useState<DraftBenefit[]>(initialBenefits);
-  // Annual fee is held as the raw input STRING so the field can be cleared to
-  // "" (→ persisted as null). Parsed/validated only at save time. Pre-filled
-  // from the scrape; "" when none was found.
+  // Annual fee held as the raw input STRING so it can be cleared to "" (→ null).
   const [annualFeeInput, setAnnualFeeInput] = useState<string>(
     initialAnnualFee === null || initialAnnualFee === undefined ? "" : String(initialAnnualFee),
   );
@@ -69,7 +90,6 @@ export function BenefitReviewGate({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [triedSave, setTriedSave] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
-  // Cancel state — `onCancel` may be async (admin orphan-card rollback).
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
@@ -82,24 +102,22 @@ export function BenefitReviewGate({
       await onCancel();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Cancel failed";
-      console.error(
-        `BenefitReviewGate cancel failed (userCardId=${userCardId})`,
-        error,
-      );
+      console.error(`BenefitReviewGate cancel failed (userCardId=${userCardId})`, error);
       setCancelError(message);
     } finally {
       setCancelling(false);
     }
   }, [onCancel, userCardId]);
 
-  // Partition for DISPLAY only. `benefits` always holds every row (tracked +
-  // excluded) so the confirm payload never drops an excluded benefit (A10).
-  const indexed: IndexedBenefit[] = benefits.map((benefit, index) => ({
-    benefit,
-    index,
-  }));
+  // Partition for DISPLAY only. `benefits` always holds every row (A10).
+  const indexed: IndexedBenefit[] = benefits.map((benefit, index) => ({ benefit, index }));
   const trackedItems = indexed.filter((item) => item.benefit.tracked);
   const excludedItems = indexed.filter((item) => !item.benefit.tracked);
+  const lowCount = benefits.filter((b) => b.confidence === "low").length;
+  const trackedTotal = trackedItems.reduce(
+    (sum, { benefit }) => sum + (benefit.value && benefit.value > 0 ? benefit.value : 0),
+    0,
+  );
 
   const updateBenefit = useCallback((index: number, updated: DraftBenefit) => {
     setBenefits((prev) => prev.map((b, i) => (i === index ? updated : b)));
@@ -117,12 +135,9 @@ export function BenefitReviewGate({
     setTriedSave(true);
     setSaveError(null);
 
-    const hasEmptyName = benefits.some((b) => !b.name.trim());
-    if (hasEmptyName) return;
+    if (benefits.some((b) => !b.name.trim())) return;
 
-    // Resolve the editable fee to number|null. Empty → null. A non-empty value
-    // that isn't a finite, non-negative number is surfaced LOUDLY (EH-01) and
-    // blocks the save — never silently coerced (mirrors the server boundary).
+    // Resolve fee to number|null. Non-empty non-(finite,>=0) → LOUD error (EH-01).
     const trimmedFee = annualFeeInput.trim();
     let annualFee: number | null = null;
     if (trimmedFee !== "") {
@@ -136,6 +151,7 @@ export function BenefitReviewGate({
 
     setSaving(true);
     try {
+      // SOLE write path (CONSTRAINT-10): all benefits (tracked + excluded) sent.
       const res = await fetch("/api/benefits/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -150,7 +166,7 @@ export function BenefitReviewGate({
     } catch (error) {
       console.error(
         `benefits/confirm save failed (userCardId=${userCardId}, ${benefits.length} benefits)`,
-        error
+        error,
       );
       setSaveError("Network error — could not save");
     } finally {
@@ -158,31 +174,111 @@ export function BenefitReviewGate({
     }
   }, [benefits, annualFeeInput, userCardId, onSave]);
 
+  const saveDisabled = benefits.length === 0 || saving || cancelling;
+  const saveLabel = saving
+    ? "Saving..."
+    : `Save ${benefits.length} benefit${benefits.length !== 1 ? "s" : ""}`;
+
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-sm font-medium text-muted-foreground">Review Benefits</p>
+    <FlowShell
+      title="Review benefits"
+      subtitle={cardName}
+      onClose={handleCancelClick}
+      closeLabel="Cancel"
+      footer={
         <button
-          onClick={handleCancelClick}
-          disabled={saving || cancelling}
-          className="p-1.5 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-          aria-label="Cancel and close"
+          onClick={handleSave}
+          disabled={saveDisabled}
+          style={{
+            width: "100%",
+            padding: "15px",
+            borderRadius: RADII.button,
+            cursor: saveDisabled ? "not-allowed" : "pointer",
+            background: saveDisabled ? "rgba(255,255,255,0.06)" : COLORS.amber,
+            border: "none",
+            color: saveDisabled ? COLORS.text4 : "#1A1208",
+            fontSize: 14.5,
+            fontWeight: 600,
+            fontFamily: "inherit",
+            letterSpacing: -0.1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
         >
-          <X className="size-4" />
+          {!saveDisabled && <CheckIcon s={13} />}
+          {saveLabel}
         </button>
+      }
+    >
+      {/* AI banner */}
+      <div style={{ padding: "0 16px 14px" }}>
+        <div
+          style={{
+            padding: "13px 15px",
+            borderRadius: RADII.button,
+            background: "rgba(255,255,255,0.025)",
+            border: `1px solid ${COLORS.hairline}`,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: RADII.icon - 1,
+                background: COLORS.amberSoft,
+                color: COLORS.amber,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              {SparkIcon}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, letterSpacing: -0.1 }}>
+              AI found {benefits.length} benefit{benefits.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <div style={{ fontSize: 12, color: COLORS.text3, lineHeight: 1.5 }}>
+            {lowCount > 0 ? (
+              <>
+                Check the {lowCount} marked{" "}
+                <span style={{ color: COLORS.amber, fontWeight: 500 }}>Review</span>, edit anything,
+                then confirm. Nothing is saved until you do.
+              </>
+            ) : (
+              <>Edit anything that looks off, then confirm. Nothing is saved until you do.</>
+            )}
+          </div>
+        </div>
       </div>
 
+      {/* scrape/parse error banner */}
       {errorMessage && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
-          <div className="text-sm">
-            <p className="font-medium text-amber-500">{errorMessage}</p>
-            <p className="text-muted-foreground">Add benefits manually below</p>
+        <div style={{ padding: "0 16px 14px" }}>
+          <div
+            style={{
+              padding: "13px 15px",
+              borderRadius: RADII.button,
+              background: COLORS.amberSoft,
+              border: "1px solid rgba(245,158,11,0.3)",
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.amber }}>{errorMessage}</div>
+            <div style={{ fontSize: 12, color: COLORS.text3, marginTop: 4 }}>
+              Add benefits manually below
+            </div>
           </div>
         </div>
       )}
 
-      <div className="space-y-3">
+      {/* tracked benefit rows */}
+      <div
+        style={{ padding: "0 16px 8px", display: "flex", flexDirection: "column", gap: 9 }}
+      >
         {trackedItems.map(({ benefit, index }) => (
           <BenefitEditRow
             key={index}
@@ -194,56 +290,125 @@ export function BenefitReviewGate({
         ))}
       </div>
 
+      {/* excluded disclosure (A10) */}
       {excludedItems.length > 0 && (
-        <ExcludedDisclosure
-          items={excludedItems}
-          expanded={showExcluded}
-          onToggle={() => setShowExcluded((v) => !v)}
-          onChange={updateBenefit}
-          onRemove={removeBenefit}
-          showNameError={triedSave}
-        />
+        <div style={{ padding: "0 16px 12px" }}>
+          <ExcludedDisclosure
+            items={excludedItems}
+            expanded={showExcluded}
+            onToggle={() => setShowExcluded((v) => !v)}
+            onChange={updateBenefit}
+            onRemove={removeBenefit}
+            showNameError={triedSave}
+          />
+        </div>
       )}
 
-      <Button variant="outline" size="sm" onClick={addBenefit}>
-        <Plus className="size-4" />
-        Add benefit
-      </Button>
-
-      <div className="flex items-center gap-2 border-t border-white/10 pt-3">
-        <label htmlFor="annual-fee" className="text-sm text-muted-foreground">
-          Annual fee
-        </label>
-        <span className="text-sm text-muted-foreground">$</span>
-        <input
-          id="annual-fee"
-          type="number"
-          min={0}
-          step="0.01"
-          inputMode="decimal"
-          value={annualFeeInput}
-          onChange={(e) => setAnnualFeeInput(e.target.value)}
-          placeholder="—"
-          aria-label="Annual fee in dollars"
-          className="w-24 rounded-md border border-white/10 bg-transparent px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:border-white/30 focus:outline-none"
-        />
+      {/* add benefit */}
+      <div style={{ padding: "0 16px 12px" }}>
+        <button
+          type="button"
+          onClick={addBenefit}
+          aria-label="Add benefit"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 7,
+            padding: "9px 13px",
+            borderRadius: RADII.input + 1,
+            cursor: "pointer",
+            background: "rgba(255,255,255,0.04)",
+            border: `1px solid ${COLORS.hairline2}`,
+            color: COLORS.text2,
+            fontSize: 12.5,
+            fontWeight: 500,
+            fontFamily: "inherit",
+          }}
+        >
+          {PlusIcon} Add benefit
+        </button>
       </div>
 
-      {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+      {/* editable annual fee (CONSTRAINT-21) */}
+      <div style={{ padding: "0 16px 12px" }}>
+        <div
+          style={{
+            fontSize: 10.5,
+            fontWeight: 500,
+            letterSpacing: 0.7,
+            color: COLORS.text3,
+            textTransform: "uppercase",
+            marginBottom: 7,
+          }}
+        >
+          Annual fee
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 2, ...feeInputStyle, width: 140 }}>
+          <span style={{ color: COLORS.text3, fontSize: 14 }}>$</span>
+          <input
+            id="annual-fee"
+            type="number"
+            min={0}
+            step="0.01"
+            inputMode="decimal"
+            value={annualFeeInput}
+            onChange={(e) => setAnnualFeeInput(e.target.value)}
+            placeholder="—"
+            aria-label="Annual fee in dollars"
+            style={{
+              background: "transparent",
+              border: 0,
+              outline: "none",
+              color: COLORS.text,
+              fontSize: 14,
+              fontFamily: "inherit",
+              width: "100%",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* running total */}
+      <div
+        style={{
+          margin: "0 16px 8px",
+          padding: "12px 15px",
+          borderRadius: RADII.control,
+          background: "rgba(255,255,255,0.02)",
+          border: `1px dashed ${COLORS.hairline2}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <span style={{ fontSize: 12.5, color: COLORS.text3 }}>
+          {trackedItems.length} of {benefits.length} tracked
+        </span>
+        <span style={{ fontSize: 13, color: COLORS.text2 }}>
+          up to{" "}
+          <span style={{ color: COLORS.text, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+            {usd(trackedTotal)}
+          </span>
+          /yr tracked
+        </span>
+      </div>
+
+      {/* error surfaces */}
+      {saveError && (
+        <p style={{ padding: "0 16px 8px", fontSize: 12.5, color: COLORS.amber }} role="alert">
+          {saveError}
+        </p>
+      )}
       {cancelError && (
-        <p className="text-sm text-destructive" role="alert" data-testid="cancel-error">
+        <p
+          style={{ padding: "0 16px 12px", fontSize: 12.5, color: COLORS.amber }}
+          role="alert"
+          data-testid="cancel-error"
+        >
           {cancelError}
         </p>
       )}
-
-      <div className="flex gap-2">
-        <Button onClick={handleSave} disabled={benefits.length === 0 || saving || cancelling}>
-          {saving ? "Saving..." : `Save ${benefits.length} benefit${benefits.length !== 1 ? "s" : ""}`}
-        </Button>
-        <Button variant="outline" onClick={handleCancelClick} disabled={saving || cancelling}>
-          {cancelling ? "Cancelling..." : "Cancel"}
-        </Button>
-      </div>
-    </div>
+    </FlowShell>
   );
 }

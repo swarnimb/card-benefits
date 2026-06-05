@@ -1,7 +1,9 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { COLORS, EASING, RADII } from "@/lib/ui/tokens";
 import { BenefitEditRow } from "./benefit-edit-row";
+import { ChevronDown } from "./icons";
 import type { DraftBenefit } from "@/types/benefit";
 
 /** A draft benefit paired with its stable index in the full benefits array. */
@@ -21,9 +23,10 @@ export interface ExcludedDisclosureProps {
 }
 
 /**
- * Collapsed disclosure for auto-excluded (tracked=false) benefits. Excluded
- * rows stay in the parent's state and confirm payload at all times — this
- * only controls visibility (assumption A10: never drop excluded benefits).
+ * Collapsed disclosure for auto-excluded (tracked=false) benefits (A10: excluded
+ * rows always stay in the parent's state + confirm payload — this only controls
+ * visibility). Restyled to the design tokens. Each row keeps its include checkbox
+ * so the user can re-track an excluded benefit.
  */
 export function ExcludedDisclosure({
   items,
@@ -33,34 +36,78 @@ export function ExcludedDisclosure({
   onRemove,
   showNameError,
 }: ExcludedDisclosureProps) {
+  const reduceMotion = useReducedMotion();
+
   return (
-    <div className="rounded-md border border-white/10">
+    <div
+      style={{
+        borderRadius: RADII.button,
+        border: `1px solid ${COLORS.hairline}`,
+        background: "rgba(255,255,255,0.02)",
+        overflow: "hidden",
+      }}
+    >
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex w-full items-center justify-between gap-2 p-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        style={{
+          display: "flex",
+          width: "100%",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "13px 14px",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          fontFamily: "inherit",
+          color: COLORS.text3,
+          fontSize: 12.5,
+        }}
       >
-        <span>
-          {items.length} auto-excluded as non-trackable — expand to review
-        </span>
-        <ChevronDown
-          className={`size-4 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
-        />
+        <span>{items.length} auto-excluded as non-trackable — expand to review</span>
+        <motion.span
+          style={{ display: "inline-flex", flexShrink: 0, color: COLORS.text4 }}
+          animate={{ rotate: expanded ? 180 : 0 }}
+          transition={{ duration: 0.3, ease: EASING }}
+        >
+          {ChevronDown}
+        </motion.span>
       </button>
-      {expanded && (
-        <div className="space-y-3 border-t border-white/10 p-3">
-          {items.map(({ benefit, index }) => (
-            <BenefitEditRow
-              key={index}
-              benefit={benefit}
-              onChange={(updated) => onChange(index, updated)}
-              onRemove={() => onRemove(index)}
-              showNameError={showNameError}
-            />
-          ))}
-        </div>
-      )}
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={reduceMotion ? { height: 0, opacity: 1 } : { height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: EASING }}
+            style={{ overflow: "hidden" }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 9,
+                padding: "0 12px 12px",
+                borderTop: `1px solid ${COLORS.hairline}`,
+                paddingTop: 12,
+              }}
+            >
+              {items.map(({ benefit, index }) => (
+                <BenefitEditRow
+                  key={index}
+                  benefit={benefit}
+                  onChange={(updated) => onChange(index, updated)}
+                  onRemove={() => onRemove(index)}
+                  showNameError={showNameError}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

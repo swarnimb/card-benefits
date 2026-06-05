@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+
+// The restyled review gate + rows animate with framer-motion. Mock it so
+// AnimatePresence/motion render synchronously and expand panels are immediately
+// present in the DOM.
+vi.mock("framer-motion", () => import("../overview/_mock-framer-motion"));
+
 import { BenefitReviewGate } from "@/components/admin/benefit-review-gate";
 import { BenefitEditRow } from "@/components/admin/benefit-edit-row";
 import type { DraftBenefit } from "@/types/benefit";
@@ -19,7 +25,7 @@ const DRAFT: DraftBenefit = {
   classification: "discretionary-credit",
   tracked: true,
   setAndForget: false,
-  confidence: 0.95,
+  confidence: "high",
 };
 
 const EXCLUDED: DraftBenefit = {
@@ -34,7 +40,7 @@ const EXCLUDED: DraftBenefit = {
   classification: "auto-earn",
   tracked: false,
   setAndForget: false,
-  confidence: 0.9,
+  confidence: "low",
 };
 
 describe("BenefitReviewGate", () => {
@@ -67,6 +73,36 @@ describe("BenefitReviewGate", () => {
     expect(saveButton.hasAttribute("disabled")).toBe(true);
   });
 
+  it("review gate renders confidence badge + annual-fee field", () => {
+    const lowDraft: DraftBenefit = {
+      ...DRAFT,
+      name: "Resy Credit",
+      confidence: "low",
+      note: "Two $50 statement credits — confirm timing",
+    };
+
+    render(
+      <BenefitReviewGate
+        userCardId="uc-1"
+        initialBenefits={[lowDraft]}
+        initialAnnualFee={325}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    // Amber "Review" badge + note render for the low-confidence draft.
+    expect(screen.getByTestId("review-badge").textContent).toBe("Review");
+    expect(
+      screen.getByText("Two $50 statement credits — confirm timing")
+    ).toBeDefined();
+
+    // The pre-filled, editable annual-fee field renders (CONSTRAINT-21).
+    const feeInput = screen.getByLabelText("Annual fee in dollars") as HTMLInputElement;
+    expect(feeInput).toBeDefined();
+    expect(feeInput.value).toBe("325");
+  });
+
   it("shows parseError banner when provided", () => {
     render(
       <BenefitReviewGate
@@ -95,14 +131,18 @@ describe("BenefitReviewGate", () => {
     expect(
       screen.getByText("1 auto-excluded as non-trackable — expand to review")
     ).toBeDefined();
-    expect(screen.queryByDisplayValue("5x Points on Flights")).toBeNull();
-    // Tracked row stays prominent (rendered, not collapsed).
-    expect(screen.getByDisplayValue("Travel Credit")).toBeDefined();
+    expect(screen.queryByText("5x Points on Flights")).toBeNull();
+    // Tracked row stays prominent (rendered, not collapsed) — name shown as the
+    // row label (the restyled row shows the editable input only when expanded).
+    expect(screen.getByText("Travel Credit")).toBeDefined();
 
-    // Expanding reveals the excluded row, editable.
+    // Expanding the disclosure reveals the excluded row label.
     fireEvent.click(
       screen.getByRole("button", { name: /auto-excluded as non-trackable/i })
     );
+    expect(screen.getByText("5x Points on Flights")).toBeDefined();
+    // Expanding that row exposes the editable name field.
+    fireEvent.click(screen.getByRole("button", { name: /edit 5x points on flights/i }));
     expect(screen.getByDisplayValue("5x Points on Flights")).toBeDefined();
   });
 
@@ -224,12 +264,16 @@ describe("BenefitReviewGate", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /add benefit/i }));
 
+    // A new blank row appears collapsed (label "Untitled benefit"); expanding it
+    // exposes the editable name input.
+    expect(screen.getByText("Untitled benefit")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: /edit benefit/i }));
     expect(screen.getByPlaceholderText("Benefit name")).toBeDefined();
   });
 });
 
 describe("BenefitEditRow", () => {
-  it("calls onRemove when × clicked", () => {
+  it("calls onRemove when discard clicked", () => {
     const onRemove = vi.fn();
 
     render(
@@ -240,6 +284,8 @@ describe("BenefitEditRow", () => {
       />
     );
 
+    // Discard lives in the expand-to-edit panel — open the row first.
+    fireEvent.click(screen.getByRole("button", { name: /edit travel credit/i }));
     fireEvent.click(screen.getByRole("button", { name: /remove benefit/i }));
     expect(onRemove).toHaveBeenCalledOnce();
   });
@@ -255,6 +301,7 @@ describe("BenefitEditRow", () => {
       />
     );
 
+    fireEvent.click(screen.getByRole("button", { name: /edit travel credit/i }));
     fireEvent.change(screen.getByLabelText("Benefit name"), {
       target: { value: "Dining Credit" },
     });
@@ -262,5 +309,22 @@ describe("BenefitEditRow", () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ name: "Dining Credit" })
     );
+  });
+
+  it("renders the amber Review badge + note for a low-confidence draft", () => {
+    const lowDraft: DraftBenefit = {
+      ...DRAFT,
+      name: "Resy Credit",
+      confidence: "low",
+      note: "Two $50 statement credits — confirm timing",
+    };
+
+    render(<BenefitEditRow benefit={lowDraft} onChange={vi.fn()} onRemove={vi.fn()} />);
+
+    // Amber "Review" badge (review-only) + the collapsed note are visible.
+    expect(screen.getByTestId("review-badge").textContent).toBe("Review");
+    expect(
+      screen.getByText("Two $50 statement credits — confirm timing")
+    ).toBeDefined();
   });
 });

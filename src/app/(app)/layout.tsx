@@ -14,7 +14,10 @@ export default async function AppLayout({
   return (
     <>
       <BottomNav />
-      <main className="pb-16">
+      {/* Mobile-first app shell: full-width on phones, centered ~420px column on
+          desktop (MVP is desktop-only but designed at 375px). The fixed BottomNav
+          is constrained to the same column width. */}
+      <main className="mx-auto w-full max-w-[420px] min-h-dvh border-x border-white/[0.06] pb-16">
         <ErrorBoundary>{children}</ErrorBoundary>
       </main>
     </>

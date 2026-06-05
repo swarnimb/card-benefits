@@ -2354,8 +2354,6 @@
 
 **Status:** [x] — done 2026-06-04. UI restyled to `Cards.jsx` (faces/portfolio trio/detail) keeping the wallet stack animation + interactive controls (restyle, not rewrite). Issuer-color migration done (catalog + DB backfill via `scripts/backfill-issuer-colors.ts`, idempotent/override-safe). Decisions: keep+restyle controls; "+" links to `/admin`. Added `annualFee` to `CatalogCard` + surfaced in `GET /api/user-cards` (api-spec note pending). 27/27 cards tests pass; prod build clean. Open: desktop full-bleed (app-wide max-width container).
 
-**Status:** [ ]
-
 **Specialist:** `@ui-cardmaxxer`
 
 ---
@@ -2371,12 +2369,12 @@
 - Summary strip (cards · tracked · issuers); restyle managed list rows (rescan/delete); add flow (picker → scanning animation → review); review gate: amber "Review" badge on low-confidence + note, pre-filled editable annual-fee field; `Toast` for add/remove only
 
 **Acceptance criteria:**
-- [ ] Matches `Admin.jsx` at 375px: summary strip, Add-a-card, managed list, add→scan→review flow
-- [ ] Review gate shows confidence badge + note (review-only) and a pre-filled, editable, non-required annual-fee field; nothing saves until confirm (CONSTRAINT-10)
-- [ ] Toast fires ONLY on card add/remove; benefit tracking stays inline (CONSTRAINT-20)
-- [ ] Admin remains a card-management hub, not settings
-- [ ] Orphan-card rollback on fresh-add cancel preserved; loud failures (EH-01)
-- [ ] Verified at 375px AND 1280px
+- [x] Matches `Admin.jsx` at 375px: summary strip, Add-a-card, managed list, add→scan→review flow — home + add-picker verified live 375px; scan/review verified via code review + unit tests (real scrape not triggered to avoid live issuer/Haiku API)
+- [x] Review gate shows confidence badge + note (review-only) and a pre-filled, editable, non-required annual-fee field; nothing saves until confirm (CONSTRAINT-10) — unit test `review gate renders confidence badge + annual-fee field` passes; confirm is sole write path
+- [x] Toast fires ONLY on card add/remove; benefit tracking stays inline (CONSTRAINT-20) — guard test passes
+- [x] Admin remains a card-management hub, not settings
+- [x] Orphan-card rollback on fresh-add cancel preserved; loud failures (EH-01) — `handleReviewCancel` branches fresh-add→DELETE; throws `CardDeleteFailedError`; NEW-1 ×3 tests pass
+- [x] Verified at 375px AND 1280px — 1280px now centered via app-wide max-width container (added this session; Overview/Cards/Admin all contained)
 
 **Tests required:**
 - Component → `review gate renders confidence badge + annual-fee field` (happy)
@@ -2384,7 +2382,7 @@
 
 **Depends on:** Tasks 56, 59, 60, 61
 
-**Status:** [ ]
+**Status:** [x] — done 2026-06-04. Restyled+restructured Admin to `Admin.jsx` (home/add/scan/review state machine, FlowShell, MiniCard, toast) preserving all 5 guarantees (no-auto-save, confidence/note-not-persisted, orphan rollback, loud failures, A10 excluded-in-payload). Scan animation driven by REAL async scrape (honest). Custom-card path preserved. 29/29 admin tests, 210/210 full suite pass; prod build clean. Also added app-wide desktop max-width container (420px) + fixed the 2 pre-existing review-gate-test type errors. Known polish: fresh-add scan/toast shows generic "New card"/"Card" label (picker passes only userCardId). Open: api-spec stale (user-cards annualFee); 1 pre-existing resync test type error.
 
 **Specialist:** `@ui-cardmaxxer`
 
