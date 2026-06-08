@@ -17,6 +17,9 @@ prisma/*.db-journal
 # sqlite
 *.db
 *.db-journal
+# DB backups (timestamped .bak-* suffix slips past the *.db glob — SEC-07 hygiene)
+*.db.bak*
+*.bak
 
 # claude
 .claude/

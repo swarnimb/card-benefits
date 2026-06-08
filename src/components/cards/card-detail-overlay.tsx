@@ -58,7 +58,11 @@ export function CardDetailOverlay({
             exit={{ y: 80, opacity: 0 }}
             transition={SPRING}
           >
-            <div className="mx-auto" style={{ width: "80%" }}>
+            {/* CONSTRAINT-23: overlay root is `fixed inset-0` so it escapes the
+                app-shell's centered column; recreate it here to match the
+                420px column of Overview/Cards/Admin. px-6 (24px) matches the
+                Cards screen's horizontal content inset. */}
+            <div className="mx-auto w-full max-w-[420px] px-6">
               {/* Detail header: back + issuer eyebrow + card name */}
               <div className="flex items-center gap-3" style={{ padding: "16px 0 14px" }}>
                 <button
