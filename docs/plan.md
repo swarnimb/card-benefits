@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-06-09 (Phase I / Feature 10 — Tasks 67–73 added via @create-plan: per-window value, Overview inline logging + days-left, Cards visible/hidden split. Tasks 67–72 done.)
+**Last Updated:** 2026-06-09 (Phase I / Feature 10 — Tasks 67–73 added via @create-plan: per-window value, Overview inline logging + days-left, Cards visible/hidden split. **Tasks 67–73 ALL done — Feature 10 build COMPLETE. Pending: `@code-review` + Feature 10 `@qa`/`@security` gate (live 375/1280 visual deferred there).**)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55) + 7 Phase I — Feature 10: Usage Accuracy & In-Place Logging (Tasks 67–73)
 
 ---
@@ -2582,12 +2582,12 @@
 **Functions to implement:** None new — partition benefits into tracked (main list) vs untracked (collapsed section).
 
 **Acceptance criteria:**
-- [ ] Main list shows ONLY `tracked` benefits, grouped as today (credit→subscription→access→perk; set-and-forget handling unchanged)
-- [ ] Untracked benefits collapse into a single "N hidden — tap to expand" row; expands to show them with their eye toggles
-- [ ] The eye toggle moves a benefit between sections (existing PATCH + `onTrackedUpdate` sync); hiding removes it from Overview totals, showing rejoins (existing behavior)
-- [ ] The hidden row is omitted entirely when there are no untracked benefits (not "0 hidden")
-- [ ] Existing stack/detail animation + portfolio stat trio unaffected
-- [ ] [CONSTRAINT-23] Verified at 375px AND 1280px
+- [x] Main list shows ONLY `tracked` benefits, grouped as today (credit→subscription→access→perk; set-and-forget handling unchanged)
+- [x] Untracked benefits collapse into a single "N hidden — tap to expand" row; expands to show them with their eye toggles
+- [x] The eye toggle moves a benefit between sections (existing PATCH + `onTrackedUpdate` sync); hiding removes it from Overview totals, showing rejoins (existing behavior)
+- [x] The hidden row is omitted entirely when there are no untracked benefits (not "0 hidden")
+- [x] Existing stack/detail animation + portfolio stat trio unaffected
+- [~] [CONSTRAINT-23] Verified at 375px AND 1280px — *structurally column-safe (full-width button, px-4, shrink-0 chevron, no fixed widths); **live 375/1280 visual DEFERRED to the Feature 10 `@qa` gate** (per Task 68/71 cadence)*
 
 **Tests required:**
 - `BenefitList` → `renders only tracked benefits in the main list`
@@ -2595,7 +2595,7 @@
 - `BenefitList` → `omits the hidden row when all benefits are tracked`
 
 **Depends on:** None
-**Status:** [ ]
+**Status:** [x] — done 2026-06-09. Partitioned `BenefitList` into tracked (main list, existing credit→subscription→access→perk + untouched "Automatic"/set-and-forget group) vs untracked (new in-file `HiddenBenefits` sub-component holding local `expanded` state → "N hidden — tap to expand" row + AnimatePresence height collapse). Hidden rows are ordinary `BenefitItem`s, so the eye toggle reuses the existing PATCH + `onTrackedUpdate` write path; partition recomputes when `tracked` flips. Hidden row omitted entirely when none untracked. `card-detail-overlay.tsx` untouched (state local to `BenefitList`). Tokens from `tokens.ts` (no hardcoded hex/px). `benefit-list.tsx` 154 LOC (<200). +3 unit tests (242 unit total, all green); tsc clean on changed files. Live 375/1280 visual deferred to Feature 10 `@qa`.
 **Specialist:** @ui-cardmaxxer
 
 ---

@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { COLORS, EASING, RADII } from "@/lib/ui/tokens";
-import { usd } from "@/components/overview/format";
 import { BenefitEditPanel } from "./benefit-edit-panel";
-import { resetWindowLabel } from "./edit-fields";
+import { BenefitAmount } from "./edit-fields";
 import { LowConfidenceNote } from "./low-confidence-note";
 import { CheckIcon, ChevronDown } from "./icons";
 import type { DraftBenefit } from "@/types/benefit";
@@ -155,24 +154,7 @@ export function BenefitEditRow({
                 gap: 8,
               }}
             >
-              <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                <span
-                  style={{
-                    fontSize: 15.5,
-                    fontWeight: 600,
-                    color: COLORS.text,
-                    fontVariantNumeric: "tabular-nums",
-                    letterSpacing: -0.3,
-                  }}
-                >
-                  {benefit.value && benefit.value > 0 ? usd(benefit.value) : "—"}
-                </span>
-                {benefit.value && benefit.value > 0 && (
-                  <span style={{ fontSize: 10.5, color: COLORS.text4, marginTop: 1 }}>
-                    {resetWindowLabel(benefit.resetPeriod)}
-                  </span>
-                )}
-              </span>
+              <BenefitAmount value={benefit.value} resetPeriod={benefit.resetPeriod} />
               <motion.span
                 style={{ display: "inline-flex", color: COLORS.text4 }}
                 animate={{ rotate: open ? 180 : 0 }}

@@ -1,8 +1,13 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { BenefitList } from "@/components/cards/benefit-list";
 import { BenefitItem } from "@/components/cards/benefit-item";
 import type { BenefitWithPeriod } from "@/types/benefit";
+
+// BenefitList now uses Framer Motion (AnimatePresence) for the hidden-section
+// expand. Mock it (project convention for component tests) so the collapsible
+// content renders synchronously in jsdom.
+vi.mock("framer-motion", () => import("../overview/_mock-framer-motion"));
 
 afterEach(() => cleanup());
 
@@ -98,6 +103,65 @@ describe("BenefitList", () => {
       />
     );
     expect(screen.queryByText("Automatic")).toBeNull();
+  });
+
+  it("renders only tracked benefits in the main list", () => {
+    const benefits = [
+      makeBenefit({ id: "shown", type: "credit", name: "Travel Credit", tracked: true }),
+      makeBenefit({ id: "hidden", type: "subscription", name: "Excluded Sub", tracked: false }),
+    ];
+
+    render(
+      <BenefitList benefits={benefits} cardColor="#117ACA" onUsageUpdate={vi.fn()} />
+    );
+
+    // Tracked benefit + its type group are in the main list.
+    expect(screen.getByText("Travel Credit")).toBeDefined();
+    expect(screen.getByText("$Credits")).toBeDefined();
+
+    // Untracked benefit must NOT create a "Subscriptions" type group and its
+    // row is hidden until the section is expanded.
+    expect(screen.queryByText("Subscriptions")).toBeNull();
+    expect(screen.queryByText("Excluded Sub")).toBeNull();
+  });
+
+  it("collapses untracked benefits into a hidden section that expands on tap", () => {
+    const benefits = [
+      makeBenefit({ id: "shown", type: "credit", name: "Travel Credit", tracked: true }),
+      makeBenefit({ id: "h1", type: "subscription", name: "Excluded Sub", tracked: false }),
+      makeBenefit({ id: "h2", type: "perk", name: "Excluded Perk", tracked: false }),
+    ];
+
+    render(
+      <BenefitList benefits={benefits} cardColor="#117ACA" onUsageUpdate={vi.fn()} />
+    );
+
+    // Collapsed: a single summary row reflects the count, rows are not shown.
+    const toggle = screen.getByTestId("hidden-benefits-toggle");
+    expect(toggle.textContent).toMatch(/2 hidden/i);
+    expect(screen.queryByText("Excluded Sub")).toBeNull();
+    expect(screen.queryByText("Excluded Perk")).toBeNull();
+
+    // Expand on tap: both untracked rows (with their eye toggles) appear.
+    fireEvent.click(toggle);
+    expect(screen.getByText("Excluded Sub")).toBeDefined();
+    expect(screen.getByText("Excluded Perk")).toBeDefined();
+    expect(screen.getByTestId("tracked-toggle-h1")).toBeDefined();
+    expect(screen.getByTestId("tracked-toggle-h2")).toBeDefined();
+  });
+
+  it("omits the hidden row when all benefits are tracked", () => {
+    render(
+      <BenefitList
+        benefits={[makeBenefit({ id: "shown", type: "credit", tracked: true })]}
+        cardColor="#117ACA"
+        onUsageUpdate={vi.fn()}
+      />
+    );
+
+    // No "N hidden" summary row at all (not "0 hidden").
+    expect(screen.queryByTestId("hidden-benefits-toggle")).toBeNull();
+    expect(screen.queryByText(/hidden/i)).toBeNull();
   });
 });
 

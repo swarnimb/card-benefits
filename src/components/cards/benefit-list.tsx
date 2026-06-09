@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ChevronDown } from "lucide-react";
 import type { BenefitWithPeriod, BenefitType } from "@/types/benefit";
-import { COLORS, TYPE } from "@/lib/ui/tokens";
+import { COLORS, TYPE, SPRING } from "@/lib/ui/tokens";
 import { BenefitItem } from "./benefit-item";
 
 /** Props for the scrollable benefits list inside an expanded card. */
@@ -24,27 +27,95 @@ const GROUP_LABELS: Record<BenefitType, string> = {
   perk: "One-time Perks",
 };
 
+/** Shared callbacks threaded down to every BenefitItem row. */
+type RowCallbacks = Pick<BenefitListProps, "onUsageUpdate" | "onTrackedUpdate" | "onActivated">;
+
+/** Renders BenefitItem rows for a set of benefits with the given card color. */
+function renderRows(items: BenefitWithPeriod[], cardColor: string, cb: RowCallbacks) {
+  return items.map((benefit) => (
+    <BenefitItem
+      key={benefit.id}
+      benefit={benefit}
+      cardColor={cardColor}
+      onUsageUpdate={cb.onUsageUpdate}
+      onTrackedUpdate={cb.onTrackedUpdate}
+      onActivated={cb.onActivated}
+    />
+  ));
+}
+
 /**
- * Groups benefits by type (credit → subscription → access → perk) and renders
- * a section header + BenefitItem rows per group. Empty groups are omitted.
- * Set-and-forget benefits are pulled out of the per-type groups into a calm,
- * de-emphasized "Automatic" group rendered last (PRD Feature 8).
+ * Collapsed "N hidden — tap to expand" section for untracked benefits. Each row
+ * keeps its eye toggle, so showing one fires the existing tracked PATCH and the
+ * benefit re-partitions back into the main list on the next render.
+ */
+function HiddenBenefits({
+  hidden,
+  cardColor,
+  cb,
+}: {
+  hidden: BenefitWithPeriod[];
+  cardColor: string;
+  cb: RowCallbacks;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="mt-2" style={{ borderTop: `1px solid ${COLORS.hairline}` }}>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        data-testid="hidden-benefits-toggle"
+        className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-white/[0.03]"
+        style={{ ...TYPE.label, color: COLORS.text4 }}
+      >
+        <span className="uppercase">
+          {hidden.length} hidden — tap to {expanded ? "collapse" : "expand"}
+        </span>
+        <motion.span
+          animate={{ rotate: expanded ? 180 : 0 }}
+          transition={SPRING}
+          className="shrink-0"
+          style={{ color: COLORS.text4 }}
+        >
+          <ChevronDown className="size-3.5" />
+        </motion.span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={SPRING}
+            style={{ overflow: "hidden" }}
+          >
+            {renderRows(hidden, cardColor, cb)}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * Splits benefits into the tracked main list and a collapsed "hidden" section
+ * for untracked ones. The tracked list keeps the existing grouping (credit →
+ * subscription → access → perk, with set-and-forget pulled into a calm
+ * "Automatic" group rendered last — PRD Feature 8). Toggling a benefit's eye
+ * fires the existing tracked PATCH; when `tracked` flips, the partition below
+ * recomputes and the row animates between sections.
  */
 export function BenefitList({ benefits, cardColor, onUsageUpdate, onTrackedUpdate, onActivated }: BenefitListProps) {
-  const periodic = benefits.filter((b) => !b.setAndForget);
-  const automatic = benefits.filter((b) => b.setAndForget);
+  const cb: RowCallbacks = { onUsageUpdate, onTrackedUpdate, onActivated };
 
-  const renderItems = (items: BenefitWithPeriod[]) =>
-    items.map((benefit) => (
-      <BenefitItem
-        key={benefit.id}
-        benefit={benefit}
-        cardColor={cardColor}
-        onUsageUpdate={onUsageUpdate}
-        onTrackedUpdate={onTrackedUpdate}
-        onActivated={onActivated}
-      />
-    ));
+  const tracked = benefits.filter((b) => b.tracked);
+  const hidden = benefits.filter((b) => !b.tracked);
+
+  const periodic = tracked.filter((b) => !b.setAndForget);
+  const automatic = tracked.filter((b) => b.setAndForget);
 
   return (
     <div>
@@ -60,7 +131,7 @@ export function BenefitList({ benefits, cardColor, onUsageUpdate, onTrackedUpdat
             >
               {GROUP_LABELS[type]}
             </p>
-            {renderItems(group)}
+            {renderRows(group, cardColor, cb)}
           </div>
         );
       })}
@@ -73,9 +144,11 @@ export function BenefitList({ benefits, cardColor, onUsageUpdate, onTrackedUpdat
           >
             Automatic
           </p>
-          {renderItems(automatic)}
+          {renderRows(automatic, cardColor, cb)}
         </div>
       )}
+
+      {hidden.length > 0 && <HiddenBenefits hidden={hidden} cardColor={cardColor} cb={cb} />}
     </div>
   );
 }

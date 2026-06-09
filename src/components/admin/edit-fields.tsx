@@ -1,6 +1,7 @@
 "use client";
 
 import { COLORS, RADII } from "@/lib/ui/tokens";
+import { usd } from "@/components/overview/format";
 import type { ResetPeriod } from "@/types/benefit";
 
 /**
@@ -21,6 +22,41 @@ const RESET_PERIOD_WINDOW: Record<ResetPeriod, string> = {
 /** Window suffix for a reset period (e.g. "per 6 months", "one-time"). */
 export function resetWindowLabel(period: ResetPeriod): string {
   return RESET_PERIOD_WINDOW[period];
+}
+
+/**
+ * Right-aligned stacked benefit amount: the dollar value (or em-dash when
+ * none/zero) with a per-window suffix below it (Task 68). Pure presentation —
+ * extracted from `benefit-edit-row` to keep that component < 200 lines.
+ */
+export function BenefitAmount({
+  value,
+  resetPeriod,
+}: {
+  value: number | null;
+  resetPeriod: ResetPeriod;
+}) {
+  const hasValue = value !== null && value > 0;
+  return (
+    <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+      <span
+        style={{
+          fontSize: 15.5,
+          fontWeight: 600,
+          color: COLORS.text,
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: -0.3,
+        }}
+      >
+        {hasValue ? usd(value as number) : "—"}
+      </span>
+      {hasValue && (
+        <span style={{ fontSize: 10.5, color: COLORS.text4, marginTop: 1 }}>
+          {resetWindowLabel(resetPeriod)}
+        </span>
+      )}
+    </span>
+  );
 }
 
 /** Canonical text-input style for admin form fields (bg surface, hairline border). */

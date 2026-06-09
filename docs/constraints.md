@@ -290,6 +290,18 @@
 
 ---
 
+### [CONSTRAINT-24] Benefit `value` is the per-reset-window amount, not the annualized total
+
+**Decision:** A benefit's `value` field stores the amount available in a single reset window (e.g. a $300-per-6-months hotel credit stores `300`, not `600`), not the annual or lifetime total. The per-window semantics live in the Haiku `tool_use` extraction schema (CONSTRAINT-09 path unchanged), not in application code — `toDraftBenefit` passes `value` through verbatim.
+
+**What it means in practice:** Overview money-at-risk, category totals, and the sparkbar all sum per-window caps for the current period — they do not need to divide an annual figure. The review gate labels the amount as per-window (`resetWindowLabel`). Existing mis-stated data was corrected non-destructively via `scripts/audit-benefit-values.ts` (writes only `Benefit.value`; never `usedAmount`/`BenefitPeriod` — CONSTRAINT-08 honored). Any future parser, aggregation, or scrape work MUST preserve per-window semantics; do not reintroduce annualized values.
+
+**Who decided and when:** Builder (Feature 10), 2026-06-09
+
+**What this closes off:** Storing annualized/lifetime totals in `value`. Annual figures, if ever needed (e.g. an "up to $X/yr" display), are derived at the presentation layer from per-window value × periods-per-year — never stored.
+
+---
+
 ## Summary Table
 
 | # | Decision | Practical impact | Decided by | Date |
@@ -317,3 +329,4 @@
 | 21 | annualFee scrape-derived, product-level, nullable | On Card, confirmed in review gate, "—" fallback | Builder (Feature 9) | 2026-06-04 |
 | 22 | Issuer color = Feature 9 design tokens (defaultColor seeded to token; override wins) | One color source; catalog seeds = tokens; backfill on migration | Builder (Feature 9) | 2026-06-04 |
 | 23 | App shell on desktop = centered max-w-[420px] column | Mobile-first design centered on desktop (desktop-only MVP); BottomNav constrained to same width; new UI lives in this column | Builder (Feature 9) | 2026-06-04 |
+| 24 | Benefit value = per-reset-window amount, not annualized | $300/6mo stores 300 not 600; semantics in Haiku schema; Overview sums per-window caps; annual figures derived at presentation only | Builder (Feature 10) | 2026-06-09 |
