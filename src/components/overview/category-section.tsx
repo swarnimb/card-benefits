@@ -8,10 +8,13 @@ import { usd, categoryGlyph } from "./format";
 import { Progress } from "./progress";
 import { SectionHeader } from "./section-header";
 import { CategoryDetailRow } from "./category-detail-row";
+import { Chevron } from "./chevron";
 
 interface CategorySectionProps {
   /** activeByCategory[] — grouped + sorted by the engine; empty groups omitted. */
   groups: CategoryGroup[];
+  /** Logs usage for a benefit (optimistic). Wired from useOverviewData (Task 70/71). */
+  onUsageUpdate: (benefitId: string, newAmount: number) => void;
 }
 
 /**
@@ -19,10 +22,12 @@ interface CategorySectionProps {
  * default. Renders nothing when empty. Ports the design source
  * `CategoriesSection` / `CategoryRow` / `CategoryDetailRow`.
  */
-export function CategorySection({ groups }: CategorySectionProps) {
+export function CategorySection({ groups, onUsageUpdate }: CategorySectionProps) {
   const [open, setOpen] = useState<Set<string>>(
     () => new Set(groups[0] ? [groups[0].group] : []),
   );
+  // One detail row expanded at a time across the whole section (Task 71).
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
 
   if (groups.length === 0) return null;
 
@@ -33,6 +38,9 @@ export function CategorySection({ groups }: CategorySectionProps) {
       else next.add(group);
       return next;
     });
+
+  const toggleRow = (benefitId: string) =>
+    setExpandedRowId((prev) => (prev === benefitId ? null : benefitId));
 
   const totalCredits = groups.reduce((s, g) => s + g.creditCount, 0);
 
@@ -47,6 +55,9 @@ export function CategorySection({ groups }: CategorySectionProps) {
             open={open.has(g.group)}
             onToggle={() => toggle(g.group)}
             i={i}
+            expandedRowId={expandedRowId}
+            onRowToggle={toggleRow}
+            onUsageUpdate={onUsageUpdate}
           />
         ))}
       </div>
@@ -59,11 +70,17 @@ function CategoryRow({
   open,
   onToggle,
   i,
+  expandedRowId,
+  onRowToggle,
+  onUsageUpdate,
 }: {
   group: CategoryGroup;
   open: boolean;
   onToggle: () => void;
   i: number;
+  expandedRowId: string | null;
+  onRowToggle: (benefitId: string) => void;
+  onUsageUpdate: (benefitId: string, newAmount: number) => void;
 }) {
   const reduceMotion = useReducedMotion();
 
@@ -156,6 +173,9 @@ function CategoryRow({
                   key={c.benefitId}
                   c={c}
                   last={idx === group.credits.length - 1}
+                  expanded={expandedRowId === c.benefitId}
+                  onToggle={() => onRowToggle(c.benefitId)}
+                  onUsageUpdate={onUsageUpdate}
                 />
               ))}
             </div>
@@ -163,20 +183,5 @@ function CategoryRow({
         )}
       </AnimatePresence>
     </motion.div>
-  );
-}
-
-function Chevron({ size = 11 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" aria-hidden>
-      <path
-        d="M2 4l4 4 4-4"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </svg>
   );
 }

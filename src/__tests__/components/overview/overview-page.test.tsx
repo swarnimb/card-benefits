@@ -29,6 +29,7 @@ function makeRow(overrides: Partial<OverviewBenefit> = {}): OverviewBenefit {
     value: 50,
     usedAmount: 0,
     resetPeriod: "monthly",
+    setAndForget: false,
     ...overrides,
   };
 }

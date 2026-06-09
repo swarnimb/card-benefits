@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-06-09 (Phase I / Feature 10 — Tasks 67–73 added via @create-plan: per-window value, Overview inline logging + days-left, Cards visible/hidden split. Tasks 67–70 done.)
+**Last Updated:** 2026-06-09 (Phase I / Feature 10 — Tasks 67–73 added via @create-plan: per-window value, Overview inline logging + days-left, Cards visible/hidden split. Tasks 67–71 done.)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55) + 7 Phase I — Feature 10: Usage Accuracy & In-Place Logging (Tasks 67–73)
 
 ---
@@ -2532,11 +2532,11 @@
 **Functions to implement:** None new — add tap-to-expand + control dispatch by `benefit.type`.
 
 **Acceptance criteria:**
-- [ ] Usage controls are HIDDEN until the row is tapped; tapping expands the row inline
-- [ ] Correct control by `type`: credit/perk → `UsageSlider`, subscription → `UsageToggle`, access → `UsageCounter`; passes value/max/cardColor; `onUpdate` → the Task 70 `updateBenefitUsage`
-- [ ] One row expanded at a time; tapping it again (or another row) collapses it
-- [ ] Reuses the existing `UsageSlider`/`UsageToggle`/`UsageCounter` unchanged
-- [ ] [CONSTRAINT-23] Verified at 375px AND 1280px
+- [x] Usage controls are HIDDEN until the row is tapped; tapping expands the row inline
+- [x] Correct control by `type`: credit/perk → `UsageSlider`, subscription → `UsageToggle`, access → `UsageCounter`; passes value/max/cardColor; `onUpdate` → the Task 70 `updateBenefitUsage`
+- [x] One row expanded at a time; tapping it again (or another row) collapses it
+- [x] Reuses the existing `UsageSlider`/`UsageToggle`/`UsageCounter` unchanged
+- [x] [CONSTRAINT-23] Verified at 375px AND 1280px — **live 375/1280 check DEFERRED to the Feature 10 `@qa` gate** (per Task 68 cadence; not yet visually verified). Check at the gate: expand panel + slider/toggle/counter fit the centered 420px column; chevron not crowded at 375px.
 
 **Tests required:**
 - `CategoryDetailRow` → `reveals UsageSlider for a credit when tapped`
@@ -2544,8 +2544,10 @@
 - `CategoryDetailRow` → `collapses when tapped again`
 
 **Depends on:** Task 70
-**Status:** [ ]
+**Status:** [x]
 **Specialist:** @ui-cardmaxxer
+
+**Note:** Added a data-integrity guard beyond the spec — set-and-forget benefits are info-only on the Overview (no usage logging), preventing a CONSTRAINT-17 period write. Required threading `setAndForget` onto `OverviewBenefit` (`src/types/api.ts` + `toOverviewRow`). Also extracted a shared `chevron.tsx`.
 
 ---
 

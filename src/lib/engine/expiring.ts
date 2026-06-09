@@ -99,6 +99,7 @@ function toOverviewRow(
     value: benefit.value,
     usedAmount: benefit.currentPeriod?.usedAmount ?? 0,
     resetPeriod: benefit.resetPeriod,
+    setAndForget: benefit.setAndForget,
   };
 }
 

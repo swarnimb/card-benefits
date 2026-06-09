@@ -25,6 +25,8 @@ export interface OverviewBenefit {
   usedAmount: number;
   /** Cadence label source. */
   resetPeriod: ResetPeriod;
+  /** Activate-once benefit with no period (CONSTRAINT-17) — info-only on Overview, no usage logging. */
+  setAndForget: boolean;
 }
 
 /** One of the 4 Overview display groups credits are bucketed into. */

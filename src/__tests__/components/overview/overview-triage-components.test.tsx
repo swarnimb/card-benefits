@@ -30,6 +30,7 @@ function makeBenefit(overrides: Partial<OverviewBenefit> = {}): OverviewBenefit 
     value: 50,
     usedAmount: 0,
     resetPeriod: "monthly",
+    setAndForget: false,
     ...overrides,
   };
 }
@@ -125,6 +126,7 @@ describe("CategorySection", () => {
             credits: [makeBenefit({ benefitId: "d1", benefitName: "Restaurant Credit" })],
           }),
         ]}
+        onUsageUpdate={vi.fn()}
       />,
     );
     expect(screen.getByText("Active credits")).toBeDefined();
@@ -135,7 +137,7 @@ describe("CategorySection", () => {
   });
 
   it("renders nothing when empty", () => {
-    const { container } = render(<CategorySection groups={[]} />);
+    const { container } = render(<CategorySection groups={[]} onUsageUpdate={vi.fn()} />);
     expect(container.firstChild).toBeNull();
   });
 });

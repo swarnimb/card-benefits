@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/overview/topbar";
 import { MoneyAtRiskHero } from "@/components/overview/money-at-risk-hero";
@@ -13,7 +14,18 @@ import { useOverviewData } from "@/hooks/use-overview-data";
 const SKELETON_COUNT = 3;
 
 export default function OverviewPage() {
-  const { state, reload } = useOverviewData();
+  const { state, reload, updateBenefitUsage } = useOverviewData();
+
+  // The hook reverts optimistic state on failure (user-visible); log details here
+  // so the floating promise from a fire-and-forget control call isn't swallowed.
+  const handleUsageUpdate = useCallback(
+    (benefitId: string, newAmount: number) => {
+      updateBenefitUsage(benefitId, newAmount).catch((err) => {
+        console.error("Overview usage update failed:", err);
+      });
+    },
+    [updateBenefitUsage],
+  );
 
   if (state.status === "loading") return <OverviewSkeleton />;
   if (state.status === "error")
@@ -55,7 +67,7 @@ export default function OverviewPage() {
         />
         <div style={{ height: 1, background: OV.hairline, margin: "4px 0" }} />
         <ExpiringSection items={needsAttention} />
-        <CategorySection groups={activeByCategory} />
+        <CategorySection groups={activeByCategory} onUsageUpdate={handleUsageUpdate} />
         <SettledSection done={done} />
       </div>
     </div>

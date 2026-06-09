@@ -29,6 +29,7 @@ function credit(
     value: 100,
     usedAmount: 0,
     resetPeriod: "monthly",
+    setAndForget: false,
     ...over,
   };
 }
