@@ -39,7 +39,11 @@ export const BENEFIT_EXTRACTION_TOOL = {
             },
             value: {
               type: "number",
-              description: "Dollar amount or points amount. Use 1 for access/unlimited benefits.",
+              description:
+                "The amount usable in ONE reset window — must match resetPeriod, NOT the annual/lifetime total. " +
+                "If a benefit advertises a yearly total with a sub-annual split, emit the per-window amount: " +
+                "e.g. \"$600/year, $300 semiannually\" → value 300 with resetPeriod \"semiannual\". " +
+                "Use 1 for access/unlimited benefits.",
             },
             valueUnit: {
               type: "string",

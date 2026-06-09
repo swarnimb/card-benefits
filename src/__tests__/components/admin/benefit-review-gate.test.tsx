@@ -8,6 +8,7 @@ vi.mock("framer-motion", () => import("../overview/_mock-framer-motion"));
 
 import { BenefitReviewGate } from "@/components/admin/benefit-review-gate";
 import { BenefitEditRow } from "@/components/admin/benefit-edit-row";
+import { BenefitEditPanel } from "@/components/admin/benefit-edit-panel";
 import type { DraftBenefit } from "@/types/benefit";
 
 afterEach(() => cleanup());
@@ -326,5 +327,41 @@ describe("BenefitEditRow", () => {
     expect(
       screen.getByText("Two $50 statement credits — confirm timing")
     ).toBeDefined();
+  });
+});
+
+describe("BenefitEditPanel", () => {
+  it('renders "per 6 months" in the amount label for a semiannual benefit', () => {
+    const semiannual: DraftBenefit = { ...DRAFT, resetPeriod: "semiannual" };
+
+    render(
+      <BenefitEditPanel
+        benefit={semiannual}
+        open
+        low={false}
+        nameInvalid={false}
+        update={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Amount (per 6 months)")).toBeDefined();
+  });
+
+  it('renders "one-time" in the amount label for a once benefit', () => {
+    const once: DraftBenefit = { ...DRAFT, resetPeriod: "once" };
+
+    render(
+      <BenefitEditPanel
+        benefit={once}
+        open
+        low={false}
+        nameInvalid={false}
+        update={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Amount (one-time)")).toBeDefined();
   });
 });

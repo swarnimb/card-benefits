@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { COLORS, EASING, RADII } from "@/lib/ui/tokens";
-import { EditField, ChipPicker, fieldInputStyle } from "./edit-fields";
+import { EditField, ChipPicker, fieldInputStyle, resetWindowLabel } from "./edit-fields";
 import { TrashIcon } from "./icons";
 import type {
   DraftBenefit,
@@ -88,7 +88,7 @@ export function BenefitEditPanel({
             </EditField>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <EditField label="Amount">
+              <EditField label={`Amount (${resetWindowLabel(benefit.resetPeriod)})`}>
                 <div
                   style={{ display: "flex", alignItems: "center", gap: 2, ...fieldInputStyle, padding: "9px 11px" }}
                 >

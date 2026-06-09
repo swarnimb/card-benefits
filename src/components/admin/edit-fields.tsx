@@ -1,12 +1,27 @@
 "use client";
 
 import { COLORS, RADII } from "@/lib/ui/tokens";
+import type { ResetPeriod } from "@/types/benefit";
 
 /**
  * Shared admin form-field primitives (extracted from `benefit-edit-row` to keep
  * each component < 200 lines and to dedupe the near-identical field-input style
  * that the edit row, review gate, and add picker each previously inlined).
  */
+
+/** Human window suffix per reset period — clarifies the amount is per-window. */
+const RESET_PERIOD_WINDOW: Record<ResetPeriod, string> = {
+  monthly: "per month",
+  quarterly: "per quarter",
+  semiannual: "per 6 months",
+  annual: "per year",
+  once: "one-time",
+};
+
+/** Window suffix for a reset period (e.g. "per 6 months", "one-time"). */
+export function resetWindowLabel(period: ResetPeriod): string {
+  return RESET_PERIOD_WINDOW[period];
+}
 
 /** Canonical text-input style for admin form fields (bg surface, hairline border). */
 export const fieldInputStyle = {

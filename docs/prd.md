@@ -456,6 +456,85 @@ Side-by-side, all three screens are visually indistinguishable from the design s
 
 ---
 
+## Feature 10: Usage Accuracy & In-Place Logging
+
+### Problem Statement
+The app tells the user how much a benefit is worth but misrepresents *when* and *how much* can actually be used in a given reset window, and only lets usage be logged on the Cards screen — not on the Overview where the user naturally notices the gap. A "$600/yr, split semiannually" credit displays a single $600 window, implying the user can extract $600 at once when the real per-window cap is $300. Combined with no days-until-reset visibility per benefit and no logging at the point of attention, the app is not usable for real daily tracking.
+
+### User Story
+As the single user, I want each benefit to reflect what I can actually use in its current reset window, see how many days are left on every benefit, and log usage from wherever I'm looking — so the numbers are trustworthy and tracking isn't clunky.
+
+### Sub-features
+
+#### 10.1 — Per-window benefit cap *(data correctness — highest risk)*
+**Business Logic**
+- A benefit's `value` represents the amount usable in **one reset window**, not the annual/lifetime total. Monthly $50 → `value` = $50. "$600/yr, semiannual ($300 each half)" → `value` = $300 (resets to $300 each window). Annual benefit with no sub-split → `value` = the annual amount (the window *is* the year). `once` → the one-time amount.
+- Usage controls and Overview/Cards totals cap at the per-window `value`. Auto-reset to 0 each window is existing period-engine behavior (lazy, read-time) — unchanged.
+- Going forward, the scrape/LLM parse and review gate must capture the **per-window** figure. The review gate is the safety net: the user confirms/corrects the per-window amount before any save.
+- **Existing data:** all current benefits are audited for yearly-vs-per-window mis-statements; the user is presented a list of suspected mis-stated benefits and confirms corrections, applied via the normal benefit-edit path. **No destructive re-scrape** (re-scrape risks the LLM repeating the error and wipes manual edits).
+
+**Acceptance Criteria**
+- [ ] Given a "$600/yr semiannual" benefit, when stored and displayed, then `value` = $300 and the usage control caps at $300; the next window resets to a fresh $300.
+- [ ] Given an annual benefit with no sub-split, then `value` = the annual amount (no change in behavior).
+- [ ] Given the parse + review gate, then the per-window amount is what is presented for confirmation.
+- [ ] Existing mis-stated benefits are surfaced to the user for confirmation and corrected without a destructive re-scrape.
+
+**Edge Cases**
+- Benefit advertised only as an annual total with no stated per-window split → treat the reset window as the year (`value` = annual amount); user can correct in the review gate.
+- `once` benefit → `value` = one-time amount, no window reset.
+
+#### 10.2 — Days-left on every Overview benefit row
+**Business Logic**
+- Every tracked benefit row on Overview displays days until its current window ends ("Xd left"), not only when within the urgent (≤14 day) threshold.
+
+**Acceptance Criteria**
+- [ ] Given a tracked benefit with an open period, when Overview loads, then its row shows the whole days remaining until `periodEnd`.
+- [ ] Given a `once` or set-and-forget (activation, no period) benefit, then no days-left value is shown (not "0d").
+
+#### 10.3 — Inline usage logging from Overview
+**User Flow**
+1. User taps a benefit row on Overview.
+2. The row expands inline to reveal the type-appropriate control (slider for credit/perk, toggle for subscription, counter for access).
+3. User logs usage; the change persists via the existing `updateBenefitUsage()` path; the money-at-risk hero and category totals recompute live.
+4. Tapping the row again (or another row) collapses it.
+
+**Business Logic**
+- Controls are **hidden until the row is tapped** (always-on controls are too clunky). One row expanded at a time.
+- Reuses the existing Cards usage controls and the single write path — no new usage-write mechanism.
+
+**Acceptance Criteria**
+- [ ] Given a collapsed Overview benefit row, when tapped, then the correct usage control for its type appears inline.
+- [ ] Given usage logged on Overview, then it persists via `updateBenefitUsage()` and the hero + totals update without a full reload.
+- [ ] Given one row expanded, when another is tapped, then the first collapses (one open at a time).
+
+#### 10.4 — Cards expanded view: visible/hidden split
+**Business Logic**
+- The expanded card detail lists **only visible (tracked) benefits**. Hidden (untracked) benefits collapse into a single row at the bottom labeled "N hidden — tap to expand"; tapping reveals them (with their eye toggles).
+- The existing eye icon moves a benefit between sections: hiding a visible benefit drops it into the hidden section and removes it from Overview totals; showing a hidden benefit moves it up and rejoins Overview totals.
+- This brings the eye/tracked toggle officially **in scope** (Feature 6 listed it as out-of-scope/post-MVP; this reconciles that drift).
+
+**Acceptance Criteria**
+- [ ] Given a card with tracked and untracked benefits, when the card is expanded, then only tracked benefits show in the main list and untracked ones are collapsed into a single "N hidden" row.
+- [ ] Given the hidden row, when tapped, then untracked benefits expand with their eye toggles.
+- [ ] Given the eye toggle, when a visible benefit is hidden, then it moves to the hidden section and leaves Overview totals; when a hidden one is shown, the reverse.
+- [ ] Given all benefits visible, then the hidden row is omitted (not "0 hidden").
+
+### Out of Scope (Feature 10)
+- Transaction auto-matching or import.
+- Multi-period forecasting / projecting future windows.
+- Push or email notifications for resets.
+- Usage history reports across past windows.
+
+### Success Metric
+The user can log a full month of real card usage end-to-end — on whichever screen they're looking at — with per-window amounts correct, days-left visible per benefit, and no clunky always-on controls.
+
+### Component Ownership
+- Per-window `value` semantics in scrape/parse + review gate — `@cto` (data model) → `@llm-parser` / `@data`.
+- Existing-data audit + guided correction — `@data`.
+- Overview days-left + inline logging, Cards visible/hidden split — `@ui` (`skills/ui-cardmaxxer.md`).
+
+---
+
 ## Out of Scope (MVP)
 
 - CSV transaction import or auto-matching

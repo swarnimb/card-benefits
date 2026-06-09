@@ -7,8 +7,8 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-06-04 (Task 56 — canonical design-token module + stable design source; Feature 9 1/11)
-**Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55)
+**Last Updated:** 2026-06-09 (Phase I / Feature 10 — Tasks 67–73 added via @create-plan: per-window value, Overview inline logging + days-left, Cards visible/hidden split)
+**Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55) + 7 Phase I — Feature 10: Usage Accuracy & In-Place Logging (Tasks 67–73)
 
 ---
 
@@ -2413,6 +2413,188 @@
 **Status:** [x] — done 2026-06-04. Cross-screen verification complete: all 3 screens screenshotted at 375+1280 (no regression after the code-review refactor); 2 required integration tests + 4 folded code-review unit tests added (225 unit / 67 integration pass); fixed the last pre-existing resync type error → `tsc` clean; build clean. Feature 9 (Tasks 56–66) COMPLETE. Next: `@qa` shippability sign-off.
 
 **Specialist:** `@qa`
+
+---
+
+## Phase I — Feature 10: Usage Accuracy & In-Place Logging
+
+> Added 2026-06-09 via `@create-plan`. PRD source: `docs/prd.md` Feature 10. Build order: 67→68→69 (10.1), then 70→71→72 (10.3/10.2), then 73 (10.4).
+
+---
+
+## Task 67: Parser — extract per-window benefit value
+
+**Files:**
+- `src/lib/parser/schema.ts` — modify
+- `src/lib/parser/index.ts` — modify
+
+**Functions to implement:** None new — update the `BENEFIT_EXTRACTION_TOOL` `value` field description and the parse system prompt.
+
+**Acceptance criteria:**
+- [x] The `value` schema description states it is the amount usable in ONE reset window (matching `resetPeriod`), NOT the annual/lifetime total
+- [x] Prompt instructs: when a benefit advertises a yearly total with a sub-annual split (e.g. "$600/year, $300 semiannually"), emit the per-window amount (300) with the matching `resetPeriod` (semiannual)
+- [x] Access/unlimited benefits still emit value 1 (unchanged); points-valued benefits unaffected
+- [x] [CONSTRAINT-09] Haiku only, `tool_use` only — model and structured-output path unchanged
+- [x] `toDraftBenefit` passes `value` through unchanged (no transform in code — semantics come from the model)
+
+**Tests required:**
+- `parseBenefits` → `returns value=300, resetPeriod=semiannual for a $300-per-half tool_use response` (mock Anthropic SDK)
+- `parseBenefits` → `still returns [] when model returns 0 benefits` (regression)
+
+**Depends on:** None
+**Status:** [x]
+**Specialist:** @llm-parser
+
+---
+
+## Task 68: Review gate — label amount as per-window
+
+**Files:**
+- `src/components/admin/benefit-edit-panel.tsx` — modify
+- `src/components/admin/benefit-edit-row.tsx` — modify
+
+**Functions to implement:** None new — add period-aware labelling to the Amount field.
+
+**Acceptance criteria:**
+- [x] The Amount field shows its reset window: "Amount (per month)" / "(per quarter)" / "(per 6 months)" for semiannual / "(per year)" for annual / "(one-time)" for once
+- [x] Wording makes clear the figure is the per-window amount the user is confirming
+- [x] No DB or schema change; `POST /api/benefits/confirm` unchanged
+- [ ] [CONSTRAINT-23] Verified at 375px AND 1280px  *(live visual deferred to Feature 10 @qa)*
+
+**Tests required:**
+- `BenefitEditPanel` → `renders "per 6 months" helper for a semiannual benefit`
+- `BenefitEditPanel` → `renders "one-time" helper for a once benefit`
+
+**Depends on:** None
+**Status:** [x]
+**Specialist:** @ui-cardmaxxer
+
+---
+
+## Task 69: Audit + correct existing benefit values
+
+**Files:**
+- `scripts/audit-benefit-values.ts` — create (model on `scripts/backfill-classification.ts`)
+
+**Functions to implement:**
+- `flagBenefit(benefit): { flagged: boolean; reason: string }` — pure heuristic: flag when `resetPeriod` ∈ {monthly, quarterly, semiannual} and `value` may be an annual total
+- Dry-run (default): print every benefit (card, name, value, valueUnit, resetPeriod, description) + a flagged-candidates section
+- `--apply <corrections.json>`: read a `{ benefitId: newValue }` map and update `Benefit.value` in a transaction
+
+**Acceptance criteria:**
+- [x] Dry-run writes NOTHING; outputs a readable table + flagged section
+- [x] `--apply` updates only the benefitIds in the corrections file; logs each change (old → new)
+- [x] [CONSTRAINT-08] Never mutates closed `BenefitPeriod` records; does not touch `usedAmount`
+- [x] Runs via `npx tsx scripts/audit-benefit-values.ts [--dry-run | --apply <file>]`; loads env like `backfill-classification.ts`
+- [x] [EH-01] Failures throw with `{ benefitId }` context; partial apply rolls back
+
+**Tests required:**
+- `flagBenefit` → `flags a semiannual benefit whose value looks like an annual total`
+- `flagBenefit` → `does not flag an annual or once benefit`
+
+**Depends on:** None
+**Status:** [x]
+**Specialist:** @data
+
+---
+
+## Task 70: Overview client — usage write + optimistic recompute
+
+**Files:**
+- `src/hooks/use-overview-data.ts` — create (extract Overview fetch from `overview/page.tsx` into a hook + add a usage mutation)
+- `src/app/(app)/overview/page.tsx` — modify (consume the hook)
+
+**Functions to implement:**
+- `updateBenefitUsage(benefitId: string, newAmount: number): Promise<void>` — optimistic: recompute the benefit's used/unused amounts, its category totals, and the money-at-risk hero; `POST /api/benefits/[id]/usage`; revert on failure (model on `src/hooks/use-cards-data.ts:176`)
+
+**Acceptance criteria:**
+- [ ] Overview logging persists via `POST /api/benefits/[id]/usage` ONLY — no new write path [CONSTRAINT-07] (reuses the `updateBenefitUsage()` engine function)
+- [ ] Optimistic recompute updates the money-at-risk hero + category totals immediately; reverts on a non-OK response
+- [ ] Existing re-fetch on visibility change still works
+- [ ] [EH-01] A failed update reverts state and surfaces a non-silent error
+
+**Tests required:**
+- `useOverviewData` → `recomputes money-at-risk and category total after a usage update`
+- `useOverviewData` → `reverts to previous state when the POST fails`
+
+**Depends on:** None
+**Status:** [ ]
+**Specialist:** @ui-cardmaxxer
+
+---
+
+## Task 71: Overview row — tap to expand + inline usage control
+
+**Files:**
+- `src/components/overview/category-detail-row.tsx` — modify
+- `src/components/overview/category-section.tsx` — modify (manage one-open-at-a-time expanded state)
+
+**Functions to implement:** None new — add tap-to-expand + control dispatch by `benefit.type`.
+
+**Acceptance criteria:**
+- [ ] Usage controls are HIDDEN until the row is tapped; tapping expands the row inline
+- [ ] Correct control by `type`: credit/perk → `UsageSlider`, subscription → `UsageToggle`, access → `UsageCounter`; passes value/max/cardColor; `onUpdate` → the Task 70 `updateBenefitUsage`
+- [ ] One row expanded at a time; tapping it again (or another row) collapses it
+- [ ] Reuses the existing `UsageSlider`/`UsageToggle`/`UsageCounter` unchanged
+- [ ] [CONSTRAINT-23] Verified at 375px AND 1280px
+
+**Tests required:**
+- `CategoryDetailRow` → `reveals UsageSlider for a credit when tapped`
+- `CategoryDetailRow` → `reveals UsageToggle for a subscription when tapped`
+- `CategoryDetailRow` → `collapses when tapped again`
+
+**Depends on:** Task 70
+**Status:** [ ]
+**Specialist:** @ui-cardmaxxer
+
+---
+
+## Task 72: Overview — days-left on every benefit row
+
+**Files:**
+- `src/components/overview/category-detail-row.tsx` — modify
+
+**Functions to implement:** None new — remove the urgent-only gate on the days-left display.
+
+**Acceptance criteria:**
+- [ ] Every tracked row with an open period shows "Xd" days-until-reset (not only when urgent)
+- [ ] Amber styling when urgent (≤ `OV_URGENT_DAYS`); muted styling otherwise
+- [ ] `daysUntilReset === null` (once / set-and-forget) → no days value shown (not "0d")
+
+**Tests required:**
+- `CategoryDetailRow` → `shows days-left in muted style when not urgent`
+- `CategoryDetailRow` → `shows no days value when daysUntilReset is null`
+
+**Depends on:** Task 71 (same file)
+**Status:** [ ]
+**Specialist:** @ui-cardmaxxer
+
+---
+
+## Task 73: Cards detail — visible/hidden benefit split
+
+**Files:**
+- `src/components/cards/benefit-list.tsx` — modify
+- `src/components/cards/card-detail-overlay.tsx` — modify (if section state needed)
+
+**Functions to implement:** None new — partition benefits into tracked (main list) vs untracked (collapsed section).
+
+**Acceptance criteria:**
+- [ ] Main list shows ONLY `tracked` benefits, grouped as today (credit→subscription→access→perk; set-and-forget handling unchanged)
+- [ ] Untracked benefits collapse into a single "N hidden — tap to expand" row; expands to show them with their eye toggles
+- [ ] The eye toggle moves a benefit between sections (existing PATCH + `onTrackedUpdate` sync); hiding removes it from Overview totals, showing rejoins (existing behavior)
+- [ ] The hidden row is omitted entirely when there are no untracked benefits (not "0 hidden")
+- [ ] Existing stack/detail animation + portfolio stat trio unaffected
+- [ ] [CONSTRAINT-23] Verified at 375px AND 1280px
+
+**Tests required:**
+- `BenefitList` → `renders only tracked benefits in the main list`
+- `BenefitList` → `collapses untracked benefits into a hidden section that expands on tap`
+- `BenefitList` → `omits the hidden row when all benefits are tracked`
+
+**Depends on:** None
+**Status:** [ ]
+**Specialist:** @ui-cardmaxxer
 
 ---
 

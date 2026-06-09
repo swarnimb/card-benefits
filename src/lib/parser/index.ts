@@ -104,7 +104,11 @@ export async function parseBenefits(rawText: string): Promise<ParseResult> {
         {
           role: "user",
           content:
-            "Extract all credit card benefits from the following text.\n\n" + rawText,
+            "Extract all credit card benefits from the following text.\n" +
+            "For `value`, emit the amount usable in ONE reset window, not the annual or lifetime total. " +
+            "When a benefit advertises a yearly total with a sub-annual split (e.g. \"$600/year, $300 semiannually\"), " +
+            "emit the per-window amount (300) and the matching sub-annual resetPeriod (semiannual).\n\n" +
+            rawText,
         },
       ],
     });

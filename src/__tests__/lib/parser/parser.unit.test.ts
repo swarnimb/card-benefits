@@ -58,6 +58,25 @@ describe("parseBenefits", () => {
     expect(benefits[0].confidence).toBe("high");
   });
 
+  it("returns value=300, resetPeriod=semiannual for a $300-per-half tool_use response", async () => {
+    // Task 67: a benefit advertised as "$600/year, $300 semiannually" must surface
+    // the per-window amount (300) and the sub-annual resetPeriod (semiannual) the
+    // model emits — value flows through toDraftBenefit unchanged, no code transform.
+    const perWindow = {
+      ...validBenefit,
+      name: "Travel Credit",
+      description: "$600 per year, paid as $300 semiannually",
+      value: 300,
+      resetPeriod: "semiannual",
+      category: "travel",
+    };
+    mockCreate.mockResolvedValue(makeToolUseResponse([perWindow]));
+
+    const { benefits } = await parseBenefits("$600/year travel credit, $300 semiannually.");
+    expect(benefits[0].value).toBe(300);
+    expect(benefits[0].resetPeriod).toBe("semiannual");
+  });
+
   it("maps classification and derives tracked=true for discretionary-credit", async () => {
     mockCreate.mockResolvedValue(makeToolUseResponse([validBenefit]));
 
