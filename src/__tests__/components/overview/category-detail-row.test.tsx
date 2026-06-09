@@ -8,6 +8,14 @@ afterEach(() => cleanup());
 vi.mock("framer-motion", () => import("./_mock-framer-motion"));
 
 import { CategoryDetailRow } from "@/components/overview/category-detail-row";
+import { OV } from "@/components/overview/tokens";
+
+/** Normalizes a hex color the way jsdom stores it on .style.color, so assertions are robust. */
+function normColor(hex: string): string {
+  const el = document.createElement("span");
+  el.style.color = hex;
+  return el.style.color;
+}
 
 function makeRow(overrides: Partial<OverviewBenefit> = {}): OverviewBenefit {
   return {
@@ -99,5 +107,32 @@ describe("CategoryDetailRow", () => {
     expect((button as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(button);
     expect(screen.queryByTestId("usage-toggle-saf")).toBeNull();
+  });
+
+  it("shows days-left in muted style when not urgent", () => {
+    render(<Harness c={makeRow({ benefitId: "m1", daysUntilReset: 20 })} />);
+
+    const days = screen.getByTestId("days-left-m1");
+    expect(days.textContent).toContain("20d");
+    expect(days.style.color).toBe(normColor(OV.text3));
+    expect(days.style.color).not.toBe(normColor(OV.amber));
+  });
+
+  it("shows days-left in amber when urgent", () => {
+    render(<Harness c={makeRow({ benefitId: "u1", daysUntilReset: 2 })} />);
+
+    const days = screen.getByTestId("days-left-u1");
+    expect(days.textContent).toContain("2d");
+    expect(days.style.color).toBe(normColor(OV.amber));
+  });
+
+  it("shows no days value when daysUntilReset is null", () => {
+    render(
+      <Harness
+        c={makeRow({ benefitId: "n1", daysUntilReset: null, resetPeriod: "once", value: null })}
+      />,
+    );
+
+    expect(screen.queryByTestId("days-left-n1")).toBeNull();
   });
 });

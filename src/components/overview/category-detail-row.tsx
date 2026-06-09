@@ -64,8 +64,13 @@ export function CategoryDetailRow({
           </div>
           <div className="mt-0.5 text-[10.5px]" style={{ color: OV.text3 }}>
             {humanizeIssuer(c.issuer)} · {c.resetPeriod}
-            {urgent && (
-              <span style={{ color: OV.amber, marginLeft: 6 }}>· {c.daysUntilReset}d</span>
+            {c.daysUntilReset !== null && (
+              <span
+                data-testid={`days-left-${c.benefitId}`}
+                style={{ color: urgent ? OV.amber : OV.text3, marginLeft: 6 }}
+              >
+                · {c.daysUntilReset}d
+              </span>
             )}
           </div>
         </div>

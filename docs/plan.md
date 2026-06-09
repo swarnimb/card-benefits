@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-06-09 (Phase I / Feature 10 — Tasks 67–73 added via @create-plan: per-window value, Overview inline logging + days-left, Cards visible/hidden split. Tasks 67–71 done.)
+**Last Updated:** 2026-06-09 (Phase I / Feature 10 — Tasks 67–73 added via @create-plan: per-window value, Overview inline logging + days-left, Cards visible/hidden split. Tasks 67–72 done.)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55) + 7 Phase I — Feature 10: Usage Accuracy & In-Place Logging (Tasks 67–73)
 
 ---
@@ -2559,16 +2559,16 @@
 **Functions to implement:** None new — remove the urgent-only gate on the days-left display.
 
 **Acceptance criteria:**
-- [ ] Every tracked row with an open period shows "Xd" days-until-reset (not only when urgent)
-- [ ] Amber styling when urgent (≤ `OV_URGENT_DAYS`); muted styling otherwise
-- [ ] `daysUntilReset === null` (once / set-and-forget) → no days value shown (not "0d")
+- [x] Every tracked row with an open period shows "Xd" days-until-reset (not only when urgent)
+- [x] Amber styling when urgent (≤ `OV_URGENT_DAYS`); muted styling otherwise
+- [x] `daysUntilReset === null` (once / set-and-forget) → no days value shown (not "0d")
 
 **Tests required:**
 - `CategoryDetailRow` → `shows days-left in muted style when not urgent`
 - `CategoryDetailRow` → `shows no days value when daysUntilReset is null`
 
 **Depends on:** Task 71 (same file)
-**Status:** [ ]
+**Status:** [x]
 **Specialist:** @ui-cardmaxxer
 
 ---
