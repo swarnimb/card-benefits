@@ -1,4 +1,4 @@
-import type { BenefitWithPeriod, BenefitCategory } from "@/types/benefit";
+import type { BenefitWithPeriod, BenefitCategory, BenefitType } from "@/types/benefit";
 import type { UserCardWithBenefits } from "@/types/card";
 import type {
   OverviewBenefit,
@@ -39,16 +39,33 @@ function daysUntilReset(periodEnd: Date | null | undefined, now: number): number
   return Math.max(0, Math.ceil((periodEnd.getTime() - now) / MS_PER_DAY));
 }
 
+/**
+ * Unredeemed value from a benefit's parts. Shared so the Overview client's
+ * optimistic recompute (`use-overview-data.ts`) derives the same figure the
+ * server does. subscription: full value until claimed; unlimited (value null): 0;
+ * capped: value − used, floored at 0.
+ */
+export function unusedFromParts(
+  type: BenefitType,
+  value: number | null,
+  used: number,
+): number {
+  if (type === "subscription") return used === 0 ? value ?? 0 : 0;
+  if (value === null) return 0;
+  return Math.max(0, value - used);
+}
+
 /** Unredeemed value this period. 0 for unlimited (value === null) or already-consumed benefits. */
 function unusedValue(benefit: BenefitWithPeriod): number {
   // Set-and-forget benefits carry no money-at-risk: active ones are realized,
   // not-set-up ones are deliberately kept calm on the Overview (their activation
   // prompt lives in the Cards-space "Automatic" group, not as Overview urgency).
   if (benefit.setAndForget) return 0;
-  const used = benefit.currentPeriod?.usedAmount ?? 0;
-  if (benefit.type === "subscription") return used === 0 ? benefit.value ?? 0 : 0;
-  if (benefit.value === null) return 0;
-  return Math.max(0, benefit.value - used);
+  return unusedFromParts(
+    benefit.type,
+    benefit.value,
+    benefit.currentPeriod?.usedAmount ?? 0,
+  );
 }
 
 /** True when no further action is possible this period: cap reached, or subscription already used. */

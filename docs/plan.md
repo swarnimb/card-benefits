@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-06-09 (Phase I / Feature 10 — Tasks 67–73 added via @create-plan: per-window value, Overview inline logging + days-left, Cards visible/hidden split)
+**Last Updated:** 2026-06-09 (Phase I / Feature 10 — Tasks 67–73 added via @create-plan: per-window value, Overview inline logging + days-left, Cards visible/hidden split. Tasks 67–70 done.)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55) + 7 Phase I — Feature 10: Usage Accuracy & In-Place Logging (Tasks 67–73)
 
 ---
@@ -2508,17 +2508,17 @@
 - `updateBenefitUsage(benefitId: string, newAmount: number): Promise<void>` — optimistic: recompute the benefit's used/unused amounts, its category totals, and the money-at-risk hero; `POST /api/benefits/[id]/usage`; revert on failure (model on `src/hooks/use-cards-data.ts:176`)
 
 **Acceptance criteria:**
-- [ ] Overview logging persists via `POST /api/benefits/[id]/usage` ONLY — no new write path [CONSTRAINT-07] (reuses the `updateBenefitUsage()` engine function)
-- [ ] Optimistic recompute updates the money-at-risk hero + category totals immediately; reverts on a non-OK response
-- [ ] Existing re-fetch on visibility change still works
-- [ ] [EH-01] A failed update reverts state and surfaces a non-silent error
+- [x] Overview logging persists via `POST /api/benefits/[id]/usage` ONLY — no new write path [CONSTRAINT-07] (reuses the `updateBenefitUsage()` engine function)
+- [x] Optimistic recompute updates the money-at-risk hero + category totals immediately; reverts on a non-OK response
+- [x] Existing re-fetch on visibility change still works
+- [x] [EH-01] A failed update reverts state and surfaces a non-silent error
 
 **Tests required:**
 - `useOverviewData` → `recomputes money-at-risk and category total after a usage update`
 - `useOverviewData` → `reverts to previous state when the POST fails`
 
 **Depends on:** None
-**Status:** [ ]
+**Status:** [x]
 **Specialist:** @ui-cardmaxxer
 
 ---

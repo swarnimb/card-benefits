@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/overview/topbar";
 import { MoneyAtRiskHero } from "@/components/overview/money-at-risk-hero";
@@ -8,53 +7,17 @@ import { ExpiringSection } from "@/components/overview/expiring-section";
 import { CategorySection } from "@/components/overview/category-section";
 import { SettledSection } from "@/components/overview/settled-section";
 import { OV } from "@/components/overview/tokens";
-import type { OverviewData } from "@/types/api";
+import { useOverviewData } from "@/hooks/use-overview-data";
 
 /** Number of skeleton rows shown during initial load. */
 const SKELETON_COUNT = 3;
 
-type PageState =
-  | { status: "loading" }
-  | { status: "error" }
-  | { status: "ok"; data: OverviewData };
-
 export default function OverviewPage() {
-  const [state, setState] = useState<PageState>({ status: "loading" });
-
-  /**
-   * Fetches overview data. Pass showSkeleton=true for initial load.
-   * Visibility-change refetches run silently — existing data stays visible.
-   */
-  const loadOverview = useCallback(async (showSkeleton = false) => {
-    if (showSkeleton) setState({ status: "loading" });
-    try {
-      const res = await fetch("/api/overview");
-      if (!res.ok) throw new Error(`API returned ${res.status}`);
-      const data: OverviewData = await res.json();
-      setState({ status: "ok", data });
-    } catch {
-      setState((prev) =>
-        prev.status === "loading" ? { status: "error" } : prev
-      );
-    }
-  }, []);
-
-  useEffect(() => {
-    loadOverview(true);
-  }, [loadOverview]);
-
-  useEffect(() => {
-    function onVisibilityChange() {
-      if (document.visibilityState === "visible") loadOverview();
-    }
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () =>
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, [loadOverview]);
+  const { state, reload } = useOverviewData();
 
   if (state.status === "loading") return <OverviewSkeleton />;
   if (state.status === "error")
-    return <OverviewError onRetry={() => loadOverview(true)} />;
+    return <OverviewError onRetry={() => reload(true)} />;
 
   const { moneyAtRisk, needsAttention, onTrack, done, activeByCategory, sparkbar } =
     state.data;
