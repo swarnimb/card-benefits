@@ -113,3 +113,8 @@ export const EASING = "cubic-bezier(0.34, 1.2, 0.64, 1)";
 
 /** Softer modal-enter easing variant (design source one-off). */
 export const EASING_MODAL = "cubic-bezier(0.34, 1.1, 0.64, 1)";
+
+/** Framer Motion `ease` (array form of EASING — Framer rejects CSS-bezier strings). */
+export const EASING_ARRAY = [0.34, 1.2, 0.64, 1] as const;
+/** Framer Motion `ease` (array form of EASING_MODAL). */
+export const EASING_MODAL_ARRAY = [0.34, 1.1, 0.64, 1] as const;

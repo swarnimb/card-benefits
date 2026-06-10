@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { COLORS, EASING, RADII } from "@/lib/ui/tokens";
+import { COLORS, EASING_ARRAY, RADII } from "@/lib/ui/tokens";
 import { BenefitEditRow } from "./benefit-edit-row";
 import { ChevronDown } from "./icons";
 import type { DraftBenefit } from "@/types/benefit";
@@ -70,7 +70,7 @@ export function ExcludedDisclosure({
         <motion.span
           style={{ display: "inline-flex", flexShrink: 0, color: COLORS.text4 }}
           animate={{ rotate: expanded ? 180 : 0 }}
-          transition={{ duration: 0.3, ease: EASING }}
+          transition={{ duration: 0.3, ease: EASING_ARRAY }}
         >
           {ChevronDown}
         </motion.span>
@@ -82,7 +82,7 @@ export function ExcludedDisclosure({
             initial={reduceMotion ? false : { height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={reduceMotion ? { height: 0, opacity: 1 } : { height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: EASING }}
+            transition={{ duration: 0.3, ease: EASING_ARRAY }}
             style={{ overflow: "hidden" }}
           >
             <div

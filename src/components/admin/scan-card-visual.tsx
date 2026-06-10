@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { COLORS, EASING, RADII } from "@/lib/ui/tokens";
+import { COLORS, EASING_ARRAY, RADII } from "@/lib/ui/tokens";
 import { cardGradient } from "@/components/cards/card-gradient";
 
 /** Props for ScanCardVisual. */
@@ -98,7 +98,7 @@ export function ScanCardVisual({ cardName, color, pending, pct }: ScanCardVisual
         <motion.div
           style={{ height: "100%", borderRadius: RADII.pill, background: COLORS.amber }}
           animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.5, ease: EASING }}
+          transition={{ duration: 0.5, ease: EASING_ARRAY }}
         />
       </div>
     </div>

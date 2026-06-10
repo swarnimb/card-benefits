@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { COLORS, EASING, RADII } from "@/lib/ui/tokens";
+import { COLORS, EASING_ARRAY, RADII } from "@/lib/ui/tokens";
 
 /** Props for DeleteConfirm. */
 export interface DeleteConfirmProps {
@@ -28,7 +28,7 @@ export function DeleteConfirm({ open, issuer, name, count, onKeep, onRemove }: D
           initial={reduceMotion ? false : { height: 0, opacity: 0 }}
           animate={{ height: "auto", opacity: 1 }}
           exit={reduceMotion ? { height: 0, opacity: 1 } : { height: 0, opacity: 0 }}
-          transition={{ duration: 0.28, ease: EASING }}
+          transition={{ duration: 0.28, ease: EASING_ARRAY }}
           style={{ overflow: "hidden" }}
         >
           <div

@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { COLORS, EASING, RADII } from "@/lib/ui/tokens";
+import { COLORS, EASING_ARRAY, RADII } from "@/lib/ui/tokens";
 import { EditField, ChipPicker, fieldInputStyle, resetWindowLabel } from "./edit-fields";
 import { TrashIcon } from "./icons";
 import type {
@@ -57,7 +57,7 @@ export function BenefitEditPanel({
           initial={reduceMotion ? false : { height: 0, opacity: 0 }}
           animate={{ height: "auto", opacity: 1 }}
           exit={reduceMotion ? { height: 0, opacity: 1 } : { height: 0, opacity: 0 }}
-          transition={{ duration: 0.3, ease: EASING }}
+          transition={{ duration: 0.3, ease: EASING_ARRAY }}
           style={{ overflow: "hidden" }}
         >
           <div style={{ padding: "4px 14px 16px", borderTop: `1px solid ${COLORS.hairline}` }}>

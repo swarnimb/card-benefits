@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { COLORS, EASING, RADII } from "@/lib/ui/tokens";
+import { COLORS, EASING_ARRAY, RADII } from "@/lib/ui/tokens";
 import { BenefitEditPanel } from "./benefit-edit-panel";
 import { BenefitAmount } from "./edit-fields";
 import { LowConfidenceNote } from "./low-confidence-note";
@@ -158,7 +158,7 @@ export function BenefitEditRow({
               <motion.span
                 style={{ display: "inline-flex", color: COLORS.text4 }}
                 animate={{ rotate: open ? 180 : 0 }}
-                transition={{ duration: 0.3, ease: EASING }}
+                transition={{ duration: 0.3, ease: EASING_ARRAY }}
               >
                 {ChevronDown}
               </motion.span>

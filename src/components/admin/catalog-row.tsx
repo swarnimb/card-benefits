@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { COLORS, EASING, RADII } from "@/lib/ui/tokens";
+import { COLORS, EASING_ARRAY, RADII } from "@/lib/ui/tokens";
 import type { CatalogCard } from "@/types/card";
 import { MiniCard } from "./mini-card";
 import { ChevronRight } from "./icons";
@@ -29,7 +29,7 @@ export function CatalogRow({ card, disabled, adding, duplicate, onAdd }: Catalog
       disabled={disabled}
       initial={reduceMotion ? false : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: EASING }}
+      transition={{ duration: 0.25, ease: EASING_ARRAY }}
       style={{
         display: "flex",
         alignItems: "center",

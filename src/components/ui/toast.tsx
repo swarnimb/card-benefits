@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { COLORS, EASING, RADII, SHADOWS } from "@/lib/ui/tokens";
+import { COLORS, EASING_ARRAY, RADII, SHADOWS } from "@/lib/ui/tokens";
 import { CheckIcon } from "@/components/admin/icons";
 
 /** Props for Toast. */
@@ -29,7 +29,7 @@ export function Toast({ text }: ToastProps) {
       initial={reduceMotion ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 12 }}
-      transition={{ duration: 0.32, ease: EASING }}
+      transition={{ duration: 0.32, ease: EASING_ARRAY }}
     >
       <div
         style={{

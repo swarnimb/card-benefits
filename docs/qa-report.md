@@ -1,124 +1,121 @@
 # QA Report
 
-**Date:** 2026-06-07
+**Date:** 2026-06-09
 **Status:** APPROVED
 
-> **Re-run 2026-06-07 (post-fix):** The single blocking finding (CONSTRAINT-23 overlay width) was fixed via @dev targeted-fix mode and re-verified live by the QA authority — the expanded card-detail overlay now renders a centered 420px column (width 420, left 422). Status flipped BLOCKED → APPROVED. See Finding 1 (RESOLVED) and the updated Summary.
+> **Feature 10 — Usage Accuracy & In-Place Logging sign-off (Tasks 67–73).** Shippability assessment for per-window benefit values (CONSTRAINT-24), Overview inline usage logging, the per-window review-gate amount label, and the Cards visible/hidden split. **Supersedes the 2026-06-07 Feature 9 APPROVED report** (Tasks 56–66, retained in git history). Phase 2 browser verification was executed live via DevTools Puppeteer against `http://localhost:3002` at **both 375px and 1280px** (CONSTRAINT-23), with hybrid manual login and non-destructive verification (all mutations reverted; no review-gate confirm).
 
-> **Feature 9 — Pixel-Perfect Three-Screen Redesign sign-off (Tasks 56–66).** Shippability assessment for the Overview / Cards / Admin rebuild + app-wide desktop container (CONSTRAINT-23). Supersedes the 2026-06-03 Phase H / Feature 8 APPROVED report (Tasks 49–55), which remains in git history. Phase 2 browser workflow verification was executed this session via DevTools Puppeteer against the live app at `http://localhost:3002` at the 1280px desktop viewport (the MVP deployment target), with hybrid manual login and non-destructive verification.
+> **⚠ A blocking runtime crash was found AND fixed during this gate** (review gate / admin flow ErrorBoundary, Framer Motion easing). It was a **latent Feature 9 bug**, not a Feature 10 regression — see Finding 1. It is fixed, re-verified live at both viewports, and the production build is clean. **The fix is uncommitted at time of writing** (see Follow-ups).
 
 ---
 
 ## Scope
 
-Feature 9 (Tasks 56–66): canonical design-token module, `annualFee` schema + parser + confirm persistence, per-benefit confidence/note (review-only), `computePortfolioStats` + `/api/portfolio/stats`, Overview/Cards/Admin pixel rebuilds, issuer-color migration, and the centered `max-w-[420px]` desktop column (CONSTRAINT-23). Reviewed against `rules/testing-standards.md` (TS-01/TS-04) and the binding constraints in `docs/constraints.md`.
+Feature 10 (Tasks 67–73): per-reset-window `value` parsing + Haiku schema semantics (CONSTRAINT-24), non-destructive `scripts/audit-benefit-values.ts` + the Hotel Credit $600→$300 correction, the Overview `useOverviewData` hook (optimistic usage write + recompute + revert-on-failure), tap-to-expand Overview rows with inline usage controls, days-left on every Overview row, the per-window review-gate amount label (`BenefitAmount` in `edit-fields.tsx`), and the Cards visible/hidden benefit split with eye toggles. Reviewed against `rules/testing-standards.md` (TS-01/TS-04) and `docs/constraints.md`.
 
-Verification split: Phase 1 (code + coverage) and Phase 2 (browser) were each run by a subagent; the QA authority then **independently re-verified both candidate-blocking findings in the live app** before issuing this verdict.
+Verification split: Phase 1 (code + coverage) and the root-cause investigation were run by subagents; the QA authority drove **all** live browser verification (375 + 1280) and the targeted-fix re-verification in person.
 
 ---
 
 ## Coverage Assessment
 
 ### Critical Paths
-- [x] Auth flows tested: **PASS** — `lib/auth.test.ts` (happy + wrong-password + valid-JWT + 401-no-session)
-- [x] Payment flows tested: **N/A** — no payments in scope (CardMaxxer has no payment surface)
-- [x] Data write operations tested: **PASS** — `updateBenefitUsage()` (sole sanctioned usage path) covered by `usage.integration.test.ts` (happy/clamp/negative/403); review-gate save covered by `confirm.integration.test.ts` + `benefits.integration.test.ts` (replace/empty/invalid-enum/annualFee/strip-confidence)
-- [x] Access control tested: **PASS** — 401 unauth (`user-cards`), 403 wrong-user (`user-cards` DELETE, `benefit-mutation` PATCH/DELETE, `benefits` GET)
+- [x] Auth flows: **PASS** — server-side gate `app/(app)/layout.tsx:12` redirects unauthenticated → `/login` (verified live: fresh browser → login required). `lib/auth.ts` credential + JWT path unchanged from Feature 9 (covered).
+- [x] Payment flows: **N/A** — no payment surface.
+- [x] Data write operations: **PASS** — `updateBenefitUsage()` remains the sole sanctioned `usedAmount` writer (CONSTRAINT-07), covered by `usage.integration.test.ts` (happy + clamp-high + clamp-to-0 + non-existent-ID error + set-and-forget rejection). Overview optimistic write + revert-on-POST-failure covered by `use-overview-data.test.ts`. Review-gate save path (`tracked` override on confirm) unchanged + covered.
+- [x] Access control: **PASS** — `tracked` eye-toggle (PATCH `/api/benefits/[id]`) and usage POST both route through `requireAuth`; section-move verified live (hidden 17→16→17).
 
-**Test suite:** 292/292 green — 225 unit/component (`npx vitest run`, 34 files) + 67 integration (`npm run test:integration`, 13 files). 0 failures, 0 skips.
-**Build:** `npm run build` — PASS (Next.js 16.2.6 / Turbopack, TypeScript clean, all 20 routes resolved incl. `/api/portfolio/stats`).
+**Per-window parsing (CONSTRAINT-24):** `unusedFromParts` covered by 5 unit tests in `expiring.unit.test.ts` (subscription-claimed/unclaimed, null/unlimited, normal cap, floor-at-0). Classification→`tracked` mapping covered by 28 tests in `classification.unit.test.ts` (incl. A10 conservative default).
+
+**Audit script:** `scripts/audit-benefit-values.ts` confirmed non-destructive by default (dry-run prints `(DRY-RUN — no DB writes performed)`; writes only `Benefit.value` and only under explicit `--apply`, wrapped in `$transaction`; never touches `usedAmount` or `BenefitPeriod`, CONSTRAINT-08). `flagBenefit` heuristic unit-tested.
+
+**Test suite:** **247/247 unit + component green** (`npx vitest run`, 38 files, 0 failures) — incl. 2 new assertions added by the Finding-1 fix. **`tsc --noEmit` clean.**
+**Build:** `npm run build` — **PASS** (Next.js 16.2.6 / Turbopack, TypeScript clean, all 14 routes resolved). Re-run a second time after the Finding-1 fix — still clean.
 
 ### Coverage Gaps
-1. **Issuer-color backfill migration (`scripts/backfill-issuer-colors.ts`) — zero tests.** Performs conditional DB writes (old-seed → new-token, preserving user overrides). No automated assertion of idempotency / override-preservation. Already executed once against backed-up DBs (the `.bak-20260604-task64` files). NON-BLOCKING.
-2. **`authorizeUser` has one error-case test, not two** (TS-01 requires 2 for auth functions). Missing: unknown-email and/or unconfigured-`ADMIN_PASSWORD` path. The security-critical wrong-password path IS covered. NON-BLOCKING.
-3. **Scrape route has no explicit 401 test** (success/scrapeError/parseError/null-URL are covered). The `requireAuth` pattern is proven on sibling routes. NON-BLOCKING.
+1. **`updateBenefitUsage` tests are integration-only** (`*.integration.test.ts`) and excluded from `npx vitest run` (need a DB). They pass under `npm run test:integration` (67 integration tests per handoff) but were not re-executed this gate. NON-BLOCKING (sanctioned write path is well-covered).
+2. **Audit script `--apply` write branch is not unit-tested** — gated behind an explicit flag and `$transaction`. NON-BLOCKING.
+3. **No automated test catches the Finding-1 class of bug** (CSS-string easing passed to a Framer `ease` prop throws only at runtime; `tsc` and the build do not catch it). See Finding 1 → recommended guard. NON-BLOCKING but notable.
 
 ---
 
 ## Browser Workflow Verification
 
-### Overview (`/overview`)
-**Result:** PASS
-**Steps:** Loaded authenticated; swept rendered text.
-**Observed:** "Money at risk", "Active credits 23 total", category groups render. No blank states, no error boundary, no `$undefined`/`NaN`/`[object Object]`. CONSTRAINT-19 confirmed — no realized-value figures on Overview ("$X redeemed of $Y" strings are per-category credit progress, not realized totals).
-**Issues:** None.
+All flows verified live at **375px AND 1280px** (CONSTRAINT-23). Evidence screenshots captured: `f10-overview-375-fresh/expanded`, `f10-overview-1280`, `f10-cards-375-detail`, `f10-cards-1280-detail`, `f10-task68-reviewgate-375`, `f10-reviewgate-1280`.
 
-### Cards (`/cards`) — collapsed wallet view
-**Result:** PASS
-**Observed:** Apple-Wallet stack renders with correct issuer colors (Capital One red, Amex gold, Chase blue). Portfolio header shows Annual Fees / Redeemed YTD / Available (realized value correctly lives here per CONSTRAINT-19). Centered 420px column (left offset 422, symmetric).
-**Issues:** None.
+### Overview (`/overview`) — Tasks 71 + 72
+**Result:** PASS (375 + 1280)
+**Observed:** Rows collapsed by default (controls hidden). Tapping a row expands an inline usage control (credit→slider + numeric input, fits the column); opening a second row collapses the first (single-open enforced, verified by `aria-expanded` state). Every open-period row shows days-left ("· 206d", muted; amber when urgent) — 19/23 credits carry a non-null `daysUntilReset` and all render. No ErrorBoundary, no bad-value strings.
+**CONSTRAINT-23:** `main` = 420px wide, centered (left 422 / right 438 at 1280); the **fixed BottomNav is constrained to the same 420px column** (width 420, not full-bleed).
 
-### Cards (`/cards`) — expanded card detail overlay
-**Result:** PASS (after fix — see Finding 1 RESOLVED)
-**Observed (initial):** Per-card Annual/Available/Redeemed tiles + full benefit list render correctly with usage controls. BUT the overlay's content wrapper measured **1011px wide (left offset 126) at 1280 viewport** — nearly full-width, NOT the centered ~420px column every other screen uses. Direct CONSTRAINT-23 violation.
-**Observed (post-fix, re-verified live):** Overlay wrapper now measures **width 420px, left offset 422, right gap 438** — centered 420px column matching Overview/Cards/Admin. Class `mx-auto w-full max-w-[420px] px-6`. Animation, backdrop, and data intact.
-**Possible cosmetic:** a section label may render with a stray `$` ("$CREDITS") — low confidence; likely an innerText-concatenation artifact, flagged for a glance, not asserted as a defect.
+### Cards (`/cards`) — Task 73
+**Result:** PASS (375 + 1280)
+**Observed:** Wallet stack + portfolio stat trio render. Opening a card detail shows only `tracked` benefits in the main list; untracked collapse into a single "N HIDDEN — TAP TO EXPAND" row (Amazon Prime Visa: all 17 untracked → empty visible list + "17 HIDDEN", correct for an all-auto-earn card). Expanding reveals 17 eye toggles (`aria-label="Toggle tracked"`). **Eye toggle moves a benefit between sections live** (hidden 17→16 on track, →17 on revert — reverted to leave DB clean).
+**CONSTRAINT-23:** card-detail uses a `fixed inset-0` scrim (full-screen backdrop — correct), but its **content stays in the centered 420px column** at 1280 (no full-bleed sprawl).
 
-### Usage update (reversible live test — QA authority, in person)
-**Result:** PASS (core value-tracking path fully working)
-**Steps:** Expanded Amex Platinum → $600 Hotel Credit input (original `usedAmount` = 0, recorded). Filled to 100 with simulated typing, committed on blur.
-**Observed:** Per-card REDEEMED $0 → **$100**, AVAILABLE $2,001 → **$1,901** (optimistic recompute, live). Reloaded: value **persisted to DB** ($100, portfolio Available $2,520 → $2,420), confirming the full POST `/api/benefits/[id]/usage` → server-recompute path. **Reverted to 0 and re-verified after reload — all figures back to baseline. User data intact.**
-**Note:** The Phase-2 subagent had flagged this as "unverified — totals didn't react." That was a controlled-React-input simulation artifact (programmatic `.value` + events don't reliably update React's internal `inputText` state, so its commit used the stale value). Direct verification with real input proves the behavior is correct. **Not a defect.**
+### Admin → Review Gate (`/admin` scrape) — Task 68 + the Finding-1 crash
+**Result:** PASS (375 + 1280) **after Finding-1 fix**
+**Steps:** Triggered a live re-scrape of the Amex Platinum Card (server-side scrape + Haiku parse returns 200 OK with 17 parsed benefits — confirmed by direct endpoint call). Reached the review gate. **Discarded without confirming — no DB write.**
+**Observed (pre-fix):** Review gate, scan animation, and add-card flow **crashed to the app ErrorBoundary** ("Something went wrong") — see Finding 1.
+**Observed (post-fix, both viewports):** Scan animation renders, then the review gate renders cleanly (0 captured errors). **Task 68 per-window labels correct** across windows: "$300 **per 6 months**" (semiannual), "$200/$209/$120 **per year**" (annual), "$100 **per quarter**" (quarterly). Mandatory review banner present ("Nothing is saved until you do", CONSTRAINT-10). Modal content centered in the ~420px column at 1280 (left 450 / right 467).
 
-### Admin (`/admin`)
-**Result:** PASS
-**Observed:** Admin home (stats + card list with re-scan/delete — not touched), add-card picker (preset search + custom-card form). **Form validation fires correctly:** empty → submit disabled; whitespace-only → disabled (trims); only-issuer → disabled (both required); both filled → enabled; cleared → disabled. CONSTRAINT-20 confirmed — zero toasts during validation (toasts reserved for add/remove). Centered 420px column.
-**Issues:** None. (No scrape triggered — non-destructive policy.)
+### Auth
+**Result:** PASS — a fresh Puppeteer browser (no cookie) is redirected to `/login`; manual credential login grants the JWT session. Each browser relaunch (viewport change) correctly re-required login.
 
 ---
 
 ## Edge Case Assessment
 
-- Invalid/empty form inputs on add-custom-card: validation gates submission correctly (verified live).
-- Usage input clamping: covered by `usage.integration.test.ts` (clamp + negative) and the slider's `clamp()` (verified in code).
-- No JS error boundaries, blank states, or bad-value strings surfaced on any of the three screens.
-- Centered-column (CONSTRAINT-23) holds on Overview, Cards-collapsed, and Admin (all 420px, left 422). Fails only on the expanded-card overlay (Finding 1).
+- **Optimistic-write revert:** covered by `use-overview-data.test.ts` (POST failure → "Failed to update usage" → state reverts). Live usage write not destructively re-tested this gate (covered by Feature 9 live test + this suite).
+- **All-untracked card:** Amazon Prime Visa (17/17 untracked) renders an empty visible list + a single hidden row — no empty-state crash.
+- **Set-and-forget on Overview:** rendered info-only (no usage control) per CONSTRAINT-17 (code-verified `loggable = !c.setAndForget`).
+- **LLM parse variance (NON-BLOCKING, A10):** across two scrapes the Haiku parse labeled Uber Cash as "$200/year" then "$180/year" with a per-window note — a known parse-accuracy risk the **mandatory review gate exists to catch**, not a Feature 10 defect. Discarded unsaved.
 
 ---
 
 ## Findings
 
-### RESOLVED (was BLOCKING) — Finding 1: Expanded card-detail overlay violates CONSTRAINT-23 (full-width, not centered 420px column)
+### RESOLVED (was BLOCKING) — Finding 1: Review gate / admin flow crashes to ErrorBoundary (invalid Framer Motion easing)
 
-> **Resolution (2026-06-07):** Fixed in `src/components/cards/card-detail-overlay.tsx:65` — wrapper changed from `style={{ width: "80%" }}` to `className="mx-auto w-full max-w-[420px] px-6"` (matches the app shell's `max-w-[420px]` at `app/(app)/layout.tsx:20` + the Cards screen's 24px inset). Animation/backdrop/props unchanged. 292/292 tests pass, build clean, file 157 lines (< 200, CQ-02). QA authority re-verified live after a dev-server restart: overlay = 420px wide, centered (left 422). Closed.
+> **Resolution (2026-06-09):** Fixed via `@dev` targeted-fix mode. Added `EASING_ARRAY = [0.34, 1.2, 0.64, 1]` and `EASING_MODAL_ARRAY = [0.34, 1.1, 0.64, 1]` to `src/lib/ui/tokens.ts` (the CSS-string `EASING`/`EASING_MODAL` are retained for real CSS transitions) and repointed all 9 Framer `transition.ease` usages to the array form: `toast.tsx`, `benefit-edit-row.tsx`, `benefit-edit-panel.tsx`, `delete-confirm.tsx`, `flow-shell.tsx` (modal), `excluded-disclosure.tsx` (×2), `catalog-row.tsx`, `scan-card-visual.tsx`. Added 2 token assertions to `tokens.test.ts`. `tsc` clean, 247/247 tests pass, build clean. **QA authority re-verified live: review gate + scan + add-card render with 0 errors at both 375 and 1280.** Closed.
 
 **Founder Brief**
-**Decided:** On desktop, tapping any card opens a detail panel that stretches to ~1011px wide while every other screen is a tidy centered 420px column — a direct violation of CONSTRAINT-23 (the desktop centered-column constraint added in the most recent commit).
-**Means for your product:** The primary card-interaction screen looks broken/inconsistent versus the rest of the app on the only deployment target (desktop). For a feature whose entire deliverable is layout fidelity ("pixel-perfect three-screen redesign"), this is the acceptance bar, not a cosmetic aside.
-**Check before approving:** After the fix, re-expand a card at 1280px and confirm the detail content sits in a centered ~420px column matching Overview/Cards/Admin.
-**What this closes off:** Nothing — the fix is additive (a max-width on the existing wrapper).
+**Decided:** The review gate — the *only* way benefit data enters the app — was crashing to a generic "Something went wrong" screen on every scrape and add-card, along with the scan animation, delete-confirm, and toasts.
+**Means for your product:** Before the fix, you could not add a card or re-scrape benefits at all. Overview and Cards (daily use) worked, but the entire data-entry path was dead.
+**Check before approving:** Scrape a card and confirm the review gate renders and you can save — done, verified live at both viewports.
+**What this closes off:** Nothing — mechanical fix (array-form easing constants).
 
-**What is wrong:** `src/components/cards/card-detail-overlay.tsx:61` — `<div className="mx-auto" style={{ width: "80%" }}>`. The overlay root is `fixed inset-0` (line 40), so it escapes the app shell's centered `max-w-[420px]` container; its inner wrapper is then `width: 80%` of the full window (≈1011px at 1280). Leftover from the mobile-only era (80% of 375px was fine); CONSTRAINT-23's container (Task 65) was applied to the main shell but never to this `fixed` overlay.
-**What must be done:** Cap the overlay content wrapper at the 420px column — e.g. replace `width: "80%"` with `max-w-[420px]` (plus side padding) on the `mx-auto` wrapper (and/or center the `fixed` overlay's content to the same column). Re-run `@qa` after the fix.
+**What was wrong:** `EASING = "cubic-bezier(0.34, 1.2, 0.64, 1)"` (a CSS easing **string**, `tokens.ts:112`) was passed into Framer Motion's `transition.ease` prop in 9 components. framer-motion v11 (11.18.2 installed under the `^11.0.0` range) **hard-throws `Invalid easing type`** on CSS-string easings — it requires an array `[0.34, 1.2, 0.64, 1]`. `flow-shell.tsx:47` wraps the whole admin flow, so it threw before the gate mounted.
+**Origin (important):** Git history confirms every `ease: EASING` line was introduced in **Feature 9** (Task 65 admin rebuild + the Feature 9 code-review commit). **Feature 10 did not add or modify any easing line.** framer-motion v11 always rejected CSS-string easings, so this shipped **latent in Feature 9** and was never hit at runtime until the review gate was actually opened in this gate. **Feature 9's QA (2026-06-07) verified at 1280 but explicitly triggered no scrape** ("No scrape triggered — non-destructive policy"), which is why it was missed.
+**Recommended guard (NON-BLOCKING):** add a lint rule or a unit test asserting no `ease:` prop receives a `cubic-bezier(` string, so this runtime-only class of bug is caught by CI.
 
----
+### NON-BLOCKING — Finding 2: Feature 10 fix is uncommitted
 
-### NON-BLOCKING — Finding 2: Issuer-color migration script has no regression test
+**What is wrong:** The Finding-1 fix (9 components + `tokens.ts` + `tokens.test.ts`) and these QA/plan/manifest doc updates are uncommitted in the working tree.
+**What must be done:** Commit to `main` (solo-dev convention). The fix is small, mechanical, tested, and build-verified.
 
-**What is wrong:** `scripts/backfill-issuer-colors.ts` does override-preserving DB writes with no test asserting idempotency / override-preservation (Coverage Gap 1).
-**What must be done:** Write a regression test before the script is ever re-run. Does not block ship — it already ran once against backed-up DBs and the result was verified manually.
+### NON-BLOCKING — Finding 3: Framer-easing bug class is invisible to tsc/build
 
-### NON-BLOCKING — Finding 3: TS-01 shortfalls (auth 2nd error-case, scrape 401)
+**What is wrong:** Coverage Gap 3 — a CSS-string easing passed to a Framer `ease` prop type-checks and builds fine; it only throws at render. There may be no other instances now, but nothing prevents reintroduction.
+**What must be done:** Add the lint/unit guard from Finding 1's recommendation when convenient.
 
-**What is wrong:** `authorizeUser` has one error-case test (TS-01 wants two for auth functions); the scrape route has no explicit 401 test (Coverage Gaps 2–3).
-**What must be done:** Add the unknown-email/unconfigured-password auth test and a scrape-route 401 test. Quality debt; the patterns are proven elsewhere.
+### NON-BLOCKING — Finding 4: LLM parse accuracy on per-window values (A10)
 
-### NON-BLOCKING — Finding 4: Possible stray `$` on expanded-view section label
-
-**What is wrong:** A section header may render as "$CREDITS" in the expanded card view. Low confidence — likely an innerText artifact, not a visible defect.
-**What must be done:** Eyeball the expanded-card section headers; fix only if a real stray `$` is visible.
+**What is wrong:** A live scrape labeled a $15/month credit as an annual figure. Accepted risk A10; the mandatory review gate is the mitigation (user corrects before save).
+**What must be done:** Nothing required — working as designed. Watch parse quality over time.
 
 ---
 
 ## Summary
 
-**Blocking issues:** 0 (1 found, 1 fixed + re-verified)
+**Blocking issues:** 0 (1 found, 1 fixed + re-verified live)
 **Non-blocking issues:** 3
 
 **Verdict:**
-**APPROVED** — Feature 9 is shippable. The one blocking finding (Finding 1: CONSTRAINT-23 violation on the expanded card-detail overlay) was fixed and re-verified live (overlay now a centered 420px column). All test coverage is green (292/292), the build is clean, every runtime critical path is covered, and the core value-tracking write path was verified live end-to-end. Three non-blocking quality-debt items remain (Findings 2–4) — documented, not gating.
+**APPROVED** — Feature 10 (Tasks 67–73) is shippable. All four Feature 10 UI deliverables (per-window amount label, tap-to-expand inline logging, days-left rows, visible/hidden split) verified live at **375px AND 1280px**; CONSTRAINT-23 holds on every screen incl. fixed nav and overlays; 247/247 unit tests green; `tsc` clean; production build clean (twice). The one blocking finding — a **latent Feature 9** review-gate crash surfaced by this gate's live scrape — was fixed, re-verified live at both viewports, and build-confirmed. Three non-blocking items remain (commit the fix, add an easing guard, monitor parse accuracy).
 
-**Recommended follow-ups (non-gating):**
-- Re-run `@security` — the prior security report (2026-06-04 CLEAR) predates the Feature 9 UI; a quick re-audit is prudent before relying on the app daily.
-- Address Findings 2–4 (migration-script test, auth 2nd error-case test, scrape 401 test, cosmetic `$CREDITS` check) when convenient.
-- Commit the fix; `main` is currently ahead of `origin/main` and the overlay fix is uncommitted.
+**Required / recommended follow-ups:**
+- **Commit the fix + docs to `main`** (Finding 2) — required to persist the fix.
+- **Run `@security`** — Feature 10 is still owed a security gate (new usage-write surface + audit script); the existing security report is Feature-9-scoped. The Finding-1 fix is UI-only (no auth/data-handling change).
+- Add an easing-guard test/lint (Finding 3) when convenient.
+- **Process note:** Feature 9's "APPROVED" did not exercise the review gate. Future feature QA must trigger at least one live scrape so the data-entry path is covered.

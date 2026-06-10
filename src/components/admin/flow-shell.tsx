@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { COLORS, EASING_MODAL, RADII } from "@/lib/ui/tokens";
+import { COLORS, EASING_MODAL_ARRAY, RADII } from "@/lib/ui/tokens";
 import { BackIcon } from "./icons";
 
 /** Props for FlowShell. */
@@ -44,7 +44,7 @@ export function FlowShell({
       }}
       initial={reduceMotion ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: EASING_MODAL }}
+      transition={{ duration: 0.3, ease: EASING_MODAL_ARRAY }}
     >
       {/* header */}
       <div

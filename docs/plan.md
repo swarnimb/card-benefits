@@ -2459,7 +2459,7 @@
 - [x] The Amount field shows its reset window: "Amount (per month)" / "(per quarter)" / "(per 6 months)" for semiannual / "(per year)" for annual / "(one-time)" for once
 - [x] Wording makes clear the figure is the per-window amount the user is confirming
 - [x] No DB or schema change; `POST /api/benefits/confirm` unchanged
-- [ ] [CONSTRAINT-23] Verified at 375px AND 1280px  *(live visual deferred to Feature 10 @qa)*
+- [x] [CONSTRAINT-23] Verified live at 375px AND 1280px — **Feature 10 `@qa` gate 2026-06-09: PASS** (review gate renders centered ~420px column at both viewports; per-window labels correct)
 
 **Tests required:**
 - `BenefitEditPanel` → `renders "per 6 months" helper for a semiannual benefit`
@@ -2536,7 +2536,7 @@
 - [x] Correct control by `type`: credit/perk → `UsageSlider`, subscription → `UsageToggle`, access → `UsageCounter`; passes value/max/cardColor; `onUpdate` → the Task 70 `updateBenefitUsage`
 - [x] One row expanded at a time; tapping it again (or another row) collapses it
 - [x] Reuses the existing `UsageSlider`/`UsageToggle`/`UsageCounter` unchanged
-- [x] [CONSTRAINT-23] Verified at 375px AND 1280px — **live 375/1280 check DEFERRED to the Feature 10 `@qa` gate** (per Task 68 cadence; not yet visually verified). Check at the gate: expand panel + slider/toggle/counter fit the centered 420px column; chevron not crowded at 375px.
+- [x] [CONSTRAINT-23] Verified live at 375px AND 1280px — **Feature 10 `@qa` gate 2026-06-09: PASS** (tap-to-expand inline control fits the centered 420px column; single-open enforced; chevron not crowded at 375px)
 
 **Tests required:**
 - `CategoryDetailRow` → `reveals UsageSlider for a credit when tapped`
@@ -2587,7 +2587,7 @@
 - [x] The eye toggle moves a benefit between sections (existing PATCH + `onTrackedUpdate` sync); hiding removes it from Overview totals, showing rejoins (existing behavior)
 - [x] The hidden row is omitted entirely when there are no untracked benefits (not "0 hidden")
 - [x] Existing stack/detail animation + portfolio stat trio unaffected
-- [~] [CONSTRAINT-23] Verified at 375px AND 1280px — *structurally column-safe (full-width button, px-4, shrink-0 chevron, no fixed widths); **live 375/1280 visual DEFERRED to the Feature 10 `@qa` gate** (per Task 68/71 cadence)*
+- [x] [CONSTRAINT-23] Verified live at 375px AND 1280px — **Feature 10 `@qa` gate 2026-06-09: PASS** (visible/hidden split + eye toggles stay in the centered 420px column; full-screen scrim correct, content not full-bleed)
 
 **Tests required:**
 - `BenefitList` → `renders only tracked benefits in the main list`

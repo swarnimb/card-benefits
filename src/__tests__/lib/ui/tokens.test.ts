@@ -7,6 +7,8 @@ import {
   TYPE,
   SPRING,
   EASING,
+  EASING_ARRAY,
+  EASING_MODAL_ARRAY,
 } from "@/lib/ui/tokens";
 import {
   OV,
@@ -58,6 +60,8 @@ describe("canonical design tokens", () => {
   it("translates the design overshoot easing into the canonical spring", () => {
     expect(SPRING).toEqual({ type: "spring", stiffness: 420, damping: 26 });
     expect(EASING).toBe("cubic-bezier(0.34, 1.2, 0.64, 1)");
+    expect(EASING_ARRAY).toEqual([0.34, 1.2, 0.64, 1]);
+    expect(EASING_MODAL_ARRAY).toEqual([0.34, 1.1, 0.64, 1]);
   });
 
   it("keeps the Overview re-export in lockstep with canonical (no drift)", () => {
