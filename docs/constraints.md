@@ -302,6 +302,18 @@
 
 ---
 
+### [CONSTRAINT-25] Framer Motion `ease` props must use array-form easing constants
+
+**Decision:** A Framer Motion `transition.ease` prop must use the array-form easing constants `EASING_ARRAY` / `EASING_MODAL_ARRAY` (numeric cubic-bezier tuples) from `src/lib/ui/tokens.ts`. The string constants `EASING` / `EASING_MODAL` (CSS `cubic-bezier(...)` strings) are for CSS `transition` declarations ONLY. framer-motion v11 throws `Invalid easing type` at runtime when given a CSS-string `ease` — and neither `tsc` nor `next build` catches it (it is a render-time throw).
+
+**What it means in practice:** Any motion component passing `ease:` into a Framer `transition` imports the array constant, never the string. Passing the CSS string crashes that component to the app ErrorBoundary on render. This shipped as a latent Feature-9 bug that took down the entire review-gate / add-card / scrape (data-entry) flow until the Feature 10 `@qa` gate's live scrape surfaced it (fixed 2026-06-09, commit `cd426ca`). Recommended guard (tracked debt): a lint rule or unit test asserting no `ease:` receives a `cubic-bezier(` string.
+
+**Who decided and when:** @qa / @dev (Feature 10 gate), 2026-06-09
+
+**What this closes off:** Collapsing CSS and Framer easing into one token. The two representations (CSS string vs numeric array) stay as separate named constants — do not merge them.
+
+---
+
 ## Summary Table
 
 | # | Decision | Practical impact | Decided by | Date |
@@ -330,3 +342,4 @@
 | 22 | Issuer color = Feature 9 design tokens (defaultColor seeded to token; override wins) | One color source; catalog seeds = tokens; backfill on migration | Builder (Feature 9) | 2026-06-04 |
 | 23 | App shell on desktop = centered max-w-[420px] column | Mobile-first design centered on desktop (desktop-only MVP); BottomNav constrained to same width; new UI lives in this column | Builder (Feature 9) | 2026-06-04 |
 | 24 | Benefit value = per-reset-window amount, not annualized | $300/6mo stores 300 not 600; semantics in Haiku schema; Overview sums per-window caps; annual figures derived at presentation only | Builder (Feature 10) | 2026-06-09 |
+| 25 | Framer Motion `ease` uses array-form constants (EASING_ARRAY/EASING_MODAL_ARRAY) | CSS-bezier string easings crash framer-motion v11 at runtime; string constants are for CSS transitions only | @qa/@dev (Feature 10) | 2026-06-09 |
