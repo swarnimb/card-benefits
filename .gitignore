@@ -39,6 +39,10 @@ docs/framework-issues.md
 *.tsbuildinfo
 next-env.d.ts
 
+# audit-script data artifact — `audit-benefit-values.ts --apply corrections.json`
+# per-run benefit-value correction map; data, never committed (Security Low)
+corrections.json
+
 # dev screenshots at project root (Playwright MCP default save location)
 /*.png
 
