@@ -7,8 +7,8 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-06-09 (Phase I / Feature 10 — Tasks 67–73 added via @create-plan: per-window value, Overview inline logging + days-left, Cards visible/hidden split. **Tasks 67–73 ALL done — Feature 10 build COMPLETE. Pending: `@code-review` + Feature 10 `@qa`/`@security` gate (live 375/1280 visual deferred there).**)
-**Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55) + 7 Phase I — Feature 10: Usage Accuracy & In-Place Logging (Tasks 67–73)
+**Last Updated:** 2026-06-10 (Phase J / Feature 10.1 — Tasks 74–78 added via @create-plan: per-window value correctness defect fix — annual-blind audit detector, safe resetPeriod correction, annual roll-up safeguard, parser prompt hardening, correct 5 mis-valued rows. Feature 10 / Tasks 67–73 remain done + fully gated.)
+**Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55) + 7 Phase I — Feature 10: Usage Accuracy & In-Place Logging (Tasks 67–73) + 5 Phase J — Feature 10.1: Per-Window Value Correctness defect fix (Tasks 74–78)
 
 ---
 
@@ -2600,6 +2600,146 @@
 
 ---
 
+## Phase J — Feature 10.1: Per-Window Value Correctness (defect fix)
+
+> Source: PRD Feature 10.1 ("Per-window benefit cap"). Closes the detection + correction + safety-net gaps around a parser that already specifies per-window extraction. Root cause: the audit detector is annual-blind (only questions sub-annual rows, never asks whether an `annual` row should have been sub-annual), so annual-disguised credits (Resy $400, lululemon $300) were structurally invisible and stored as annual totals — letting a full year's amount be logged inside one window. Discovered 2026-06-10 via live use.
+
+---
+
+## Task 74: Audit detector — flag annual-disguised sub-annual credits
+
+**Files:**
+- `scripts/audit-benefit-values.ts` — modify
+- `src/__tests__/scripts/audit-benefit-values.test.ts` — modify
+
+**Functions to implement:**
+- `flagBenefit(b: { value, resetPeriod, name?, description })` — extend to ALSO flag `annual` / `once` rows whose `name`/`description` signals a sub-annual cadence.
+
+**Acceptance criteria:**
+- [ ] Flags a row with `resetPeriod` `annual` (or `once`) when `name`/`description` matches a sub-annual cadence pattern: `per month`, `/mo`, `monthly`, `per quarter`, `each quarter`, `quarterly`, `per 6 months`, `semi-?annual`, or `$N per month|quarter`
+- [ ] Detection is **language-pattern based only — NO card/benefit names hardcoded** (per builder constraint "no hardcoding the fixes")
+- [ ] Genuine annual credits with no sub-annual signal (e.g. "$200 Airline Fee Credit", "$209 CLEAR+") are NOT flagged — zero false positives on the current 85-row dataset's true annuals
+- [ ] Existing sub-annual per-window confirmation check is retained (regression-safe)
+- [ ] Flag `reason` string names the suspected window so the user can confirm the correction
+- [ ] [EH-01] no swallowed errors; dry-run stays the default — no DB write without `--apply`
+
+**Tests required:**
+- `flagBenefit` → `flags an annual row whose description mentions "per quarter"`
+- `flagBenefit` → `does not flag a genuine annual credit with no sub-annual signal`
+- `flagBenefit` → `still flags a sub-annual row needing per-window confirmation (regression)`
+
+**Depends on:** None
+**Status:** [ ]
+**Specialist:** @data
+
+---
+
+## Task 75: Safe resetPeriod correction — regenerate period on edit
+
+**Files:**
+- `src/app/api/benefits/[id]/route.ts` — modify
+- `src/__tests__/api/benefits/benefit-mutation.integration.test.ts` — modify
+
+**Functions to implement:**
+- `applyBenefitUpdate(...)` — extend to detect a `resetPeriod` change and close the stale open `BenefitPeriod` in the same transaction.
+
+**Acceptance criteria:**
+- [ ] When PATCH changes `resetPeriod` (new value differs from current), within the same `$transaction` close the current open `BenefitPeriod` (`status` open→closed — the one permitted transition, per CONSTRAINT-08). The next read regenerates a correctly-bounded period via the existing lazy `ensureCurrentPeriod` path (CONSTRAINT-03) — do not duplicate period-creation logic
+- [ ] Set-and-forget benefits (`setAndForget = true`) have no periods — skip period regen (CONSTRAINT-17)
+- [ ] Existing `type`-change behavior (reset open `usedAmount = 0`) unchanged
+- [ ] No closed `BenefitPeriod` is mutated (CONSTRAINT-08); `usedAmount` is not written directly here (CONSTRAINT-07)
+- [ ] Mass-assignment allowlist unchanged — `setAndForget` remains non-client-settable (security carry-forward)
+- [ ] [EH-01] transaction failure rolls back, no partial state; [CQ-01] handler stays < 50 lines (delegate)
+
+**Tests required:**
+- `PATCH /api/benefits/[id]` → `changing resetPeriod annual→quarterly closes the stale open period (re-read yields a correctly-bounded new period)`
+- `PATCH /api/benefits/[id]` → `changing only value (same resetPeriod) does not close/regenerate the period`
+- `PATCH /api/benefits/[id]` → `resetPeriod change on a set-and-forget benefit creates/closes no period`
+
+**Depends on:** None (Tasks 5, 12 already complete)
+**Status:** [ ]
+**Specialist:** @data
+
+---
+
+## Task 76: Annual roll-up safeguard in the edit/review surface
+
+**Files:**
+- `src/components/admin/edit-fields.tsx` — modify
+- `src/__tests__/components/admin/edit-fields.test.tsx` — create
+
+**Functions to implement:**
+- `annualRollup(value: number | null, resetPeriod: ResetPeriod): number | null` — derive the yearly figure (`value × windows-per-year`: monthly×12, quarterly×4, semiannual×2); returns `null` for `annual`/`once`.
+
+**Acceptance criteria:**
+- [ ] `BenefitAmount` renders a derived "→ $Y/yr" beside the per-window amount when `resetPeriod` is sub-annual (monthly/quarterly/semiannual)
+- [ ] Roll-up hidden for `resetPeriod` `annual` (the window IS the year — redundant) and `once`
+- [ ] Figure is derived at render only — never stored (CONSTRAINT-24: annual figures derived at presentation)
+- [ ] Uses the existing `usd()` helper + `tokens.ts` — no hardcoded hex/px (design system)
+- [ ] [CONSTRAINT-23] reads correctly at 375px AND 1280px inside the centered column
+
+**Tests required:**
+- `annualRollup` → `returns 400 for quarterly $100`
+- `annualRollup` → `returns 300 for monthly $25`
+- `annualRollup` → `returns null for annual and for once`
+- `BenefitAmount` → `renders the "$400/yr" roll-up for a quarterly $100 benefit`
+
+**Depends on:** None
+**Status:** [ ]
+**Specialist:** @ui-cardmaxxer
+
+---
+
+## Task 77: Harden the parser prompt against annual-headline mis-bucketing
+
+**Files:**
+- `src/lib/parser/schema.ts` — modify
+- `src/lib/parser/index.ts` — modify
+- `src/__tests__/lib/parser/parser.unit.test.ts` — modify
+
+**Functions to implement:** None new — strengthen the tool `value` description + system prompt.
+
+**Acceptance criteria:**
+- [ ] System prompt + tool `value` description include worked **monthly** and **quarterly** examples in addition to the existing semiannual one (e.g. `"$400/yr, $100 quarterly" → value 100, resetPeriod quarterly`; `"$300/yr, $25 monthly" → value 25, resetPeriod monthly`)
+- [ ] Prompt explicitly states: when a benefit advertises an annual headline delivered in increments, emit the SMALLEST reset window and its per-window amount, never the annual total
+- [ ] Model unchanged: `claude-haiku-4-5-20251001`, `tool_use` only (CONSTRAINT-09)
+- [ ] `toDraftBenefit` passthrough unchanged — `value`/`resetPeriod` verbatim (CONSTRAINT-24)
+
+**Tests required:**
+- `parseBenefits` → `returns per-window value/resetPeriod verbatim for a mocked tool_use response (regression)`
+- `parser prompt` → `system prompt string includes both monthly and quarterly per-window guidance`
+
+**Depends on:** None
+**Status:** [ ]
+**Specialist:** @llm-parser
+
+---
+
+## Task 78: Correct the existing mis-valued rows (non-destructive)
+
+**Files:**
+- Data correction only — applied via the Task 75 edit path (Admin benefit edit), optionally `scripts/audit-benefit-values.ts --apply`. No new source files.
+
+**Functions to implement:** None.
+
+**Acceptance criteria:**
+- [ ] Resy Credit (Amex Platinum): `resetPeriod` → quarterly, `value` → 100
+- [ ] lululemon Credit (Amex Platinum): `resetPeriod` → quarterly, `value` → 75
+- [ ] Uber Cash (Amex Platinum): `resetPeriod` → monthly, `value` → 15 (approximation accepted per builder decision — the December $35 is not modeled; CONSTRAINT-24 per-window)
+- [ ] Equinox Credit (Amex Platinum): cadence **verified against the source** before correcting — corrected to its true per-window value, or left annual if genuinely annual
+- [ ] All corrections applied via the Task 75 edit path — **NO re-scrape** (PRD 10.1; CONSTRAINT-06 re-scrape would wipe edits and risk the LLM repeating the error)
+- [ ] No closed `BenefitPeriod` mutated (CONSTRAINT-08); `usedAmount` not written directly (CONSTRAINT-07)
+- [ ] Verified live in-app: each corrected benefit's slider max = the per-window value; the Task 76 roll-up shows the correct yearly figure; over-claiming within a single window is no longer possible
+- [ ] Digital Entertainment Credit is explicitly OUT OF SCOPE here — it is flagged `setAndForget` (deliberately non-client-editable), so correcting it requires a separate task that revisits that flag without weakening the security control
+
+**Tests required:** None new — data task; behavior covered by Tasks 74/75/76 tests. **Manual live verification at 375px is required** (per Feature 10 QA process gap FI-10: exercise the real edit flow, not static screens).
+
+**Depends on:** Tasks 74, 75 (and 76 for roll-up verification)
+**Status:** [ ]
+**Specialist:** @data
+
+---
+
 ## Completed Tasks
 
 _(none yet)_
@@ -2616,3 +2756,4 @@ _(none yet)_
 | 2026-05-19 | Tasks 40–46 added (39 → 46 total) | `@create-plan` — Phase F: Defect Closeout + Stability bundle (5 manual-QA findings + Next.js security upgrade + gate) |
 | 2026-05-21 | Tasks 49–55 added (Phase H) | `@create-plan` — Feature 8: Set-and-Forget Benefits |
 | 2026-06-04 | Tasks 56–66 added (Feature 9) | `@create-plan` — Pixel-Perfect Three-Screen Redesign |
+| 2026-06-10 | Tasks 74–78 added (Phase J) | `@create-plan` — Per-Window Value Correctness (Feature 10.1 defect fix): annual-disguised credits (Resy/lululemon/Uber Cash) stored as annual totals; annual-blind audit + no roll-up safeguard |
