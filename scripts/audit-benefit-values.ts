@@ -37,6 +37,31 @@ const SUB_ANNUAL_PERIODS = new Set(["monthly", "quarterly", "semiannual"]);
 /** Description phrasings that hint the stored value is an annual cadence. */
 const ANNUAL_CADENCE = /year|annual|annually|\/\s?yr|per year/i;
 
+/**
+ * Sub-annual cadence phrasings. An `annual`/`once` row whose name/description
+ * matches one of these is "annual-disguised": a year's total delivered in
+ * smaller windows (e.g. "$400 ($100/quarter)"), so the stored value is the
+ * annual total when it should be per-window (CONSTRAINT-24). Pattern-based
+ * ONLY — no card/benefit names are hardcoded. The capture group on each regex
+ * names the implied window so the flag reason can cite it for confirmation.
+ */
+const SUB_ANNUAL_CADENCE: { window: string; re: RegExp }[] = [
+  { window: "monthly", re: /\bper month\b|\/\s?mo\b|\bmonthly\b|\$\s?\d+(?:\.\d+)?\s*per month\b/i },
+  { window: "quarterly", re: /\bper quarter\b|\beach quarter\b|\bquarterly\b|\$\s?\d+(?:\.\d+)?\s*per quarter\b/i },
+  { window: "semi-annual", re: /\bper 6 months\b|\bsemi-?annual\b/i },
+];
+
+/**
+ * Detect a sub-annual cadence signal in free text. Returns the implied window
+ * label (e.g. "monthly") or null when no cadence phrasing is present.
+ */
+function detectSubAnnualCadence(text: string): string | null {
+  for (const { window, re } of SUB_ANNUAL_CADENCE) {
+    if (re.test(text)) return window;
+  }
+  return null;
+}
+
 /** apply-mode error carrying the offending benefitId for context (EH-01/EH-05). */
 class ApplyError extends Error {
   constructor(
@@ -49,27 +74,43 @@ class ApplyError extends Error {
 }
 
 /**
- * Pure flag decision. resetPeriod "once"/"annual" is correct by definition
- * (the window IS the year / one-time). Sub-annual periods with a positive,
- * finite value are flagged for per-window confirmation.
+ * Pure flag decision. Two complementary checks:
+ *  1. Sub-annual rows (monthly/quarterly/semiannual) with a positive finite
+ *     value are flagged so the user can confirm the value is per-window.
+ *  2. `annual`/`once` rows are normally correct by definition — but if their
+ *     name/description signals a sub-annual cadence ("$100/quarter"), the
+ *     stored value is likely an annual total in the wrong window
+ *     (CONSTRAINT-24), so they are flagged for correction.
  */
 export function flagBenefit(b: {
   value: number | null;
   resetPeriod: string;
+  name?: string | null;
   description: string | null;
 }): { flagged: boolean; reason: string } {
-  if (!SUB_ANNUAL_PERIODS.has(b.resetPeriod)) {
-    return { flagged: false, reason: "" };
-  }
   if (b.value === null || !Number.isFinite(b.value) || b.value <= 0) {
     return { flagged: false, reason: "" };
   }
 
-  let reason = `${b.resetPeriod} reset — confirm $${b.value} is per-window, not an annual total`;
-  if (b.description && ANNUAL_CADENCE.test(b.description)) {
-    reason += " (description mentions an annual cadence — likely needs dividing)";
+  if (SUB_ANNUAL_PERIODS.has(b.resetPeriod)) {
+    let reason = `${b.resetPeriod} reset — confirm $${b.value} is per-window, not an annual total`;
+    if (b.description && ANNUAL_CADENCE.test(b.description)) {
+      reason += " (description mentions an annual cadence — likely needs dividing)";
+    }
+    return { flagged: true, reason };
   }
-  return { flagged: true, reason };
+
+  if (b.resetPeriod === "annual" || b.resetPeriod === "once") {
+    const window = detectSubAnnualCadence(`${b.name ?? ""} ${b.description ?? ""}`);
+    if (window) {
+      return {
+        flagged: true,
+        reason: `${b.resetPeriod} reset but text signals a ${window} cadence — confirm $${b.value} is the ${window} per-window amount, not the annual total`,
+      };
+    }
+  }
+
+  return { flagged: false, reason: "" };
 }
 
 type BenefitRow = {

@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-06-10 (Phase J / Feature 10.1 — Tasks 74–78 added via @create-plan: per-window value correctness defect fix — annual-blind audit detector, safe resetPeriod correction, annual roll-up safeguard, parser prompt hardening, correct 5 mis-valued rows. Feature 10 / Tasks 67–73 remain done + fully gated.)
+**Last Updated:** 2026-06-10 (Phase J / Feature 10.1 — Tasks 74–78 added via @create-plan: per-window value correctness defect fix — annual-blind audit detector, safe resetPeriod correction, annual roll-up safeguard, parser prompt hardening, correct 5 mis-valued rows. **Task 74 [x] done 2026-06-10** — `flagBenefit` now flags annual-disguised sub-annual credits via cadence-language patterns; 9 unit tests pass; dry-run confirmed 5 previously-invisible rows flagged, zero false positives. Phase J now 1/5. Feature 10 / Tasks 67–73 remain done + fully gated.)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55) + 7 Phase I — Feature 10: Usage Accuracy & In-Place Logging (Tasks 67–73) + 5 Phase J — Feature 10.1: Per-Window Value Correctness defect fix (Tasks 74–78)
 
 ---
@@ -2616,12 +2616,12 @@
 - `flagBenefit(b: { value, resetPeriod, name?, description })` — extend to ALSO flag `annual` / `once` rows whose `name`/`description` signals a sub-annual cadence.
 
 **Acceptance criteria:**
-- [ ] Flags a row with `resetPeriod` `annual` (or `once`) when `name`/`description` matches a sub-annual cadence pattern: `per month`, `/mo`, `monthly`, `per quarter`, `each quarter`, `quarterly`, `per 6 months`, `semi-?annual`, or `$N per month|quarter`
-- [ ] Detection is **language-pattern based only — NO card/benefit names hardcoded** (per builder constraint "no hardcoding the fixes")
-- [ ] Genuine annual credits with no sub-annual signal (e.g. "$200 Airline Fee Credit", "$209 CLEAR+") are NOT flagged — zero false positives on the current 85-row dataset's true annuals
-- [ ] Existing sub-annual per-window confirmation check is retained (regression-safe)
-- [ ] Flag `reason` string names the suspected window so the user can confirm the correction
-- [ ] [EH-01] no swallowed errors; dry-run stays the default — no DB write without `--apply`
+- [x] Flags a row with `resetPeriod` `annual` (or `once`) when `name`/`description` matches a sub-annual cadence pattern: `per month`, `/mo`, `monthly`, `per quarter`, `each quarter`, `quarterly`, `per 6 months`, `semi-?annual`, or `$N per month|quarter`
+- [x] Detection is **language-pattern based only — NO card/benefit names hardcoded** (per builder constraint "no hardcoding the fixes")
+- [x] Genuine annual credits with no sub-annual signal (e.g. "$200 Airline Fee Credit", "$209 CLEAR+") are NOT flagged — zero false positives on the current 85-row dataset's true annuals
+- [x] Existing sub-annual per-window confirmation check is retained (regression-safe)
+- [x] Flag `reason` string names the suspected window so the user can confirm the correction
+- [x] [EH-01] no swallowed errors; dry-run stays the default — no DB write without `--apply`
 
 **Tests required:**
 - `flagBenefit` → `flags an annual row whose description mentions "per quarter"`
@@ -2629,7 +2629,7 @@
 - `flagBenefit` → `still flags a sub-annual row needing per-window confirmation (regression)`
 
 **Depends on:** None
-**Status:** [ ]
+**Status:** [x]
 **Specialist:** @data
 
 ---
