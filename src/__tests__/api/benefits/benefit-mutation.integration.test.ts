@@ -9,6 +9,7 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 import { PATCH, DELETE } from "@/app/api/benefits/[id]/route";
+import { ensureCurrentPeriod } from "@/lib/engine/periods";
 import { prisma } from "@/lib/db";
 
 const TEST_USER = "__t12_user__";
@@ -111,6 +112,100 @@ describe("PATCH /api/benefits/[id]", () => {
       where: { benefitId: benefit.id, status: "open" },
     });
     expect(period?.usedAmount).toBe(0);
+  });
+
+  it("changing resetPeriod annual→quarterly closes the stale open period (re-read yields a correctly-bounded new period)", async () => {
+    const benefit = await createBenefit(testUserCardId, { resetPeriod: "annual" });
+    const stale = await prisma.benefitPeriod.create({
+      data: {
+        benefitId: benefit.id,
+        periodStart: new Date("2026-01-01"),
+        periodEnd: new Date("2026-12-31"),
+        usedAmount: 40,
+        status: "open",
+      },
+    });
+
+    const res = await PATCH(
+      new NextRequest(`http://localhost/api/benefits/${benefit.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ resetPeriod: "quarterly" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: benefit.id }) }
+    );
+
+    expect(res.status).toBe(200);
+
+    // The stale annual period is closed in-place (open→closed, CONSTRAINT-08); usedAmount preserved as history.
+    const staleAfter = await prisma.benefitPeriod.findUnique({ where: { id: stale.id } });
+    expect(staleAfter?.status).toBe("closed");
+    expect(staleAfter?.usedAmount).toBe(40);
+
+    // No open period remains immediately after the edit.
+    const openAfterEdit = await prisma.benefitPeriod.findFirst({
+      where: { benefitId: benefit.id, status: "open" },
+    });
+    expect(openAfterEdit).toBeNull();
+
+    // The next read (lazy ensureCurrentPeriod, CONSTRAINT-03) regenerates a quarter-bounded period.
+    const regenerated = await ensureCurrentPeriod(benefit.id);
+    expect(regenerated).not.toBeNull();
+    expect(regenerated!.id).not.toBe(stale.id);
+    expect(regenerated!.usedAmount).toBe(0);
+    const spanDays =
+      (regenerated!.periodEnd!.getTime() - regenerated!.periodStart.getTime()) / 86_400_000;
+    expect(spanDays).toBeLessThan(120); // quarter (~91d), not the annual 365d
+  });
+
+  it("changing only value (same resetPeriod) does not close/regenerate the period", async () => {
+    const benefit = await createBenefit(testUserCardId, { resetPeriod: "annual", value: 100 });
+    const period = await prisma.benefitPeriod.create({
+      data: {
+        benefitId: benefit.id,
+        periodStart: new Date("2026-01-01"),
+        periodEnd: new Date("2026-12-31"),
+        usedAmount: 30,
+        status: "open",
+      },
+    });
+
+    const res = await PATCH(
+      new NextRequest(`http://localhost/api/benefits/${benefit.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ value: 250 }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: benefit.id }) }
+    );
+
+    expect(res.status).toBe(200);
+    const after = await prisma.benefitPeriod.findUnique({ where: { id: period.id } });
+    expect(after?.status).toBe("open"); // untouched
+    expect(after?.usedAmount).toBe(30); // usage preserved
+    const periodCount = await prisma.benefitPeriod.count({ where: { benefitId: benefit.id } });
+    expect(periodCount).toBe(1); // nothing regenerated
+  });
+
+  it("resetPeriod change on a set-and-forget benefit creates/closes no period", async () => {
+    const benefit = await createBenefit(testUserCardId, {
+      resetPeriod: "annual",
+      setAndForget: true,
+    });
+
+    const res = await PATCH(
+      new NextRequest(`http://localhost/api/benefits/${benefit.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ resetPeriod: "monthly" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: benefit.id }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).resetPeriod).toBe("monthly"); // edit applied
+    const periodCount = await prisma.benefitPeriod.count({ where: { benefitId: benefit.id } });
+    expect(periodCount).toBe(0); // CONSTRAINT-17: no periods ever touched
   });
 
   it("accepts tracked override but still strips classification and isTrackable", async () => {

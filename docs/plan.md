@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-06-10 (Phase J / Feature 10.1 — Tasks 74–78 added via @create-plan: per-window value correctness defect fix — annual-blind audit detector, safe resetPeriod correction, annual roll-up safeguard, parser prompt hardening, correct 5 mis-valued rows. **Task 74 [x] done 2026-06-10** — `flagBenefit` now flags annual-disguised sub-annual credits via cadence-language patterns; 9 unit tests pass; dry-run confirmed 5 previously-invisible rows flagged, zero false positives. Phase J now 1/5. Feature 10 / Tasks 67–73 remain done + fully gated.)
+**Last Updated:** 2026-06-10 (Phase J / Feature 10.1 — Tasks 74–78 added via @create-plan: per-window value correctness defect fix — annual-blind audit detector, safe resetPeriod correction, annual roll-up safeguard, parser prompt hardening, correct 5 mis-valued rows. **Tasks 74–75 [x] done 2026-06-10** — 74: `flagBenefit` flags annual-disguised sub-annual credits via cadence-language patterns (9 unit tests). 75: `resetPeriod`-change closes the stale open period in-transaction, lazy `ensureCurrentPeriod` regenerates it (+3 integration tests, 70 total). Phase J now 2/5; remaining 76, 77, 78. Feature 10 / Tasks 67–73 remain done + fully gated.)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55) + 7 Phase I — Feature 10: Usage Accuracy & In-Place Logging (Tasks 67–73) + 5 Phase J — Feature 10.1: Per-Window Value Correctness defect fix (Tasks 74–78)
 
 ---
@@ -2644,12 +2644,12 @@
 - `applyBenefitUpdate(...)` — extend to detect a `resetPeriod` change and close the stale open `BenefitPeriod` in the same transaction.
 
 **Acceptance criteria:**
-- [ ] When PATCH changes `resetPeriod` (new value differs from current), within the same `$transaction` close the current open `BenefitPeriod` (`status` open→closed — the one permitted transition, per CONSTRAINT-08). The next read regenerates a correctly-bounded period via the existing lazy `ensureCurrentPeriod` path (CONSTRAINT-03) — do not duplicate period-creation logic
-- [ ] Set-and-forget benefits (`setAndForget = true`) have no periods — skip period regen (CONSTRAINT-17)
-- [ ] Existing `type`-change behavior (reset open `usedAmount = 0`) unchanged
-- [ ] No closed `BenefitPeriod` is mutated (CONSTRAINT-08); `usedAmount` is not written directly here (CONSTRAINT-07)
-- [ ] Mass-assignment allowlist unchanged — `setAndForget` remains non-client-settable (security carry-forward)
-- [ ] [EH-01] transaction failure rolls back, no partial state; [CQ-01] handler stays < 50 lines (delegate)
+- [x] When PATCH changes `resetPeriod` (new value differs from current), within the same `$transaction` close the current open `BenefitPeriod` (`status` open→closed — the one permitted transition, per CONSTRAINT-08). The next read regenerates a correctly-bounded period via the existing lazy `ensureCurrentPeriod` path (CONSTRAINT-03) — do not duplicate period-creation logic
+- [x] Set-and-forget benefits (`setAndForget = true`) have no periods — skip period regen (CONSTRAINT-17)
+- [x] Existing `type`-change behavior (reset open `usedAmount = 0`) unchanged
+- [x] No closed `BenefitPeriod` is mutated (CONSTRAINT-08); `usedAmount` is not written directly here (CONSTRAINT-07)
+- [x] Mass-assignment allowlist unchanged — `setAndForget` remains non-client-settable (security carry-forward)
+- [x] [EH-01] transaction failure rolls back, no partial state; [CQ-01] handler stays < 50 lines (delegate)
 
 **Tests required:**
 - `PATCH /api/benefits/[id]` → `changing resetPeriod annual→quarterly closes the stale open period (re-read yields a correctly-bounded new period)`
@@ -2657,7 +2657,7 @@
 - `PATCH /api/benefits/[id]` → `resetPeriod change on a set-and-forget benefit creates/closes no period`
 
 **Depends on:** None (Tasks 5, 12 already complete)
-**Status:** [ ]
+**Status:** [x] — done 2026-06-10. Extended `applyBenefitUpdate` to a `current: {type, resetPeriod, setAndForget}` context: a `resetPeriod` change now closes the open `BenefitPeriod` (open→closed, CONSTRAINT-08) inside the existing `$transaction`; next read regenerates via lazy `ensureCurrentPeriod` (CONSTRAINT-03). Set-and-forget gated out (CONSTRAINT-17); type-change usage-reset retained; allowlist untouched. +3 integration tests (70 integration total, all green); tsc clean.
 **Specialist:** @data
 
 ---

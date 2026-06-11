@@ -60,18 +60,38 @@ function fetchBenefitWithOwnership(id: string) {
   return prisma.benefit.findUnique({ where: { id }, include: { userCard: true } });
 }
 
-function applyBenefitUpdate(id: string, patchData: BenefitPatchData, currentType: string) {
-  if (patchData.type !== undefined && patchData.type !== currentType) {
-    return prisma.$transaction(async (tx) => {
-      const result = await tx.benefit.update({ where: { id }, data: patchData });
+type BenefitUpdateContext = { type: string; resetPeriod: string; setAndForget: boolean };
+
+function applyBenefitUpdate(id: string, patchData: BenefitPatchData, current: BenefitUpdateContext) {
+  const typeChanged = patchData.type !== undefined && patchData.type !== current.type;
+  const resetPeriodChanged =
+    patchData.resetPeriod !== undefined && patchData.resetPeriod !== current.resetPeriod;
+
+  // Set-and-forget benefits have no BenefitPeriod records (CONSTRAINT-17) — never touch periods.
+  const touchesPeriods = !current.setAndForget && (typeChanged || resetPeriodChanged);
+  if (!touchesPeriods) {
+    return prisma.benefit.update({ where: { id }, data: patchData });
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const result = await tx.benefit.update({ where: { id }, data: patchData });
+    if (typeChanged) {
+      // Existing behavior: a type change resets the open period's usage.
       await tx.benefitPeriod.updateMany({
         where: { benefitId: id, status: "open" },
         data: { usedAmount: 0 },
       });
-      return result;
-    });
-  }
-  return prisma.benefit.update({ where: { id }, data: patchData });
+    }
+    if (resetPeriodChanged) {
+      // Close the stale open period (open→closed, the one permitted transition — CONSTRAINT-08).
+      // The next read regenerates a correctly-bounded period via lazy ensureCurrentPeriod (CONSTRAINT-03).
+      await tx.benefitPeriod.updateMany({
+        where: { benefitId: id, status: "open" },
+        data: { status: "closed" },
+      });
+    }
+    return result;
+  });
 }
 
 /** PATCH /api/benefits/[id] — Edits a single benefit's fields. Resets usage if type changes. */
@@ -101,7 +121,11 @@ export async function PATCH(
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
   try {
-    const updated = await applyBenefitUpdate(id, patchData, benefit.type);
+    const updated = await applyBenefitUpdate(id, patchData, {
+      type: benefit.type,
+      resetPeriod: benefit.resetPeriod,
+      setAndForget: benefit.setAndForget,
+    });
     return NextResponse.json(updated);
   } catch (err) {
     console.error(`PATCH /api/benefits/${id} update error:`, err);
