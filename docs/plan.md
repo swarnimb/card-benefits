@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-06-10 (Phase J / Feature 10.1 — Tasks 74–78 added via @create-plan: per-window value correctness defect fix — annual-blind audit detector, safe resetPeriod correction, annual roll-up safeguard, parser prompt hardening, correct 5 mis-valued rows. **Tasks 74–76 [x]** — 74 (2026-06-10): `flagBenefit` flags annual-disguised sub-annual credits via cadence-language patterns (9 unit tests). 75 (2026-06-10): `resetPeriod`-change closes the stale open period in-transaction, lazy `ensureCurrentPeriod` regenerates it (+3 integration tests, 70 total). 76 (2026-06-11): `annualRollup` + "→ $Y/yr" roll-up in `BenefitAmount`, render-only (+7 unit tests, 262 total). Phase J now 3/5; remaining 77 (parser prompt) + 78 (apply data corrections — needs builder edit/375px verification). Feature 10 / Tasks 67–73 remain done + fully gated.)
+**Last Updated:** 2026-06-10 (Phase J / Feature 10.1 — Tasks 74–78 added via @create-plan: per-window value correctness defect fix — annual-blind audit detector, safe resetPeriod correction, annual roll-up safeguard, parser prompt hardening, correct 5 mis-valued rows. **Tasks 74–76 [x]** — 74 (2026-06-10): `flagBenefit` flags annual-disguised sub-annual credits via cadence-language patterns (9 unit tests). 75 (2026-06-10): `resetPeriod`-change closes the stale open period in-transaction, lazy `ensureCurrentPeriod` regenerates it (+3 integration tests, 70 total). 76 (2026-06-11): `annualRollup` + "→ $Y/yr" roll-up in `BenefitAmount`, render-only (+7 unit tests, 262 total). Phase J now 3/5 fully done. 78 (2026-06-11): all 5 data corrections APPLIED (Resy/lululemon/Uber Cash + 2 Disney; Equinox left annual; Walmart+ deferred — setAndForget) via a guarded atomic transaction with Task 75 semantics — only the mandatory live 375px verification remains before `[x]`. Remaining: 77 (parser prompt hardening) + 78's builder verification. Feature 10 / Tasks 67–73 remain done + fully gated.)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55) + 7 Phase I — Feature 10: Usage Accuracy & In-Place Logging (Tasks 67–73) + 5 Phase J — Feature 10.1: Per-Window Value Correctness defect fix (Tasks 74–78)
 
 ---
@@ -2723,19 +2723,20 @@
 **Functions to implement:** None.
 
 **Acceptance criteria:**
-- [ ] Resy Credit (Amex Platinum): `resetPeriod` → quarterly, `value` → 100
-- [ ] lululemon Credit (Amex Platinum): `resetPeriod` → quarterly, `value` → 75
-- [ ] Uber Cash (Amex Platinum): `resetPeriod` → monthly, `value` → 15 (approximation accepted per builder decision — the December $35 is not modeled; CONSTRAINT-24 per-window)
-- [ ] Equinox Credit (Amex Platinum): cadence **verified against the source** before correcting — corrected to its true per-window value, or left annual if genuinely annual
-- [ ] All corrections applied via the Task 75 edit path — **NO re-scrape** (PRD 10.1; CONSTRAINT-06 re-scrape would wipe edits and risk the LLM repeating the error)
-- [ ] No closed `BenefitPeriod` mutated (CONSTRAINT-08); `usedAmount` not written directly (CONSTRAINT-07)
-- [ ] Verified live in-app: each corrected benefit's slider max = the per-window value; the Task 76 roll-up shows the correct yearly figure; over-claiming within a single window is no longer possible
-- [ ] Digital Entertainment Credit is explicitly OUT OF SCOPE here — it is flagged `setAndForget` (deliberately non-client-editable), so correcting it requires a separate task that revisits that flag without weakening the security control
+- [x] Resy Credit (Amex Platinum): `resetPeriod` → quarterly, `value` → 100 — applied 2026-06-11
+- [x] lululemon Credit (Amex Platinum): `resetPeriod` → quarterly, `value` → 75 — applied 2026-06-11
+- [x] Uber Cash (Amex Platinum): `resetPeriod` → monthly, `value` → 15 (approximation accepted per builder decision — the December $35 is not modeled; CONSTRAINT-24 per-window) — applied 2026-06-11
+- [x] Equinox Credit (Amex Platinum): cadence **verified against the source** — current copy says "$300 **each year**" with no sub-annual split → **genuinely annual, LEFT unchanged** (the old $25/mo split is gone from the scraped copy)
+- [x] **SCOPE EXPANSION (builder-approved 2026-06-11):** two more genuinely annual-disguised, client-editable credits also corrected — Disney Streaming $120→$10 monthly (Amex Blue Cash Preferred), Disney Streaming $84→$7 monthly (Amex Blue Cash Everyday). Same bug class; surfaced by the Task 78 data reconciliation, not the original enumerated list.
+- [x] All corrections applied via the Task 75 edit-path **semantics** — **NO re-scrape** (PRD 10.1; CONSTRAINT-06). Applied via a one-off atomic transaction replicating Task 75 (update `value`+`resetPeriod`, close the open period open→closed); guarded to abort unless each row matched its expected pre-state; temp script deleted (no new source file per this task's spec).
+- [x] No closed `BenefitPeriod` mutated (CONSTRAINT-08); `usedAmount` not written directly (CONSTRAINT-07) — only open→closed transitions; each row closed exactly 1 open period; regenerates via lazy `ensureCurrentPeriod`
+- [ ] **PENDING (builder) — Verified live in-app at 375px:** each corrected benefit's slider max = the per-window value; the Task 76 "→ $Y/yr" roll-up shows the correct yearly figure; over-claiming within a single window is no longer possible. (Honors FI-10: exercise the real edit/usage flow, not static screens.)
+- [x] Digital Entertainment Credit is explicitly OUT OF SCOPE — `setAndForget` (deliberately non-client-editable). **Walmart+ ($155→$12.95/mo) deferred for the same reason** — also `setAndForget`; both need a separate task that revisits that flag without weakening the security control
 
 **Tests required:** None new — data task; behavior covered by Tasks 74/75/76 tests. **Manual live verification at 375px is required** (per Feature 10 QA process gap FI-10: exercise the real edit flow, not static screens).
 
 **Depends on:** Tasks 74, 75 (and 76 for roll-up verification)
-**Status:** [ ]
+**Status:** [ ] — **data corrections APPLIED + verified at the data layer 2026-06-11** (5 rows: Resy, lululemon, Uber Cash + 2 Disney; Equinox verified annual & left; Walmart+ deferred — setAndForget). Atomic guarded transaction, Task 75 semantics, no re-scrape, temp script deleted (tree clean). **Only the mandatory live 375px in-app verification remains (builder)** — refresh the app, confirm slider maxes, the "→ $Y/yr" roll-ups (Task 76), and that single-window over-claiming is gone. Mark `[x]` once that pass is done.
 **Specialist:** @data
 
 ---
