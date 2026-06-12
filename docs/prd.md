@@ -695,3 +695,40 @@ The user can add a missing benefit, fix a wrong per-window amount, and delete a 
 - Usage history reports (past-period summary)
 - Multi-user support (architected for, not implemented)
 - Diff view on re-scrape (replace is current behavior — post-MVP)
+
+---
+
+## Feature 12: Shareable Static Demo (GitHub Pages)
+
+### Problem Statement
+CardMaxxer is local-only (CONSTRAINT-01) — there is no way to show it to anyone without a screen share. The builder needs a shareable link, as exists for parsaveables-v2 and personal-FA.
+
+### User Story
+As the builder, I want a public read-only demo URL so that anyone can explore all three spaces with realistic data, without my real card data or a running server.
+
+### User Flow
+1. Visitor opens https://swarnimb.github.io/card-benefits/ → lands on Overview (no login).
+2. Browses Overview / Cards / Admin with a persistent "demo" banner; fictional but realistic data exercises every UI state.
+3. Drags a usage slider or flips a toggle → works locally for the session.
+4. Tries add card / scrape / remove → "Read-only demo" toast.
+
+### Business Logic
+- Static export (`output: "export"`) gated by `NEXT_PUBLIC_DEMO_MODE`; API routes stashed at build; data shipped as build-time JSON fixtures generated from a fictional seed through the real period engine + triage.
+- Writes: usage/tracked/activation = optimistic local only; all other mutations no-op with toast (generic non-GET block).
+- Fixtures regenerated on every deploy (push to main) — period dates always current.
+- Repo goes public only after a full git-history secrets/PII sweep (hard gate).
+
+### Acceptance Criteria
+- [ ] Given the live URL, when a visitor opens it, then Overview renders at 375px with populated triage and no login.
+- [ ] Given demo mode, when any mutation endpoint is invoked, then no network write occurs.
+- [ ] Given a push to main, when the workflow completes, then the demo redeploys with fresh fixtures.
+
+### Edge Cases
+- Repo idle for months: fixture period dates stale — cosmetic only; any push refreshes.
+- Next 16 static export newer than the personal-FA precedent (Next 14) — verified in Task 94.
+
+### Out of Scope (Feature 12)
+- Hosting the real app (Vercel = Phase 2, A9); demo visitors adding cards or scraping; persisting demo interactions.
+
+### Success Metric
+A stranger on the live URL can understand and interact with all three spaces in under 2 minutes, with zero real data exposed.

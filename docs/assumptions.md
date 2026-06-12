@@ -284,6 +284,15 @@ Contingency: If the parse misses the fee, `Card.annualFee` is null and the UI re
 
 ---
 
+### A12 — GitHub Pages serves a Next static export
+
+**Resolution detail:**
+The identical pattern (static export + `deploy-demo.yml` + `actions/deploy-pages`) runs in production for parsaveables-v2 and personal-FA. Residual risk: card-benefits is on Next 16 (precedent was Next 14) — export behavior differences surface at Task 94 verification; contingency is pinning/adjusting config, not an architecture change.
+
+**Status:** [x] Resolved by precedent (2026-06-12)
+
+---
+
 ## Summary
 
 | # | Assumption | Category | Approach | Status |
@@ -299,8 +308,9 @@ Contingency: If the parse misses the fee, `Card.annualFee` is null and the UI re
 | A9 | Vercel deployment as Phase 2 migration | Future architecture | Deferred | ✅ Accepted (Phase 2) |
 | A10 | Haiku reliably classifies into 5 buckets | Service capability | Accepted risk | ✅ Accepted |
 | A11 | Annual fee present/parseable on scraped pages | Data availability | Accepted risk | ✅ Accepted |
+| A12 | GitHub Pages serves a Next static export | Service capability | Precedent (2 sibling projects) | ✅ Resolved |
 
-**Open count: 0** — `@plan` remains unblocked. A5 dropped, A9 added (Phase 2), A10 added (Feature 3.5 classification), A11 added (Feature 9 annual-fee scrape).
+**Open count: 0** — `@plan` remains unblocked. A5 dropped, A9 added (Phase 2), A10 added (Feature 3.5 classification), A11 added (Feature 9 annual-fee scrape), A12 added (Feature 12 static demo).
 
 ---
 

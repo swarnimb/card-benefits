@@ -2985,3 +2985,174 @@ _(none yet)_
 | 2026-06-04 | Tasks 56–66 added (Feature 9) | `@create-plan` — Pixel-Perfect Three-Screen Redesign |
 | 2026-06-10 | Tasks 74–78 added (Phase J) | `@create-plan` — Per-Window Value Correctness (Feature 10.1 defect fix): annual-disguised credits (Resy/lululemon/Uber Cash) stored as annual totals; annual-blind audit + no roll-up safeguard |
 | 2026-06-12 | Tasks 79–86 added (Phase K) | `@create-plan` — Feature 11: Manual Benefit Management (Add/Edit/Delete). Direct CRUD in Admin, no scrape/LLM/review-gate; `source` field pins manual benefits against re-scrape; edit-pins scraped benefits (decision b). v1 = tracked benefits only |
+
+---
+
+## Phase L — Feature 12: Shareable Static Demo (GitHub Pages)
+
+> Added 2026-06-12 via `@create-plan`. Source: `docs/prd.md` "Feature 12: Shareable Static Demo". Read-only static export at https://swarnimb.github.io/card-benefits/ with fictional fixture data; the real app stays local-only (CONSTRAINT-01 untouched). Pattern proven in parsaveables-v2 and personal-FA. Independent of Feature 11 — can be built first; Task 90's generic write-blocking auto-covers future endpoints.
+
+## Task 87: Demo-mode foundation
+
+**Files:**
+- `src/lib/demo/demo-mode.ts` — create
+- `next.config.ts` — modify
+- `package.json` — modify
+
+**Acceptance criteria:**
+- [ ] `isDemoMode` is true iff `NEXT_PUBLIC_DEMO_MODE === "true"` (build-time inlined; single source of truth for all demo gating).
+- [ ] In demo mode `next.config.ts` sets `output: "export"`, `basePath: "/card-benefits"`, `images: { unoptimized: true }`; non-demo config byte-identical to today.
+- [ ] `npm run build:demo` sets the flag cross-platform (`cross-env`); `dev`/`build`/`start` unchanged.
+- [ ] Flag off → zero behavior change anywhere (full existing test suite passes).
+
+**Tests required:**
+- `demo-mode` → flag on returns true; flag absent returns false
+
+**Depends on:** None
+**Status:** [ ]
+
+---
+
+## Task 88: Author realistic demo dataset
+
+**Files:**
+- `src/lib/demo/demo-data.ts` — create (typed plain objects; no DB access)
+
+**Acceptance criteria:**
+- [ ] 5 cards across ≥4 real issuers with plausible real-world benefits and values (e.g., Amex Platinum, Chase Sapphire Reserve) — exercises stack + per-issuer card colors.
+- [ ] Overview triage fully populated: needs-attention (expiring soon, low usage), on-track (partial), done (maxed); nonzero money-at-risk; multiple categories + sparkbar data.
+- [ ] Reset variety: monthly, quarterly, semiannual, annual, and ≥1 per-window uneven-value benefit showing the "→ $Y/yr" roll-up (CONSTRAINT-24/26).
+- [ ] Anchor variety: calendar, statement-day, and anniversary anchors represented.
+- [ ] All 5 classification buckets present; auto-earn/passive/one-time persisted `tracked: false` and visible in the Cards hidden split.
+- [ ] Set-and-forget: one activated, one not yet activated (CONSTRAINT-16/17 states demo-able).
+- [ ] Usage spread: unused, partial, and maxed sliders exist on first load.
+- [ ] All data fictional — no real usage amounts, dates, or personal details (SEC-01).
+
+**Tests required:** None (pure data) — validated by Task 89 generator output and Task 94 live checks.
+
+**Depends on:** None
+**Specialist:** @data
+**Status:** [ ]
+
+---
+
+## Task 89: Demo seed + fixture generator
+
+**Files:**
+- `prisma/seed-demo.ts` — create
+- `scripts/generate-demo-fixtures.ts` — create
+- `src/lib/demo/fixtures/*.json` — generated output (gitignored; built in CI)
+
+**Functions to implement:**
+- `seedDemo(db): Promise<void>` — seeds a temp SQLite file from `demo-data.ts` via Prisma
+- `generateFixtures(): Promise<void>` — emits JSON matching live API response shapes
+
+**Acceptance criteria:**
+- [ ] Fixtures produced by calling the real engine/route logic (`ensureCurrentPeriod`, overview triage builder, aggregates) — no reimplemented business logic.
+- [ ] Fixture files cover: `/api/overview`, `/api/user-cards`, `/api/user-cards/[id]/benefits` (per card), `/api/portfolio/stats`, `/api/catalog` — response shapes identical to the live routes.
+- [ ] Temp demo DB is separate from `prisma/dev.db`, gitignored, and removed after generation; `npm run demo:fixtures` runs end-to-end.
+- [ ] Seed/generation failures throw loudly with context (EH rules) — no partial fixture sets written.
+
+**Tests required:**
+- `generate-demo-fixtures` → happy: fixtures exist, parse, all three triage buckets non-empty
+- `generate-demo-fixtures` → error: invalid dataset entry fails loudly with the offending record named
+
+**Depends on:** Task 88
+**Specialist:** @data
+**Status:** [ ]
+
+---
+
+## Task 90: Demo data layer + banner
+
+**Files:**
+- `src/lib/demo/demo-api.ts` — create (single fetch wrapper)
+- `src/hooks/use-overview-data.ts`, `src/hooks/use-cards-data.ts`, `src/hooks/use-admin-flow.ts` — modify (route fetches through wrapper)
+- `src/components/cards/benefit-item.tsx`, `src/components/cards/activation-toggle.tsx` — modify (same)
+- `src/components/demo/demo-banner.tsx` — create; mount in `src/app/(app)/layout.tsx`
+
+**Acceptance criteria:**
+- [ ] All existing `fetch("/api/...")` calls go through one wrapper. Demo mode: GETs resolve from imported fixtures (zero network); ALL non-GETs are no-ops (generic — future endpoints automatically covered).
+- [ ] Usage slider + tracked + activation toggles keep their optimistic local state in demo (no revert) — session-only interactivity.
+- [ ] Add card / scrape / remove / confirm (and any other blocked mutation) show a "Read-only demo" toast via the existing toast component.
+- [ ] Slim persistent demo banner on all three spaces (dark-theme styled per `skills/ui-cardmaxxer.md`).
+- [ ] Flag off: wrapper is a transparent passthrough — existing unit + integration suites pass unchanged.
+
+**Tests required:**
+- `demo-api` → demo GET returns fixture data; demo POST no-ops and signals blocked
+- `demo-api` → non-demo mode passes through to real `fetch`
+
+**Depends on:** Tasks 87, 89
+**Specialist:** @ui-cardmaxxer (banner/toast surfaces)
+**Status:** [ ]
+
+---
+
+## Task 91: Auth bypass in demo
+
+**Files:**
+- `src/app/page.tsx` — modify
+- `src/app/(app)/layout.tsx` (or wherever the session provider/guard lives) — modify
+
+**Acceptance criteria:**
+- [ ] Demo: visitor lands on `/overview` with no login (static-export-safe client redirect); no `/api/auth/*` requests fire (no 404 noise on Pages).
+- [ ] Demo: `/login` is unreachable or redirects to `/overview`.
+- [ ] Non-demo: auth flow byte-identical to today (route-guard tests pass).
+
+**Tests required:**
+- `auth gating` → demo mode skips session fetch; non-demo guard still redirects unauthenticated → `/login`
+
+**Depends on:** Task 87
+**Status:** [ ]
+
+---
+
+## Task 92: Pre-public security sweep (HARD GATE for Task 93)
+
+**Files:**
+- `docs/security-report.md` — update with sweep findings
+
+**Acceptance criteria:**
+- [ ] Full git **history** scanned for secrets (gitleaks or equivalent): `.env` values, `ADMIN_*`, API keys — not just HEAD.
+- [ ] Confirmed never committed in any revision: `prisma/dev.db` (or any real DB), real scraped benefit/usage data, `docs/testing-setup.md` credentials, session logs with personal data.
+- [ ] Any finding resolved (history rewrite and/or credential rotation) before Task 93 starts — no exceptions.
+- [ ] Result recorded in `docs/security-report.md`.
+
+**Tests required:** None — audit task. Invoke `@security`.
+
+**Depends on:** None (must complete before Task 93)
+**Status:** [ ]
+
+---
+
+## Task 93: Deploy workflow + go live
+
+**Files:**
+- `.github/workflows/deploy-demo.yml` — create
+- `README.md` — modify (demo link + section)
+
+**Acceptance criteria:**
+- [ ] Workflow on push to main: `npm ci` → `prisma generate` → `npm run demo:fixtures` (fresh period dates every deploy — no stale fixtures) → stash `src/app/api` out of the tree (`output: "export"` aborts on route handlers) → `npm run build:demo` → publish `out/` via `actions/deploy-pages`.
+- [ ] No secrets required in CI (fictional data, no LLM/scrape calls).
+- [ ] Task 92 reported clean, then: repo made public, GitHub Pages enabled (builder confirms both), workflow green, demo live at https://swarnimb.github.io/card-benefits/.
+- [ ] README gains a "Try the live demo" link.
+
+**Tests required:** None — workflow verified by a green run + live URL.
+
+**Depends on:** Tasks 87–92 (92 is a hard gate)
+**Status:** [ ]
+
+---
+
+## Task 94: Verify live demo
+
+**Files:** None — verification task (DevTools Puppeteer MCP against the live URL).
+
+**Acceptance criteria:**
+- [ ] All three spaces render at 375px on the live URL; Task 88 coverage checklist spot-verified visually (triage buckets, roll-up, hidden split, activation states).
+- [ ] Slider drag updates locally; add/scrape/remove show the read-only toast; no console errors; no basePath asset 404s.
+- [ ] 1280px shows the centered phone column (CONSTRAINT-23).
+- [ ] Results logged; feature marked done.
+
+**Depends on:** Task 93
+**Status:** [ ]
