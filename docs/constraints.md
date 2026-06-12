@@ -314,6 +314,18 @@
 
 ---
 
+### [CONSTRAINT-26] Uneven per-window credits are approximated to a constant per-window amount
+
+**Decision:** When a credit delivers uneven amounts across its reset windows (e.g. Amex Platinum Uber Cash: $15/month Jan–Nov plus a $35 December window), it is stored as a single **constant** per-window value (monthly `15`) — the irregular window (December's extra $20) is not modeled.
+
+**What it means in practice:** `value` stays one per-window number (CONSTRAINT-24); there is no per-window-variable schedule. The small under-count in the irregular window is an accepted approximation, surfaced to the reviewer via the per-window label + annual roll-up (Task 76) so the discrepancy is visible, not hidden. Applies to correction (Task 78) and any future parse of a similarly-structured credit.
+
+**Who decided and when:** Builder (Feature 10.1 / Task 78), 2026-06-11
+
+**What this closes off:** Modeling variable per-window schedules. If precise variable tracking is ever needed (e.g. exact December bonus), it requires a schema change (per-window amount list), not a `value` tweak — a deliberate future decision.
+
+---
+
 ## Summary Table
 
 | # | Decision | Practical impact | Decided by | Date |
@@ -343,3 +355,4 @@
 | 23 | App shell on desktop = centered max-w-[420px] column | Mobile-first design centered on desktop (desktop-only MVP); BottomNav constrained to same width; new UI lives in this column | Builder (Feature 9) | 2026-06-04 |
 | 24 | Benefit value = per-reset-window amount, not annualized | $300/6mo stores 300 not 600; semantics in Haiku schema; Overview sums per-window caps; annual figures derived at presentation only | Builder (Feature 10) | 2026-06-09 |
 | 25 | Framer Motion `ease` uses array-form constants (EASING_ARRAY/EASING_MODAL_ARRAY) | CSS-bezier string easings crash framer-motion v11 at runtime; string constants are for CSS transitions only | @qa/@dev (Feature 10) | 2026-06-09 |
+| 26 | Uneven per-window credits approximated to a constant per-window amount | Uber Cash stores monthly $15; December $35 not modeled; variable schedules need a schema change, not a value tweak | Builder (Feature 10.1) | 2026-06-11 |
