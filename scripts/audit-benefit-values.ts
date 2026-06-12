@@ -63,7 +63,7 @@ function detectSubAnnualCadence(text: string): string | null {
 }
 
 /** apply-mode error carrying the offending benefitId for context (EH-01/EH-05). */
-class ApplyError extends Error {
+export class ApplyError extends Error {
   constructor(
     message: string,
     public readonly benefitId: string
@@ -189,7 +189,7 @@ async function runDryRun(benefits: BenefitRow[]): Promise<void> {
   );
 }
 
-function loadCorrections(path: string): Record<string, number> {
+export function loadCorrections(path: string): Record<string, number> {
   const raw = readFileSync(path, "utf-8");
   const parsed = JSON.parse(raw) as Record<string, unknown>;
   const corrections: Record<string, number> = {};
@@ -205,7 +205,7 @@ function loadCorrections(path: string): Record<string, number> {
   return corrections;
 }
 
-async function runApply(path: string): Promise<void> {
+export async function runApply(path: string): Promise<void> {
   const corrections = loadCorrections(path);
   const ids = Object.keys(corrections);
   if (!ids.length) {
@@ -233,7 +233,7 @@ async function runApply(path: string): Promise<void> {
   console.log(`\nApplied ${ids.length} correction(s). usedAmount and periods untouched (CONSTRAINT-08).`);
 }
 
-async function main() {
+export async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL missing from environment — aborting.");
   }
