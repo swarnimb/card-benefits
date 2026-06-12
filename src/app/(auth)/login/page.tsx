@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { isDemoMode } from "@/lib/demo/demo-mode";
+import { DemoRedirect } from "@/components/demo/demo-redirect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -12,6 +14,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Demo: login is unreachable — bounce to the overview (no /api/auth calls).
+  if (isDemoMode) return <DemoRedirect to="/overview" />;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { isDemoMode } from "@/lib/demo/demo-mode";
 import { BottomNav } from "@/components/shared/bottom-nav";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 
@@ -8,8 +9,11 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-  if (!session) redirect("/login");
+  // Demo (static export): no server auth — pages render unguarded.
+  if (!isDemoMode) {
+    const session = await auth();
+    if (!session) redirect("/login");
+  }
 
   return (
     <>
