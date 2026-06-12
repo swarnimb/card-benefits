@@ -1,0 +1,86 @@
+# Task 93 — build the static demo and deploy it to GitHub Pages.
+#
+# The demo is a fully static export (`output: "export"`, basePath
+# /card-benefits) fed by fictional fixture JSON generated fresh on every
+# deploy — no database, no API routes, no secrets anywhere in this workflow.
+#
+# Gotcha this workflow works around: `next build` with `output: "export"`
+# aborts on dynamic API route handlers, so `src/app/api` is moved OUT of the
+# repo tree before the demo build (the runner is ephemeral — no restore
+# needed). The demo UI never calls those routes; it reads the fixture JSON
+# under public/demo-fixtures/ instead (see src/lib/demo/).
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One Pages deployment at a time; let in-flight production deploys finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Demo build never scrapes; skip Playwright's browser download.
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Node 22: Prisma 7 client requires ^20.19 || ^22.12 || >=24 and the
+          # demo build is validated locally on 22 — keep CI on the same major.
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # Fictional demo data through the real engine — creates a temp SQLite DB
+      # (prisma/demo.db), seeds it, writes public/demo-fixtures/*.json, and
+      # deletes the DB. Fresh period dates on every deploy. Needs no secrets.
+      - name: Generate demo fixtures
+        run: npm run demo:fixtures
+
+      # `output: "export"` aborts on dynamic API route handlers — move them
+      # outside the repo tree for the static build.
+      - name: Stash API routes (incompatible with static export)
+        run: mv src/app/api "$RUNNER_TEMP/api-stash"
+
+      - name: Build static demo
+        run: npm run build:demo
+
+      # GitHub Pages runs Jekyll by default, which drops _next/ (underscore
+      # directories) — .nojekyll disables it.
+      - name: Disable Jekyll
+        run: touch out/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -2,6 +2,10 @@
 
 Personal dashboard that scrapes and tracks credit card benefits across all your cards — so you never miss a reset or leave money on the table. Built as a local-first Next.js app for desktop use; Vercel deployment is planned for Phase 2.
 
+## Live Demo
+
+Try it at [swarnimb.github.io/card-benefits](https://swarnimb.github.io/card-benefits/) — a read-only demo with fictional card data. Real usage (scraping, editing, your own cards) runs locally; see Setup below.
+
 ## Setup
 
 ```bash
