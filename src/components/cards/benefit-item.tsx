@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import type { BenefitWithPeriod } from "@/types/benefit";
+import { apiFetch } from "@/lib/demo/demo-api";
 import { COLORS } from "@/lib/ui/tokens";
 import { UsageSlider } from "./usage-slider";
 import { UsageToggle } from "./usage-toggle";
@@ -75,7 +76,7 @@ export function BenefitItem({ benefit, cardColor, onUsageUpdate, onTrackedUpdate
     setTrackedError(null);
     setSavingTracked(true);
     try {
-      const res = await fetch(`/api/benefits/${benefit.id}`, {
+      const res = await apiFetch(`/api/benefits/${benefit.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tracked: newValue }),

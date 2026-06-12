@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { apiFetch } from "@/lib/demo/demo-api";
 import type { UserCardWithBenefits } from "@/types/card";
 import type { BenefitWithPeriod } from "@/types/benefit";
 
@@ -86,14 +87,14 @@ function applyOptimisticActivationUpdate(
 }
 
 async function fetchCardsWithBenefits(): Promise<UserCardWithBenefits[]> {
-  const res = await fetch("/api/user-cards");
+  const res = await apiFetch("/api/user-cards");
   if (!res.ok) throw new CardsLoadError(`GET /api/user-cards returned ${res.status}`);
 
   const userCards: UserCardWithBenefits[] = await res.json();
 
   return Promise.all(
     userCards.map(async (card) => {
-      const benefitsRes = await fetch(`/api/user-cards/${card.id}/benefits`);
+      const benefitsRes = await apiFetch(`/api/user-cards/${card.id}/benefits`);
       const benefits: BenefitWithPeriod[] = benefitsRes.ok
         ? await benefitsRes.json()
         : [];
@@ -178,7 +179,7 @@ export function useCardsData(): CardsDataResult {
       const prevCards = cards;
       setCards(applyOptimisticUsageUpdate(cards, cardId, benefitId, newAmount));
 
-      const res = await fetch(`/api/benefits/${benefitId}/usage`, {
+      const res = await apiFetch(`/api/benefits/${benefitId}/usage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ usedAmount: newAmount }),

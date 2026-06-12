@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { apiFetch } from "@/lib/demo/demo-api";
 import type { ManagedCard } from "@/components/admin/admin-home";
 import { CardDeleteFailedError } from "@/lib/errors/card-delete-failed";
 import type { DraftBenefit } from "@/types/benefit";
@@ -79,7 +80,7 @@ export function useAdminFlow(): AdminFlow {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/user-cards");
+      const res = await apiFetch("/api/user-cards");
       if (!res.ok) throw new Error("Failed to load cards");
       setCards(await res.json());
     } catch {
@@ -102,7 +103,7 @@ export function useAdminFlow(): AdminFlow {
     setScanPending(true);
     setScrapeResult(null);
     try {
-      const res = await fetch(`/api/user-cards/${userCardId}/scrape`, { method: "POST" });
+      const res = await apiFetch(`/api/user-cards/${userCardId}/scrape`, { method: "POST" });
       if (!res.ok) throw new Error("Scrape failed");
       const data = await res.json();
       setScrapeResult({
@@ -162,7 +163,7 @@ export function useAdminFlow(): AdminFlow {
     async (userCardId: string) => {
       const removed = cards.find((c) => c.id === userCardId);
       try {
-        const res = await fetch(`/api/user-cards/${userCardId}`, { method: "DELETE" });
+        const res = await apiFetch(`/api/user-cards/${userCardId}`, { method: "DELETE" });
         if (!res.ok) throw new Error("Delete failed");
         await fetchCards();
         if (removed) showToast(`Removed ${removed.card.name}`);
@@ -217,7 +218,7 @@ export function useAdminFlow(): AdminFlow {
       return;
     }
 
-    const res = await fetch(`/api/user-cards/${userCardId}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/user-cards/${userCardId}`, { method: "DELETE" });
     if (!res.ok) {
       const bodyText = await res.text().catch(() => "");
       throw new CardDeleteFailedError(userCardId, res.status, bodyText);

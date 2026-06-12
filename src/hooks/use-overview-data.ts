@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { apiFetch } from "@/lib/demo/demo-api";
 import type { OverviewBenefit, OverviewData } from "@/types/api";
 import {
   buildActiveCreditsByCategory,
@@ -91,7 +92,7 @@ export function useOverviewData(): OverviewDataResult {
   const reload = useCallback(async (showSkeleton = false) => {
     if (showSkeleton) setState({ status: "loading" });
     try {
-      const res = await fetch("/api/overview");
+      const res = await apiFetch("/api/overview");
       if (!res.ok)
         throw new OverviewLoadError(`GET /api/overview returned ${res.status}`);
       const data: OverviewData = await res.json();
@@ -124,7 +125,7 @@ export function useOverviewData(): OverviewDataResult {
         data: recomputeOverview(prevData, benefitId, newAmount),
       });
 
-      const res = await fetch(`/api/benefits/${benefitId}/usage`, {
+      const res = await apiFetch(`/api/benefits/${benefitId}/usage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ usedAmount: newAmount }),

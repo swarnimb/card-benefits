@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { isDemoMode } from "@/lib/demo/demo-mode";
 import { BottomNav } from "@/components/shared/bottom-nav";
+import { DemoBanner } from "@/components/demo/demo-banner";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 
 export default async function AppLayout({
@@ -22,6 +23,7 @@ export default async function AppLayout({
           desktop (MVP is desktop-only but designed at 375px). The fixed BottomNav
           is constrained to the same column width. */}
       <main className="mx-auto w-full max-w-[420px] min-h-dvh border-x border-white/[0.06] pb-16">
+        {isDemoMode && <DemoBanner />}
         <ErrorBoundary>{children}</ErrorBoundary>
       </main>
     </>

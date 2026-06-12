@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { apiFetch } from "@/lib/demo/demo-api";
 import { FlowShell } from "./flow-shell";
 import { type IndexedBenefit } from "./excluded-disclosure";
 import { GateBenefitList } from "./gate-benefit-list";
@@ -122,7 +123,7 @@ export function BenefitReviewGate({
     setSaving(true);
     try {
       // SOLE write path (CONSTRAINT-10): all benefits (tracked + excluded) sent.
-      const res = await fetch("/api/benefits/confirm", {
+      const res = await apiFetch("/api/benefits/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userCardId, benefits, annualFee }),

@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
   // Non-demo builds must behave exactly as before (no extra config).
   ...(isDemoBuild && {
     output: "export" as const,
+    // Keep in sync with `demoBasePath` in src/lib/demo/demo-mode.ts — the
+    // demo fixture fetches prefix their URLs with that constant.
     basePath: "/card-benefits",
     images: { unoptimized: true },
   }),

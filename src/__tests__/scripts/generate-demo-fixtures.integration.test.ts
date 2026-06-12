@@ -18,7 +18,7 @@ import type { OverviewData } from "@/types/api";
 import type { PortfolioStats } from "@/types/api";
 
 const ROOT = process.cwd();
-const FIXTURES_DIR = join(ROOT, "src", "lib", "demo", "fixtures");
+const FIXTURES_DIR = join(ROOT, "public", "demo-fixtures");
 const FIXTURE_FILES = [
   "overview.json",
   "user-cards.json",

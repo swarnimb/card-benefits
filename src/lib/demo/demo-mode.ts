@@ -6,3 +6,12 @@
  * `true` only when the demo build runs with NEXT_PUBLIC_DEMO_MODE="true".
  */
 export const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
+/**
+ * Base path of the deployed demo (GitHub Pages serves the static export at
+ * https://swarnimb.github.io/card-benefits/). Single source of truth shared
+ * with `next.config.ts` (basePath) and the demo fixture fetches in
+ * `demo-api.ts` — fixture URLs must be absolute-with-basePath because
+ * relative URLs break under nested routes.
+ */
+export const demoBasePath = "/card-benefits";

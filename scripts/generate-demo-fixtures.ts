@@ -12,8 +12,10 @@
  *      triage buckets (see scripts/lib/pinned-date.ts).
  *   4. Build the five fixture payloads via the same lib functions the API
  *      routes call (scripts/lib/build-demo-fixtures.ts).
- *   5. Publish atomically: write to fixtures.tmp, then swap into
- *      src/lib/demo/fixtures/ — a failed run never leaves a partial set.
+ *   5. Publish atomically: write to demo-fixtures.tmp, then swap into
+ *      public/demo-fixtures/ — a failed run never leaves a partial set.
+ *      (public/ so the static demo export serves them as plain assets that
+ *      demo-api.ts fetches at runtime — they are gitignored, never bundled.)
  *
  * env note: process.env.DATABASE_URL is set below BEFORE any db-touching module
  * loads — everything that imports `@/lib/db` is imported dynamically after it.
@@ -26,7 +28,7 @@ import type { DemoFixtures } from "./lib/build-demo-fixtures";
 
 const PROJECT_ROOT = process.cwd();
 const DEMO_DB_PATH = join(PROJECT_ROOT, "prisma", "demo.db");
-const FIXTURES_DIR = join(PROJECT_ROOT, "src", "lib", "demo", "fixtures");
+const FIXTURES_DIR = join(PROJECT_ROOT, "public", "demo-fixtures");
 const FIXTURES_TMP_DIR = `${FIXTURES_DIR}.tmp`;
 
 /**

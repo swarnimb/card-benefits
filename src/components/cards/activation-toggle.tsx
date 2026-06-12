@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { apiFetch } from "@/lib/demo/demo-api";
 
 /** Props for the sticky set-and-forget activation toggle. */
 export interface ActivationToggleProps {
@@ -42,7 +43,7 @@ export function ActivationToggle({ benefitId, activatedAt, cardColor, onActivate
     setError(null);
     setSaving(true);
     try {
-      const res = await fetch(`/api/benefits/${benefitId}/activation`, {
+      const res = await apiFetch(`/api/benefits/${benefitId}/activation`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ activated: next }),

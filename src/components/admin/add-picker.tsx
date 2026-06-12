@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { apiFetch } from "@/lib/demo/demo-api";
 import { COLORS } from "@/lib/ui/tokens";
 import type { CatalogCard } from "@/types/card";
 import { FlowShell } from "./flow-shell";
@@ -38,7 +39,7 @@ export function AddPicker({ onClose, onAdded }: AddPickerProps) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch("/api/catalog")
+    apiFetch("/api/catalog")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load catalog");
         return res.json();
@@ -61,7 +62,7 @@ export function AddPicker({ onClose, onAdded }: AddPickerProps) {
       setDuplicateId(null);
       setError(null);
       try {
-        const res = await fetch("/api/user-cards", {
+        const res = await apiFetch("/api/user-cards", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ catalogCardId }),
@@ -87,7 +88,7 @@ export function AddPicker({ onClose, onAdded }: AddPickerProps) {
     setAddingCustom(true);
     setError(null);
     try {
-      const res = await fetch("/api/user-cards", {
+      const res = await apiFetch("/api/user-cards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customIssuer: customIssuer.trim(), customName: customName.trim() }),

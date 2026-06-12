@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/demo/demo-api";
 import type { PortfolioStats } from "@/types/api";
 
 /** Loading/ready/error state for the read-only portfolio stats fetch. */
@@ -20,7 +21,7 @@ export function usePortfolioStats(): PortfolioStatsState {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/portfolio/stats")
+    apiFetch("/api/portfolio/stats")
       .then(async (res) => {
         if (!res.ok) throw new Error(`GET /api/portfolio/stats returned ${res.status}`);
         const stats: PortfolioStats = await res.json();
