@@ -24,6 +24,25 @@ export function resetWindowLabel(period: ResetPeriod): string {
   return RESET_PERIOD_WINDOW[period];
 }
 
+/** How many reset windows a sub-annual period has per year. Annual/once excluded. */
+const WINDOWS_PER_YEAR: Partial<Record<ResetPeriod, number>> = {
+  monthly: 12,
+  quarterly: 4,
+  semiannual: 2,
+};
+
+/**
+ * Derive the yearly figure from a per-window value (CONSTRAINT-24: annual
+ * figures are derived at presentation, never stored). Returns null for
+ * `annual`/`once` (the window already is — or has no — a year) and for a
+ * missing/non-positive value.
+ */
+export function annualRollup(value: number | null, resetPeriod: ResetPeriod): number | null {
+  if (value === null || !Number.isFinite(value) || value <= 0) return null;
+  const windows = WINDOWS_PER_YEAR[resetPeriod];
+  return windows ? value * windows : null;
+}
+
 /**
  * Right-aligned stacked benefit amount: the dollar value (or em-dash when
  * none/zero) with a per-window suffix below it (Task 68). Pure presentation —
@@ -37,6 +56,7 @@ export function BenefitAmount({
   resetPeriod: ResetPeriod;
 }) {
   const hasValue = value !== null && value > 0;
+  const rollup = annualRollup(value, resetPeriod);
   return (
     <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
       <span
@@ -53,6 +73,11 @@ export function BenefitAmount({
       {hasValue && (
         <span style={{ fontSize: 10.5, color: COLORS.text4, marginTop: 1 }}>
           {resetWindowLabel(resetPeriod)}
+        </span>
+      )}
+      {rollup !== null && (
+        <span style={{ fontSize: 10, color: COLORS.text4, marginTop: 1, opacity: 0.85 }}>
+          → {usd(rollup)}/yr
         </span>
       )}
     </span>

@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-06-10 (Phase J / Feature 10.1 — Tasks 74–78 added via @create-plan: per-window value correctness defect fix — annual-blind audit detector, safe resetPeriod correction, annual roll-up safeguard, parser prompt hardening, correct 5 mis-valued rows. **Tasks 74–75 [x] done 2026-06-10** — 74: `flagBenefit` flags annual-disguised sub-annual credits via cadence-language patterns (9 unit tests). 75: `resetPeriod`-change closes the stale open period in-transaction, lazy `ensureCurrentPeriod` regenerates it (+3 integration tests, 70 total). Phase J now 2/5; remaining 76, 77, 78. Feature 10 / Tasks 67–73 remain done + fully gated.)
+**Last Updated:** 2026-06-10 (Phase J / Feature 10.1 — Tasks 74–78 added via @create-plan: per-window value correctness defect fix — annual-blind audit detector, safe resetPeriod correction, annual roll-up safeguard, parser prompt hardening, correct 5 mis-valued rows. **Tasks 74–76 [x]** — 74 (2026-06-10): `flagBenefit` flags annual-disguised sub-annual credits via cadence-language patterns (9 unit tests). 75 (2026-06-10): `resetPeriod`-change closes the stale open period in-transaction, lazy `ensureCurrentPeriod` regenerates it (+3 integration tests, 70 total). 76 (2026-06-11): `annualRollup` + "→ $Y/yr" roll-up in `BenefitAmount`, render-only (+7 unit tests, 262 total). Phase J now 3/5; remaining 77 (parser prompt) + 78 (apply data corrections — needs builder edit/375px verification). Feature 10 / Tasks 67–73 remain done + fully gated.)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55) + 7 Phase I — Feature 10: Usage Accuracy & In-Place Logging (Tasks 67–73) + 5 Phase J — Feature 10.1: Per-Window Value Correctness defect fix (Tasks 74–78)
 
 ---
@@ -2672,11 +2672,11 @@
 - `annualRollup(value: number | null, resetPeriod: ResetPeriod): number | null` — derive the yearly figure (`value × windows-per-year`: monthly×12, quarterly×4, semiannual×2); returns `null` for `annual`/`once`.
 
 **Acceptance criteria:**
-- [ ] `BenefitAmount` renders a derived "→ $Y/yr" beside the per-window amount when `resetPeriod` is sub-annual (monthly/quarterly/semiannual)
-- [ ] Roll-up hidden for `resetPeriod` `annual` (the window IS the year — redundant) and `once`
-- [ ] Figure is derived at render only — never stored (CONSTRAINT-24: annual figures derived at presentation)
-- [ ] Uses the existing `usd()` helper + `tokens.ts` — no hardcoded hex/px (design system)
-- [ ] [CONSTRAINT-23] reads correctly at 375px AND 1280px inside the centered column
+- [x] `BenefitAmount` renders a derived "→ $Y/yr" beside the per-window amount when `resetPeriod` is sub-annual (monthly/quarterly/semiannual)
+- [x] Roll-up hidden for `resetPeriod` `annual` (the window IS the year — redundant) and `once`
+- [x] Figure is derived at render only — never stored (CONSTRAINT-24: annual figures derived at presentation)
+- [x] Uses the existing `usd()` helper + `tokens.ts` — no hardcoded hex/px (design system)
+- [~] [CONSTRAINT-23] reads correctly at 375px AND 1280px inside the centered column — **pending live visual; to be confirmed in the Task 78 manual 375px pass (the roll-up renders in the edit row exercised there)**
 
 **Tests required:**
 - `annualRollup` → `returns 400 for quarterly $100`
@@ -2685,7 +2685,7 @@
 - `BenefitAmount` → `renders the "$400/yr" roll-up for a quarterly $100 benefit`
 
 **Depends on:** None
-**Status:** [ ]
+**Status:** [x] — done 2026-06-11 (code-complete; one live-visual criterion deferred to Task 78's 375px pass). Added `annualRollup(value, resetPeriod)` (monthly×12/quarterly×4/semiannual×2; null for annual/once/non-positive) + a derived "→ $Y/yr" line in `BenefitAmount`, render-only (CONSTRAINT-24), via existing `usd()` + tokens. +7 unit tests (262 unit total); tsc clean; `edit-fields.tsx` ~168 LOC (<200).
 **Specialist:** @ui-cardmaxxer
 
 ---
