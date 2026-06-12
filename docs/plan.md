@@ -2741,6 +2741,232 @@
 
 ---
 
+## Phase K — Feature 11: Manual Benefit Management (Add / Edit / Delete)
+
+> Added 2026-06-12 via `@create-plan`. Source: `docs/prd.md` "Feature 11: Manual Benefit Management". Direct add/edit/delete of a single benefit in Admin — no scrape, no LLM, no review gate (manual data has no LLM to guard against). Provenance `source` field pins manual benefits so re-scrapes never wipe them; editing a scraped benefit pins it too (decision b). v1 = usage-tracked benefits only.
+
+## Task 79: Add `source` field to Benefit schema (migration + backfill + generate)
+
+**Files:**
+- `prisma/schema.prisma` — modify
+- `prisma/migrations/<timestamp>_benefit_source/migration.sql` — create (via `npx prisma migrate dev`)
+- `src/types/benefit.ts` — modify (add `source` to benefit/BenefitWithPeriod types; NOT DraftBenefit)
+
+**Functions to implement:** None new — schema field + type addition only.
+
+**Acceptance criteria:**
+- [ ] `Benefit` gains `source String @default("scraped")` with a comment documenting the `"scraped" | "manual"` domain (app-validated string, NOT a Prisma enum — mirrors `classification`, CONSTRAINT-01).
+- [ ] Migration backfills **all existing rows** to `source = "scraped"`. Verify the generated `migration.sql` applies the default to existing rows on SQLite; if not, add an explicit `UPDATE "Benefit" SET source = 'scraped'`.
+- [ ] `npx prisma generate` is run after the migration so the client includes `source` (MANDATORY — known version-skew trap on this box; generator emits to a non-default path per `confirm/route.ts` comment).
+- [ ] A `BenefitSource` union (`"scraped" | "manual"`) is added to `src/types/benefit.ts` and `source` added to the persisted-benefit/API-response type(s). `DraftBenefit` gets NO user-settable `source` (server-managed; SEC: never client-chosen).
+- [ ] `npx tsc --noEmit` clean after the type change.
+
+**Tests required:**
+- `prisma migration` → `existing benefit rows read back with source = "scraped"`
+- `benefit types` → `BenefitSource union admits only "scraped" and "manual"`
+
+**Depends on:** None
+**Specialist:** @data
+
+---
+
+## Task 80: Re-scrape pinning — `confirm` replace-all deletes only `source: "scraped"` (refines CONSTRAINT-06)
+
+**Files:**
+- `src/app/api/benefits/confirm/route.ts` — modify
+- `src/__tests__/integration/benefits/benefit-mutation.integration.test.ts` (or the confirm integration test) — modify
+
+**Functions to implement:**
+- `runConfirmTransaction(...)` — change the replace-all `deleteMany` filter from `{ userCardId }` to `{ userCardId, source: "scraped" }`.
+- `createBenefitWithPeriod(...)` — persist `source: "scraped"` explicitly in the allowlisted `data` block.
+
+**Acceptance criteria:**
+- [ ] The replace-all step deletes **only** `source: "scraped"` benefits for the card; `source: "manual"` benefits and their `BenefitPeriod` history are never deleted/replaced/mutated by a re-scrape (refines CONSTRAINT-06).
+- [ ] `createBenefitWithPeriod` writes `source: "scraped"` via the **explicit allowlist** (no draft spread — preserve the existing SEC allowlist comment; `source` server-set, never read from `b`).
+- [ ] Scraped usage history still discarded on re-scrape (unchanged for scraped rows); `lastVerifiedAt` and `annualFee` writes unchanged.
+- [ ] [SEC] `source` never accepted from the request body in `validateBenefits` — server-assigned only.
+- [ ] [EH-01] transaction failure rolls back with no partial state.
+
+**Tests required:**
+- `POST /api/benefits/confirm` → `re-scrape deletes scraped benefits but preserves a source:"manual" benefit and its periods`
+- `POST /api/benefits/confirm` → `confirmed benefits persist with source:"scraped" even if the body supplies source:"manual"` (SEC)
+
+**Depends on:** Task 79
+**Specialist:** @data
+
+---
+
+## Task 81: Edit-pin — PATCH `/api/benefits/[id]` converts `scraped`→`manual` on edit; still ignores `classification`
+
+**Files:**
+- `src/app/api/benefits/[id]/route.ts` — modify
+- `src/__tests__/integration/benefits/benefit-mutation.integration.test.ts` — modify
+
+**Functions to implement:**
+- `applyBenefitUpdate(id, patchData, current)` — when `current.source === "scraped"`, set `source: "manual"` in the same update (inside the existing transaction when periods are touched; in the plain update otherwise). Extend `BenefitUpdateContext` with `source: string`.
+
+**Acceptance criteria:**
+- [ ] Given a `source:"scraped"` benefit, any PATCH flips `source` to `"manual"` (edit-pin, decision b). An already-`"manual"` benefit is left unchanged.
+- [ ] `source` conversion is server-derived from the current row, never read from the body (`ALLOWED_PATCH_FIELDS` excludes `source`; `classification` likewise stays excluded — SEC mass-assignment allowlist preserved).
+- [ ] PATCH continues to ignore any client-supplied `classification`.
+- [ ] Existing frequency/type behavior unchanged: `resetPeriod` change closes the open period (open→closed, CONSTRAINT-08) → lazy regen; `type` change resets open `usedAmount=0`; closed periods never mutated.
+- [ ] The `source` write is atomic with the field update (same transaction when one is opened).
+- [ ] [CQ-01] handler stays < 50 lines; [EH-01] transaction rolls back on failure.
+
+**Tests required:**
+- `PATCH /api/benefits/[id]` → `editing a scraped benefit flips source to "manual"`
+- `PATCH /api/benefits/[id]` → `editing an already-manual benefit leaves source "manual"; a body-supplied source/classification is ignored` (SEC)
+- `PATCH /api/benefits/[id]` → `a frequency change still closes the open period and pins source in the same transaction` (regression + atomicity)
+
+**Depends on:** Task 79
+**Specialist:** @data
+
+---
+
+## Task 82: Manual create endpoint — POST `/api/benefits` (direct write, no review gate)
+
+**Files:**
+- `src/app/api/benefits/route.ts` — create
+- `src/__tests__/integration/benefits/benefit-create.integration.test.ts` — create
+
+**Functions to implement:**
+- `validateManualBenefit(body): { ok: true; data } | { ok: false; error }` — validates `userCardId`, `name`, `value` (per-window, non-negative or null), `resetPeriod`, `type`, `category`; allowlist (extra fields ignored).
+- `POST(request: NextRequest)` — auth + ownership check on `userCardId`, then creates exactly one `Benefit` (+ initial open `BenefitPeriod` unless `once`) by reusing `createBenefitWithPeriod`.
+
+**Acceptance criteria:**
+- [ ] Valid body creates exactly **one** `Benefit` with server-set `source:"manual"`, `tracked:true`, `setAndForget:false`, `resetAnchor:"calendar"`, `valueUnit:"dollars"`, and a server-derived default tracked `classification` (never user-chosen — consistent with PATCH).
+- [ ] Unless `resetPeriod:"once"`, exactly one **open** `BenefitPeriod` is generated for the current window via the existing engine (reuse `createBenefitWithPeriod`); `once` yields the existing once-shape (null `periodEnd`).
+- [ ] No LLM parser call and no review-gate round-trip occur (manual writes bypass the gate by design; does NOT weaken CONSTRAINT-10, which governs LLM-parsed benefits only).
+- [ ] `value` stored verbatim as the per-reset-window figure (CONSTRAINT-24).
+- [ ] [SEC] ownership enforced: 401 unauthenticated, 404 if `userCardId` absent, 403 if owned by another user; `source`/`tracked`/`setAndForget`/`classification` server-set, never from the body (allowlist, no spread).
+- [ ] [EH-01] invalid body → 400 with a LOUD context-bearing message; DB failure → 500 logged with context, no partial write.
+
+**Tests required:**
+- `POST /api/benefits` → `creates one manual tracked benefit with an open period for a monthly credit` (asserts source/tracked/setAndForget/resetAnchor/valueUnit + one open period)
+- `POST /api/benefits` → `resetPeriod "once" creates the benefit with no rolling period`
+- `POST /api/benefits` → `rejects a body-supplied classification/source/tracked override; returns 403 for another user's userCard` (SEC)
+- `POST /api/benefits` → `invalid resetPeriod/type/category returns 400` (error)
+
+**Depends on:** Task 79 (land Task 80 first — both touch `confirm/route.ts` / share `createBenefitWithPeriod`)
+**Specialist:** @data
+
+---
+
+## Task 83: Admin inline benefit list — expand a card row to show its benefits
+
+**Files:**
+- `src/components/admin/managed-row.tsx` — modify (expand/collapse + inline list)
+- `src/components/admin/managed-benefit-row.tsx` — create (per-benefit row: name, `BenefitAmount`, Edit/Delete affordances)
+- `src/hooks/use-card-benefits.ts` — create (lazy fetch from `GET /api/user-cards/[id]/benefits`)
+- `src/__tests__/components/admin/managed-row.test.tsx` — create
+- `src/__tests__/components/admin/managed-benefit-row.test.tsx` — create
+
+**Functions to implement:**
+- `useCardBenefits(userCardId: string, enabled: boolean): { benefits, loading, error, refetch }` — lazy fetch on expand; reuses the GET route (`BenefitWithPeriod[]`).
+- `ManagedRow` — add an expand toggle revealing an `AnimatePresence` height-auto region listing benefits + an "Add benefit" affordance (mirror `BenefitEditPanel` expand pattern, `useReducedMotion`).
+- `ManagedBenefitRow({ benefit, onEdit, onDelete })` — one benefit line using `BenefitAmount` with Edit and Delete buttons.
+
+**Acceptance criteria:**
+- [ ] Expanding a card row lists its benefits inline (name + per-window amount via `BenefitAmount`), each with Edit + Delete, plus an "Add benefit" action.
+- [ ] Benefits lazy-load on first expand (no fetch for collapsed rows); loading + empty ("No benefits yet") states shown; fetch error surfaces inline (amber, `role="alert"`) — never silently empty (EH-01).
+- [ ] Only this card's benefits load; ownership enforced server-side by the existing GET route.
+- [ ] Expand/collapse uses the existing Framer Motion + `useReducedMotion` pattern; existing re-scrape + delete-card actions and last-checked footer preserved.
+- [ ] Uses `tokens.ts` only (no hardcoded hex/px); renders correctly at 375px in the centered `max-w-[420px]` column (CONSTRAINT-23).
+- [ ] [CQ] each component < 200 lines.
+
+**Tests required:**
+- `ManagedRow` → `tapping the row expands it and renders each benefit with Edit, Delete and an Add benefit action`
+- `ManagedRow` → `a benefits-fetch failure shows an inline error, not an empty list` (error)
+- `ManagedBenefitRow` → `renders the per-window amount and exposes Edit/Delete callbacks`
+
+**Depends on:** Task 79
+**Specialist:** @ui-cardmaxxer
+
+---
+
+## Task 84: Add-benefit form — inline form wired to POST `/api/benefits`
+
+**Files:**
+- `src/components/admin/add-benefit-form.tsx` — create
+- `src/hooks/use-admin-flow.ts` — modify (or a local handler) to refresh the inline list + toast on add
+- `src/__tests__/components/admin/add-benefit-form.test.tsx` — create
+
+**Functions to implement:**
+- `AddBenefitForm({ userCardId, onCreated, onCancel })` — renders name, per-window amount, frequency (`resetPeriod`), type, category using existing primitives (`EditField`, `ChipPicker`, `fieldInputStyle`, the `$`-prefixed amount input); POSTs to `/api/benefits`; calls `onCreated(benefit)` on success.
+
+**Acceptance criteria:**
+- [ ] Exposes exactly **name, per-window amount, frequency, type, category** — NO `classification`/`tracked`/`setAndForget`/`resetAnchor`/`valueUnit` field (server defaults).
+- [ ] The amount label states **per-window** semantics (reuse `resetWindowLabel(resetPeriod)` — e.g. "Amount (per 6 months)"), so the user enters `300` for $300-per-6-months, not `600` (CONSTRAINT-24).
+- [ ] Reuses `ChipPicker` for type/resetPeriod/category and the existing `$`-prefixed numeric input — no new form system.
+- [ ] On valid Save, POSTs; the new benefit appears immediately in the inline list (refetch or optimistic) and the form closes; empty name blocks Save; Save disabled while pending.
+- [ ] No LLM/review-gate path invoked.
+- [ ] Uses `tokens.ts` only; 375px-correct in the centered column (CONSTRAINT-23); < 200 lines.
+- [ ] [EH-01] a failed POST surfaces an inline error and does not close the form or claim success.
+
+**Tests required:**
+- `AddBenefitForm` → `submitting valid fields POSTs the per-window value and reports the created benefit` (asserts body has no classification/source/tracked)
+- `AddBenefitForm` → `Save disabled for an empty name; a failed POST shows an inline error and keeps the form open` (error)
+
+**Depends on:** Tasks 82, 83
+**Specialist:** @ui-cardmaxxer
+
+---
+
+## Task 85: Edit + Delete benefit UI — reuse `BenefitEditPanel`; inline delete confirm
+
+**Files:**
+- `src/components/admin/managed-benefit-row.tsx` — modify (Edit → expand `BenefitEditPanel`; Delete → inline confirm)
+- `src/components/admin/benefit-delete-confirm.tsx` — create (or generalize the existing `delete-confirm.tsx` pattern)
+- `src/hooks/use-benefit-mutations.ts` — create (PATCH + DELETE helpers that refresh the inline list)
+- `src/__tests__/components/admin/managed-benefit-row.test.tsx` — modify
+
+**Functions to implement:**
+- `useBenefitMutations(onChanged)` — `editBenefit(id, patch)` → PATCH; `deleteBenefit(id)` → DELETE; both refresh the card's inline list on success.
+- `ManagedBenefitRow` — Edit toggles an inline `BenefitEditPanel` (map persisted benefit → the `DraftBenefit` shape it expects); Save PATCHes; Delete opens an inline confirm before `deleteBenefit`.
+
+**Acceptance criteria:**
+- [ ] Edit reuses `BenefitEditPanel` (no new editor); Save PATCHes editable fields and the row reflects saved values immediately.
+- [ ] Editing a `source:"scraped"` benefit + Save flips `source` to `"manual"` server-side (Task 81) — now pinned (no UI control; verified via API).
+- [ ] Changing frequency regenerates the current period via `applyBenefitUpdate` (Task 81); the UI never writes `usedAmount` directly (single write path preserved).
+- [ ] Delete requires an inline confirm before any write; on confirm the benefit + its `BenefitPeriod` records cascade-delete (existing DELETE route) and the row disappears.
+- [ ] Deleting a benefit with logged usage is allowed behind only the inline confirm (no extra warning in v1); copy makes the destructive nature clear.
+- [ ] The `BenefitEditPanel` "Discard" button is hidden/repurposed or routed to the same delete-confirm flow (no unconfirmed delete path).
+- [ ] Uses `tokens.ts` only; 375px-correct (CONSTRAINT-23); components < 200 lines.
+- [ ] [EH-01] failed PATCH/DELETE surfaces an inline error and does not falsely update the list.
+
+**Tests required:**
+- `ManagedBenefitRow` → `editing a field and saving PATCHes and reflects the new value`
+- `ManagedBenefitRow` → `Delete requires confirm before issuing DELETE; cancel issues no request`
+- `ManagedBenefitRow` → `a failed delete keeps the benefit in the list and shows an error` (error)
+
+**Depends on:** Tasks 81, 83
+**Specialist:** @ui-cardmaxxer
+
+---
+
+## Task 86: Integration + live 375px verification (Add / Edit / Delete / re-scrape pinning)
+
+**Files:**
+- Verification only — exercises the real Admin flow end-to-end. Optional: `src/__tests__/integration/benefits/manual-rescrape-pinning.integration.test.ts` — create (only if not already covered by Tasks 80/82).
+
+**Functions to implement:** None.
+
+**Acceptance criteria:**
+- [ ] **Live at 375px (mandatory, FI-10 — real flow, not static screens):** expand a card → Add a benefit (per-window amount, frequency, type, category) → appears immediately in Admin, and in Cards/Overview where `tracked:true`, with a current open window (unless `once`).
+- [ ] **Live:** Edit a scraped benefit's amount → save → reflects everywhere; confirm (API/DB) its `source` is now `"manual"`.
+- [ ] **Live:** Delete a benefit behind the inline confirm → disappears from Admin/Cards/Overview and its periods are gone.
+- [ ] **Live re-scrape pinning (headline AC):** on a card with both a manual and a scraped benefit, re-scrape + confirm → only `source:"scraped"` benefits replaced; manual (and scraped-then-edited) benefits + periods survive untouched.
+- [ ] **Duplicate edge:** a re-scrape re-finding a manually-added benefit shows both (no auto-dedup, v1); the user can delete the dupe.
+- [ ] Per-window cap holds (CONSTRAINT-24): the Cards usage control caps at the manually-entered per-window `value`; a `semiannual $300` entry resets to a fresh $300 next window.
+- [ ] All renders verified at 375px in the centered `max-w-[420px]` column (CONSTRAINT-23); `npx tsc --noEmit`, full unit + integration suites, and lint green.
+
+**Tests required:** None new required if Tasks 80/82 cover the pinning path; otherwise add one end-to-end pinning integration test. Manual live 375px verification required (FI-10).
+
+**Depends on:** Tasks 80, 81, 82, 84, 85
+**Specialist:** @ui-cardmaxxer (with @data for pinning/data assertions)
+
+---
+
 ## Completed Tasks
 
 _(none yet)_
@@ -2758,3 +2984,4 @@ _(none yet)_
 | 2026-05-21 | Tasks 49–55 added (Phase H) | `@create-plan` — Feature 8: Set-and-Forget Benefits |
 | 2026-06-04 | Tasks 56–66 added (Feature 9) | `@create-plan` — Pixel-Perfect Three-Screen Redesign |
 | 2026-06-10 | Tasks 74–78 added (Phase J) | `@create-plan` — Per-Window Value Correctness (Feature 10.1 defect fix): annual-disguised credits (Resy/lululemon/Uber Cash) stored as annual totals; annual-blind audit + no roll-up safeguard |
+| 2026-06-12 | Tasks 79–86 added (Phase K) | `@create-plan` — Feature 11: Manual Benefit Management (Add/Edit/Delete). Direct CRUD in Admin, no scrape/LLM/review-gate; `source` field pins manual benefits against re-scrape; edit-pins scraped benefits (decision b). v1 = tracked benefits only |

@@ -535,6 +535,156 @@ The user can log a full month of real card usage end-to-end — on whichever scr
 
 ---
 
+## Feature 11: Manual Benefit Management (Add / Edit / Delete)
+
+> Added 2026-06-12 via `@cpo`. All product decisions locked with the builder. Refines CONSTRAINT-06 (re-scrape pinning) and relies on CONSTRAINT-24 (per-window value), CONSTRAINT-08 (append-only periods), and CONSTRAINT-10 (review gate).
+
+### Problem Statement
+Today the only way to get a benefit onto a card is a full scrape → LLM parse → review-gate → confirm cycle. To add one missing benefit, fix one wrong amount, or remove one stale benefit, the user must re-scrape and re-review the entire card — slow, heavy, and destructive (a re-scrape wipes usage history per CONSTRAINT-06). There is no direct way to manage a single benefit. For a personal tool the user lives in daily, that friction is the difference between "trusted source of truth" and "stale and abandoned."
+
+### User Story
+As the single user, I want to add, edit, and delete one benefit on a card directly — without scraping or re-reviewing everything — so the dashboard stays accurate with low friction and my corrections survive future re-scrapes.
+
+### Why manual entry bypasses the review gate (design rationale)
+The review gate (CONSTRAINT-10, CLAUDE.md "never auto-save LLM-parsed benefits") exists to guard against **LLM hallucination** — the LLM is an untrusted source, so a human must confirm its output before any DB write. Manual entry has **no LLM in the path**: the user types the data, so the user *is* the source of truth. There is nothing to second-guess. Therefore:
+- **Manual add / edit** = client + server form validation, then a **direct save** (no review-gate round-trip).
+- **Delete** = destructive, so it requires an **inline confirm** before the write.
+
+This does not loosen CONSTRAINT-10: the constraint governs *LLM-parsed* benefits, all of which still pass through the review gate. Manual writes are a distinct, non-LLM path and are explicitly exempt.
+
+### Provenance: the `source` field
+Every benefit carries a `source` field: `"scraped"` | `"manual"`.
+- All existing and all scrape-confirmed benefits are `source: "scraped"`.
+- Manually-added benefits are `source: "manual"`.
+- This field is the mechanism for re-scrape protection and edit-pinning below. It is server-managed — never user-chosen in the form.
+
+### Re-scrape protection (refines CONSTRAINT-06)
+A re-scrape's replace-all step (POST `/api/benefits/confirm`) deletes **only** `source: "scraped"` benefits for the card. `source: "manual"` benefits are **pinned** — a re-scrape never deletes, replaces, or mutates them, and never touches their `BenefitPeriod` history.
+- This narrows CONSTRAINT-06 from "delete ALL benefits" to "delete all *scraped* benefits"; the replace-all semantics for scraped benefits are otherwise unchanged (scraped usage history is still discarded on re-scrape).
+- **Pinning is the entire conflict-resolution mechanism.** No diff view, no merge UI, no conflict prompt is built (still deferred — see Out of Scope).
+
+### Edit-pinning: editing a scraped benefit converts it to manual
+Editing a `source: "scraped"` benefit **converts its `source` to `"manual"`**, so the user's correction is pinned and survives every future re-scrape.
+- **Accepted tradeoff (state explicitly):** once converted, that benefit **stops receiving scrape updates** — a future re-scrape will not refresh it (it is now pinned/manual). To return a benefit to scrape-managed state, the user **deletes it and re-adds it via scrape** (a re-scrape will recreate it as `scraped`). There is no in-place "un-pin" toggle in v1.
+- This is the deliberate resolution to "a re-scrape silently overwrote my correction": a correction is, by definition, the user asserting they are now the source of truth for that benefit, so the benefit becomes manual/pinned.
+
+### Scope v1: usage-tracked benefits only
+v1 covers **usage-tracked benefits only** (amount + frequency). A manual add always sets:
+- `tracked: true`
+- `setAndForget: false`
+- a sensible tracked classification, **derived server-side / deterministically — never chosen by the user** (consistent with the existing PATCH path, which never accepts `classification`).
+
+Manually adding **set-and-forget** benefits is explicitly **out of scope for v1** (a later follow-up).
+
+### UI placement
+Lives in the **Admin space**. Admin currently shows only benefit **counts** per card. This feature expands each card row **inline** to list that card's benefits, each with **Edit** and **Delete** actions, plus an **"Add benefit"** action per card.
+- Reuse existing form primitives: `ChipPicker`, the edit-fields, and `BenefitEditPanel`. No new form system.
+
+### Add form
+Fields the user fills:
+- **name**
+- **amount** — the **per-reset-window** value (CONSTRAINT-24). The form states per-window semantics explicitly: this is the amount available in a *single* reset window (e.g. a $300-per-6-months credit is entered as `300`, not `600`), not the annual or lifetime total. Stored to `Benefit.value` verbatim.
+- **frequency** (`resetPeriod`): `monthly` | `quarterly` | `semiannual` | `annual` | `once`
+- **type**: `credit` | `subscription` | `access` | `perk`
+- **category**
+
+Defaults applied silently (not shown as form fields): `resetAnchor = calendar`, `valueUnit = dollars`, `tracked = true`, `setAndForget = false`, `source = "manual"`, server-derived `classification`.
+
+A newly-added tracked benefit (not `once`, not set-and-forget) gets its **first `BenefitPeriod` generated by the existing period engine** on save — so it has a current open window immediately.
+
+### User Flow
+
+**Add**
+1. Admin → expand a card row → tap **"Add benefit"**.
+2. Fill the form (name, per-window amount, frequency, type, category).
+3. Tap **Save** → validation passes → benefit saved directly (`source: "manual"`, `tracked: true`).
+4. Benefit appears immediately in the card's inline list, tracked, with a current open period (unless `once`).
+
+**Edit**
+1. Admin → expand card → a benefit → tap **Edit**.
+2. Change any field → tap **Save**.
+3. If the benefit was `source: "scraped"`, its `source` silently becomes `"manual"` (now pinned).
+4. Per-window value semantics apply to the `amount` field (CONSTRAINT-24). Changing **frequency** regenerates the benefit's current period via existing `applyBenefitUpdate` behavior; closed periods are never mutated (CONSTRAINT-08).
+
+**Delete**
+1. Admin → expand card → a benefit → tap **Delete**.
+2. **Inline confirm** appears (destructive action).
+3. Confirm → benefit removed; its `BenefitPeriod` records **cascade-delete** with it.
+
+**Re-scrape after manual changes**
+1. User re-scrapes the card and confirms in the review gate.
+2. `source: "scraped"` benefits are deleted and replaced from the draft.
+3. `source: "manual"` benefits (added manually, or scraped-then-edited) are **untouched** — they and their periods survive.
+
+### Business Logic
+- `source` ∈ {`"scraped"`, `"manual"`}; server-managed; defaults to `"scraped"` for all scrape-confirmed and pre-existing benefits.
+- Manual **add** writes directly (no review gate): `source: "manual"`, `tracked: true`, `setAndForget: false`, `resetAnchor: calendar`, `valueUnit: dollars`, server-derived `classification`. Exactly **one** `Benefit` + **one** open `BenefitPeriod` created (period skipped only for `once`).
+- Manual **edit** writes directly. Editing any `source: "scraped"` benefit sets `source: "manual"`. The PATCH path **never** accepts a `classification` value from the client. Frequency change → current-period regeneration via `applyBenefitUpdate`; append-only history preserved (CONSTRAINT-08).
+- **Delete** requires inline confirm, then deletes the benefit and cascade-deletes its `BenefitPeriod` records.
+- `amount` is always the **per-reset-window** figure (CONSTRAINT-24) — stored verbatim to `Benefit.value`.
+- Re-scrape replace-all deletes **only** `source: "scraped"` benefits (refines CONSTRAINT-06); `source: "manual"` benefits are pinned.
+- No manual write ever invokes the LLM parser or the review gate.
+
+### Acceptance Criteria
+- [ ] Given the Admin space, when a card row is expanded, then its benefits are listed inline, each with Edit and Delete actions, plus an "Add benefit" action for the card.
+- [ ] Given the add form with valid fields, when saved, then exactly one `Benefit` is created with `source: "manual"`, `tracked: true`, `setAndForget: false`, and (unless `resetPeriod: "once"`) exactly one open `BenefitPeriod`.
+- [ ] Given the add form, when saved, then no LLM parser call and no review-gate round-trip occur (manual writes bypass the review gate by design).
+- [ ] Given a `source: "scraped"` benefit, when it is edited and saved, then its `source` becomes `"manual"`.
+- [ ] Given a manual edit, when submitted, then the server ignores any client-supplied `classification` (classification stays server-derived).
+- [ ] Given an edited benefit whose `frequency` changed, when saved, then its current open period is regenerated via `applyBenefitUpdate` and no `closed` period is mutated (CONSTRAINT-08).
+- [ ] Given the per-window `amount` entered, when saved, then `Benefit.value` stores that per-window figure verbatim (CONSTRAINT-24), and usage controls cap at it.
+- [ ] Given Delete, when invoked, then an inline confirm is required before any write; on confirm, the benefit and all its `BenefitPeriod` records are cascade-deleted.
+- [ ] Given a card with both `source: "manual"` and `source: "scraped"` benefits, when the card is re-scraped and confirmed, then only `source: "scraped"` benefits are deleted/replaced and every `source: "manual"` benefit (and its periods) is preserved untouched.
+- [ ] Given a benefit added or edited manually, then it appears immediately in Admin, Cards, and Overview (where `tracked: true`) without a re-scrape.
+
+### Edge Cases
+- **Duplicate (scrape later finds something the user already added manually):** both are shown; the user can delete the dupe. **No auto-dedup or merge in v1** — acceptable, since the manual one is pinned and the scraped one is a normal scraped row.
+- **Editing the per-window `amount` mid-period:** the new per-window cap takes effect on the current open period via `applyBenefitUpdate`; `usedAmount` is preserved and re-clamped to the new cap (no write to `usedAmount` outside the single write path; no mutation of closed periods — CONSTRAINT-08).
+- **Deleting a benefit that has usage logged:** allowed; the inline confirm is the safeguard. Deletion cascade-removes its periods (including the open one with logged usage). Usage history for a deleted benefit is gone — consistent with re-scrape/removal behavior; no separate warning beyond the destructive inline confirm in v1.
+- **Editing a benefit to `resetPeriod: "once"`:** it becomes a no-reset benefit (no further period rollover), consistent with existing `once` semantics.
+
+### Out of Scope (Feature 11)
+- Manual add of **set-and-forget** benefits (v1 is usage-tracked benefits only — later follow-up).
+- **Auto-dedup / merge** of scraped-vs-manual benefits.
+- A full re-scrape **diff / conflict view** (still deferred — pinning is the only conflict mechanism).
+- **Bulk operations** (multi-add, multi-delete, multi-edit).
+- An in-place **"un-pin"** toggle to return a manual benefit to scrape-managed (delete-and-rescrape is the path).
+- User-chosen **classification** (stays server-derived/deterministic).
+
+### Success Metric
+The user can add a missing benefit, fix a wrong per-window amount, and delete a stale one — each in seconds, without a scrape or a re-review — and a subsequent re-scrape refreshes scraped benefits while leaving every manual/edited benefit and its usage history untouched.
+
+### Component Ownership
+- `Benefit.source` schema field + migration/backfill (existing rows → `"scraped"`) — `@cto` (data model) → `@data`.
+- Re-scrape pinning in `confirm/route.ts` (delete only `source: "scraped"`) — `@data`.
+- Manual add/edit/delete API routes (direct write, no review gate; PATCH ignores `classification`; edit converts `scraped` → `manual`) — `@cto` → `@data`.
+- Admin inline expand + Add/Edit/Delete UI, reusing `ChipPicker` / edit-fields / `BenefitEditPanel` — `@ui` (`skills/ui-cardmaxxer.md`).
+
+### Founder Brief
+
+**Decided**
+- Add / edit / delete a single benefit directly in Admin — no scrape, no LLM, no review gate. Delete needs an inline confirm.
+- A new `source` field tags every benefit as `scraped` or `manual`. A re-scrape only replaces `scraped` benefits; `manual` ones are pinned and survive.
+- Editing a scraped benefit converts it to `manual` so your fix sticks across re-scrapes — but that benefit then stops getting scrape updates (delete + re-scrape to undo).
+- v1 is usage-tracked benefits only (amount + frequency). Manual set-and-forget is a later follow-up.
+
+**Means for your product**
+- The review gate's job (catch LLM hallucination) doesn't apply to data you type — you're the source of truth — so manual writes skip it without weakening the gate for scraped data.
+- Your corrections finally survive re-scrapes. The old pain ("a re-scrape silently overwrote my fix") is closed by pinning + edit-conversion.
+- Admin becomes a real management surface, not just counts: expand a card, see its benefits, manage them one at a time.
+
+**Check before approving**
+- Are you OK that an edited (now pinned) benefit no longer auto-refreshes from scrapes until you delete and re-add it? That's the deliberate tradeoff for "my fix survives."
+- Are you OK that there's **no dedup** in v1 — if a later scrape re-finds a benefit you already added manually, you'll see both and delete the dupe yourself?
+- Are you OK that deleting a benefit with logged usage is allowed behind only an inline confirm (its usage history goes with it)?
+
+**What this closes off**
+- A merge/diff/conflict-resolution UI on re-scrape — pinning is the only mechanism; a real diff view stays deferred.
+- An in-place "un-pin" control — returning a benefit to scrape-managed means delete + re-scrape.
+- User-chosen classification — it stays server-derived, matching the existing PATCH contract.
+
+---
+
 ## Out of Scope (MVP)
 
 - CSV transaction import or auto-matching
