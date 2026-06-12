@@ -41,8 +41,10 @@ export const BENEFIT_EXTRACTION_TOOL = {
               type: "number",
               description:
                 "The amount usable in ONE reset window — must match resetPeriod, NOT the annual/lifetime total. " +
-                "If a benefit advertises a yearly total with a sub-annual split, emit the per-window amount: " +
-                "e.g. \"$600/year, $300 semiannually\" → value 300 with resetPeriod \"semiannual\". " +
+                "When a benefit advertises an annual headline delivered in increments, emit the SMALLEST reset window and its per-window amount, never the annual total. Worked examples: " +
+                "\"$600/year, $300 semiannually\" → value 300, resetPeriod \"semiannual\"; " +
+                "\"$400/year, $100 quarterly\" → value 100, resetPeriod \"quarterly\"; " +
+                "\"$300/year, $25 monthly\" → value 25, resetPeriod \"monthly\". " +
                 "Use 1 for access/unlimited benefits.",
             },
             valueUnit: {

@@ -11,6 +11,20 @@ import type { DraftBenefit, ParseResult } from "@/types/benefit";
 
 const MODEL = "claude-haiku-4-5-20251001"; // CONSTRAINT-09: hardcoded, never substituted
 
+/**
+ * Per-window value guidance prepended to the extraction prompt (CONSTRAINT-24).
+ * Worked monthly + quarterly + semiannual examples plus the explicit
+ * "smallest reset window" rule — hardens Haiku against emitting an annual
+ * headline total when a credit is actually delivered in sub-annual increments
+ * (Task 77; the Resy/lululemon/Uber-Cash defect class).
+ */
+export const PER_WINDOW_GUIDANCE =
+  "For `value`, emit the amount usable in ONE reset window, not the annual or lifetime total. " +
+  "When a benefit advertises an annual headline delivered in increments, emit the SMALLEST reset window and its per-window amount, never the annual total. " +
+  "Examples: \"$600/year, $300 semiannually\" → value 300, resetPeriod semiannual; " +
+  "\"$400/year, $100 quarterly\" → value 100, resetPeriod quarterly; " +
+  "\"$300/year, $25 monthly\" → value 25, resetPeriod monthly.";
+
 const VALID_TYPES = new Set<DraftBenefit["type"]>([
   "credit",
   "subscription",
@@ -105,9 +119,8 @@ export async function parseBenefits(rawText: string): Promise<ParseResult> {
           role: "user",
           content:
             "Extract all credit card benefits from the following text.\n" +
-            "For `value`, emit the amount usable in ONE reset window, not the annual or lifetime total. " +
-            "When a benefit advertises a yearly total with a sub-annual split (e.g. \"$600/year, $300 semiannually\"), " +
-            "emit the per-window amount (300) and the matching sub-annual resetPeriod (semiannual).\n\n" +
+            PER_WINDOW_GUIDANCE +
+            "\n\n" +
             rawText,
         },
       ],

@@ -8,7 +8,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
   })),
 }));
 
-import { parseBenefits, ParserError, toConfidenceTier } from "@/lib/parser/index";
+import { parseBenefits, ParserError, toConfidenceTier, PER_WINDOW_GUIDANCE } from "@/lib/parser/index";
 
 function makeToolUseResponse(benefits: unknown[], input: Record<string, unknown> = {}) {
   return {
@@ -75,6 +75,36 @@ describe("parseBenefits", () => {
     const { benefits } = await parseBenefits("$600/year travel credit, $300 semiannually.");
     expect(benefits[0].value).toBe(300);
     expect(benefits[0].resetPeriod).toBe("semiannual");
+  });
+
+  it("returns per-window value/resetPeriod verbatim for a mocked tool_use response (regression)", async () => {
+    // Task 77: the prompt is hardened, but the code path stays a verbatim passthrough
+    // (CONSTRAINT-24 — toDraftBenefit never transforms value/resetPeriod). Quarterly
+    // and monthly per-window amounts must flow through exactly as the model emits them.
+    const quarterly = {
+      ...validBenefit, name: "Resy Credit", description: "$400/yr, $100 each quarter",
+      value: 100, resetPeriod: "quarterly", category: "dining",
+    };
+    const monthly = {
+      ...validBenefit, name: "Uber Cash", description: "$15 each month",
+      value: 15, resetPeriod: "monthly", category: "travel",
+    };
+    mockCreate.mockResolvedValue(makeToolUseResponse([quarterly, monthly]));
+
+    const { benefits } = await parseBenefits("Resy $100/qtr; Uber $15/mo.");
+    expect(benefits[0].value).toBe(100);
+    expect(benefits[0].resetPeriod).toBe("quarterly");
+    expect(benefits[1].value).toBe(15);
+    expect(benefits[1].resetPeriod).toBe("monthly");
+  });
+
+  it("system prompt string includes both monthly and quarterly per-window guidance", () => {
+    // Task 77: hardened guidance must carry worked monthly AND quarterly examples
+    // (alongside the original semiannual one) plus the explicit smallest-window rule.
+    expect(PER_WINDOW_GUIDANCE).toMatch(/monthly/i);
+    expect(PER_WINDOW_GUIDANCE).toMatch(/quarterly/i);
+    expect(PER_WINDOW_GUIDANCE).toMatch(/semiannual/i);
+    expect(PER_WINDOW_GUIDANCE.toLowerCase()).toContain("smallest reset window");
   });
 
   it("maps classification and derives tracked=true for discretionary-credit", async () => {

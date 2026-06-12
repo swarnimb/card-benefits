@@ -7,7 +7,7 @@
 **PRD:** docs/prd.md
 **Architecture:** docs/architecture.md
 **Created:** 2026-04-07
-**Last Updated:** 2026-06-10 (Phase J / Feature 10.1 — Tasks 74–78 added via @create-plan: per-window value correctness defect fix — annual-blind audit detector, safe resetPeriod correction, annual roll-up safeguard, parser prompt hardening, correct 5 mis-valued rows. **Tasks 74–76 [x]** — 74 (2026-06-10): `flagBenefit` flags annual-disguised sub-annual credits via cadence-language patterns (9 unit tests). 75 (2026-06-10): `resetPeriod`-change closes the stale open period in-transaction, lazy `ensureCurrentPeriod` regenerates it (+3 integration tests, 70 total). 76 (2026-06-11): `annualRollup` + "→ $Y/yr" roll-up in `BenefitAmount`, render-only (+7 unit tests, 262 total). Phase J now 3/5 fully done. 78 (2026-06-11): all 5 data corrections APPLIED (Resy/lululemon/Uber Cash + 2 Disney; Equinox left annual; Walmart+ deferred — setAndForget) via a guarded atomic transaction with Task 75 semantics — only the mandatory live 375px verification remains before `[x]`. Remaining: 77 (parser prompt hardening) + 78's builder verification. Feature 10 / Tasks 67–73 remain done + fully gated.)
+**Last Updated:** 2026-06-10 (Phase J / Feature 10.1 — Tasks 74–78 added via @create-plan: per-window value correctness defect fix — annual-blind audit detector, safe resetPeriod correction, annual roll-up safeguard, parser prompt hardening, correct 5 mis-valued rows. **Tasks 74–76 [x]** — 74 (2026-06-10): `flagBenefit` flags annual-disguised sub-annual credits via cadence-language patterns (9 unit tests). 75 (2026-06-10): `resetPeriod`-change closes the stale open period in-transaction, lazy `ensureCurrentPeriod` regenerates it (+3 integration tests, 70 total). 76 (2026-06-11): `annualRollup` + "→ $Y/yr" roll-up in `BenefitAmount`, render-only (+7 unit tests, 262 total). Phase J now 3/5 fully done. 78 (2026-06-11): all 5 data corrections APPLIED (Resy/lululemon/Uber Cash + 2 Disney; Equinox left annual; Walmart+ deferred — setAndForget) via a guarded atomic transaction with Task 75 semantics — only the mandatory live 375px verification remains before `[x]`. 77 (2026-06-11): per-window prompt hardening — monthly+quarterly worked examples + "smallest reset window" rule in tool `value` desc + exported `PER_WINDOW_GUIDANCE` (+2 unit tests, 264 total). **Phase J code COMPLETE (74–77 + 78 data applied).** Only remaining item: Task 78's builder live-375px verification before its final `[x]`. Feature 10 / Tasks 67–73 remain done + fully gated.)
 **Total tasks:** 48 in MVP scope (Phase F: 9/9 done — 40–48 ✅, 46 GATE closed 2026-05-21) + 3 Phase G backlog (G1 [~] superseded, G2 [x], G3 [x]) + 7 Phase H — Feature 8: Set-and-Forget Benefits (Tasks 49–55) + 7 Phase I — Feature 10: Usage Accuracy & In-Place Logging (Tasks 67–73) + 5 Phase J — Feature 10.1: Per-Window Value Correctness defect fix (Tasks 74–78)
 
 ---
@@ -2700,17 +2700,17 @@
 **Functions to implement:** None new — strengthen the tool `value` description + system prompt.
 
 **Acceptance criteria:**
-- [ ] System prompt + tool `value` description include worked **monthly** and **quarterly** examples in addition to the existing semiannual one (e.g. `"$400/yr, $100 quarterly" → value 100, resetPeriod quarterly`; `"$300/yr, $25 monthly" → value 25, resetPeriod monthly`)
-- [ ] Prompt explicitly states: when a benefit advertises an annual headline delivered in increments, emit the SMALLEST reset window and its per-window amount, never the annual total
-- [ ] Model unchanged: `claude-haiku-4-5-20251001`, `tool_use` only (CONSTRAINT-09)
-- [ ] `toDraftBenefit` passthrough unchanged — `value`/`resetPeriod` verbatim (CONSTRAINT-24)
+- [x] System prompt + tool `value` description include worked **monthly** and **quarterly** examples in addition to the existing semiannual one (e.g. `"$400/yr, $100 quarterly" → value 100, resetPeriod quarterly`; `"$300/yr, $25 monthly" → value 25, resetPeriod monthly`)
+- [x] Prompt explicitly states: when a benefit advertises an annual headline delivered in increments, emit the SMALLEST reset window and its per-window amount, never the annual total
+- [x] Model unchanged: `claude-haiku-4-5-20251001`, `tool_use` only (CONSTRAINT-09)
+- [x] `toDraftBenefit` passthrough unchanged — `value`/`resetPeriod` verbatim (CONSTRAINT-24)
 
 **Tests required:**
 - `parseBenefits` → `returns per-window value/resetPeriod verbatim for a mocked tool_use response (regression)`
 - `parser prompt` → `system prompt string includes both monthly and quarterly per-window guidance`
 
 **Depends on:** None
-**Status:** [ ]
+**Status:** [x] — done 2026-06-11. Added worked monthly + quarterly examples (alongside the existing semiannual) and the explicit "emit the SMALLEST reset window, never the annual total" rule to BOTH the tool `value` description (`schema.ts`) and the prompt — extracted as exported `PER_WINDOW_GUIDANCE` in `index.ts` so it's directly assertable. Model + `tool_use` unchanged (CONSTRAINT-09); `toDraftBenefit` passthrough untouched (CONSTRAINT-24). +2 unit tests (264 total); tsc clean.
 **Specialist:** @llm-parser
 
 ---
