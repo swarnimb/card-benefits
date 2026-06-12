@@ -2985,6 +2985,7 @@ _(none yet)_
 | 2026-06-04 | Tasks 56–66 added (Feature 9) | `@create-plan` — Pixel-Perfect Three-Screen Redesign |
 | 2026-06-10 | Tasks 74–78 added (Phase J) | `@create-plan` — Per-Window Value Correctness (Feature 10.1 defect fix): annual-disguised credits (Resy/lululemon/Uber Cash) stored as annual totals; annual-blind audit + no roll-up safeguard |
 | 2026-06-12 | Tasks 79–86 added (Phase K) | `@create-plan` — Feature 11: Manual Benefit Management (Add/Edit/Delete). Direct CRUD in Admin, no scrape/LLM/review-gate; `source` field pins manual benefits against re-scrape; edit-pins scraped benefits (decision b). v1 = tracked benefits only |
+| 2026-06-12 | Tasks 87–94 added (Phase L) | `@create-plan` — Feature 12: Shareable Static Demo on GitHub Pages. Fictional fixtures through the real engine; generic write-block; repo public only after history sweep (Task 92 hard gate) |
 
 ---
 
@@ -3009,7 +3010,7 @@ _(none yet)_
 - `demo-mode` → flag on returns true; flag absent returns false
 
 **Depends on:** None
-**Status:** [ ]
+**Status:** [x] — DONE 2026-06-12
 
 ---
 
@@ -3032,7 +3033,7 @@ _(none yet)_
 
 **Depends on:** None
 **Specialist:** @data
-**Status:** [ ]
+**Status:** [x] — DONE 2026-06-12
 
 ---
 
@@ -3121,7 +3122,7 @@ _(none yet)_
 **Tests required:** None — audit task. Invoke `@security`.
 
 **Depends on:** None (must complete before Task 93)
-**Status:** [ ]
+**Status:** [x] — DONE 2026-06-12. Verdict: CLEAR for public release (manual full-history sweep, 76 commits, no secrets/PII ever committed; see docs/security-report.md)
 
 ---
 
