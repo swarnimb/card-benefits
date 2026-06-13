@@ -16,6 +16,15 @@ export type ResetAnchor = "calendar" | "statement" | "anniversary";
 /** Whether a benefit value is in dollars or loyalty points. */
 export type ValueUnit = "dollars" | "points";
 
+/**
+ * Origin of a benefit row (Feature 11). `"scraped"` = created from a scrape +
+ * LLM parse via the review gate; `"manual"` = user-typed in Admin (no scrape /
+ * LLM / review gate). Pins manual rows against re-scrape replace-all (refines
+ * CONSTRAINT-06). Server-managed — never client-settable (SEC: never trust a
+ * client-chosen `source`).
+ */
+export type BenefitSource = "scraped" | "manual";
+
 /** Spending/usage category for grouping benefits in the overview. */
 export type BenefitCategory =
   | "dining"
@@ -39,6 +48,7 @@ export interface BenefitWithPeriod {
   resetAnchor: ResetAnchor;
   category: BenefitCategory;
   classification: BenefitClassification;
+  source: BenefitSource;
   tracked: boolean;
   setAndForget: boolean;
   activatedAt: Date | null;

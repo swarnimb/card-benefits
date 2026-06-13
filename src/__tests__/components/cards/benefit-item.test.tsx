@@ -26,6 +26,7 @@ function makeBenefit(overrides: Partial<BenefitWithPeriod> = {}): BenefitWithPer
     resetAnchor: "calendar",
     category: "travel",
     classification: "discretionary-credit",
+    source: "scraped",
     tracked: true,
     setAndForget: false,
     activatedAt: null,

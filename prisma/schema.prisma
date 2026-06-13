@@ -44,6 +44,7 @@ model Benefit {
   resetAnchor    String          @default("calendar")
   category       String // "dining" | "travel" | "streaming" | "shopping" | "lounge" | "general"
   classification String          @default("one-time-bonus") // app-validated bucket, NOT a Prisma enum (CONSTRAINT-01)
+  source         String          @default("scraped") // "scraped" | "manual" — app-validated string, NOT a Prisma enum (CONSTRAINT-01). Manual benefits are user-typed (Feature 11); pins the row against re-scrape replace-all (refines CONSTRAINT-06). Server-managed — never client-settable.
   tracked        Boolean         @default(false) // default derived from classification; user can override via review gate or post-save PATCH
   setAndForget   Boolean         @default(false) // membership-reimbursement benefit: activate once, no per-period tracking (CONSTRAINT-16/17)
   activatedAt    DateTime? // when the user marked a set-and-forget benefit active; null = not set up

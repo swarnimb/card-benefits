@@ -116,6 +116,96 @@ describe("POST /api/benefits/confirm — annualFee end-to-end (Task 66)", () => 
   });
 });
 
+describe("POST /api/benefits/confirm — re-scrape source scoping (Task 80)", () => {
+  it('re-scrape deletes scraped benefits but preserves a source:"manual" benefit and its periods', async () => {
+    // Seed one manual benefit (with an open period) and one scraped benefit on the same userCard.
+    const manual = await prisma.benefit.create({
+      data: {
+        userCardId,
+        name: "Manual Keep Me",
+        type: "credit",
+        value: 75,
+        resetPeriod: "monthly",
+        resetAnchor: "calendar",
+        category: "dining",
+        classification: "discretionary-credit",
+        source: "manual",
+        tracked: true,
+        setAndForget: false,
+      },
+    });
+    const manualPeriod = await prisma.benefitPeriod.create({
+      data: {
+        benefitId: manual.id,
+        periodStart: new Date("2026-06-01"),
+        periodEnd: new Date("2026-06-30"),
+        usedAmount: 25,
+        status: "open",
+      },
+    });
+    const scraped = await prisma.benefit.create({
+      data: {
+        userCardId,
+        name: "Old Scraped Benefit",
+        type: "credit",
+        value: 200,
+        resetPeriod: "annual",
+        resetAnchor: "calendar",
+        category: "travel",
+        classification: "discretionary-credit",
+        source: "scraped",
+        tracked: true,
+        setAndForget: false,
+      },
+    });
+
+    const res = await confirmRequest({
+      userCardId,
+      benefits: [makeDraft({ name: "Freshly Confirmed Credit" })],
+      annualFee: 100,
+    });
+    expect(res.status).toBe(200);
+
+    // The manual benefit row survives with its original id, and its period survives.
+    const manualAfter = await prisma.benefit.findUnique({ where: { id: manual.id } });
+    expect(manualAfter).not.toBeNull();
+    expect(manualAfter!.id).toBe(manual.id);
+    expect(manualAfter!.source).toBe("manual");
+    const manualPeriodAfter = await prisma.benefitPeriod.findUnique({ where: { id: manualPeriod.id } });
+    expect(manualPeriodAfter).not.toBeNull();
+
+    // The old scraped benefit is gone.
+    const scrapedAfter = await prisma.benefit.findUnique({ where: { id: scraped.id } });
+    expect(scrapedAfter).toBeNull();
+
+    // The newly confirmed benefit exists and is source:"scraped".
+    const fresh = await prisma.benefit.findFirst({
+      where: { userCardId, name: "Freshly Confirmed Credit" },
+    });
+    expect(fresh).not.toBeNull();
+    expect(fresh!.source).toBe("scraped");
+  });
+
+  it('confirmed benefits persist with source:"scraped" even if the body supplies source:"manual"', async () => {
+    // SEC: a client-supplied source must be ignored — server pins "scraped".
+    const res = await confirmRequest({
+      userCardId,
+      benefits: [
+        makeDraft({ name: "Body Says Manual A", source: "manual" }),
+        makeDraft({ name: "Body Says Manual B", source: "manual" }),
+      ],
+      annualFee: null,
+    });
+    expect(res.status).toBe(200);
+
+    const rows = await prisma.benefit.findMany({ where: { userCardId } });
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.source).toBe("scraped");
+    }
+  });
+});
+
 describe("POST /api/benefits/confirm — confidence/note never persisted (Task 66 security)", () => {
   it("strips review-only confidence/note from the persisted Benefit rows", async () => {
     const res = await confirmRequest({
@@ -157,6 +247,7 @@ describe("POST /api/benefits/confirm — confidence/note never persisted (Task 6
         "resetAnchor",
         "category",
         "classification",
+        "source",
         "tracked",
         "setAndForget",
         "activatedAt",

@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { COLORS, RADII } from "@/lib/ui/tokens";
+import { COLORS, EASING_ARRAY, RADII } from "@/lib/ui/tokens";
 import { MiniCard } from "./mini-card";
 import { DeleteConfirm } from "./delete-confirm";
-import { RescrapeIcon, TrashIcon } from "./icons";
+import { ManagedBenefitsPanel } from "./managed-benefits-panel";
+import { RescrapeIcon, TrashIcon, ChevronDown } from "./icons";
 
 /** Shape of a card row in the management list. */
 export interface ManagedCard {
@@ -77,6 +78,7 @@ function IconBtn({
  */
 export function ManagedRow({ card, onRescrape, onRemove, busy }: ManagedRowProps) {
   const [confirming, setConfirming] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const reduceMotion = useReducedMotion();
   const { issuer, name, defaultColor } = card.card;
   const count = card.benefitCount;
@@ -127,6 +129,18 @@ export function ManagedRow({ card, onRescrape, onRemove, busy }: ManagedRowProps
         </div>
         {!busy ? (
           <div style={{ display: "flex", gap: 7 }}>
+            <IconBtn
+              label={`${expanded ? "Collapse" : "Expand"} benefits for ${name}`}
+              onClick={() => setExpanded((e) => !e)}
+            >
+              <motion.span
+                style={{ display: "inline-flex" }}
+                animate={reduceMotion ? undefined : { rotate: expanded ? 180 : 0 }}
+                transition={{ duration: 0.3, ease: EASING_ARRAY }}
+              >
+                {ChevronDown}
+              </motion.span>
+            </IconBtn>
             <IconBtn label={`Refresh benefits for ${name}`} onClick={() => onRescrape(card.id)}>
               {RescrapeIcon}
             </IconBtn>
@@ -156,6 +170,9 @@ export function ManagedRow({ card, onRescrape, onRemove, busy }: ManagedRowProps
           </div>
         )}
       </div>
+
+      {/* expandable inline benefit list (Task 83) */}
+      <ManagedBenefitsPanel userCardId={card.id} open={expanded} />
 
       {/* last-checked footer */}
       <div

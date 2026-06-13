@@ -310,6 +310,84 @@ describe("PATCH /api/benefits/[id]", () => {
   });
 });
 
+describe("PATCH /api/benefits/[id] — source edit-pin (Task 81)", () => {
+  it('editing a scraped benefit flips source to "manual"', async () => {
+    const benefit = await createBenefit(testUserCardId, { source: "scraped" });
+
+    const res = await PATCH(
+      new NextRequest(`http://localhost/api/benefits/${benefit.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: "Edited By User" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: benefit.id }) }
+    );
+
+    expect(res.status).toBe(200);
+    const persisted = await prisma.benefit.findUnique({ where: { id: benefit.id } });
+    expect(persisted!.name).toBe("Edited By User");
+    expect(persisted!.source).toBe("manual"); // edit-pin flip
+  });
+
+  it('editing an already-manual benefit leaves source "manual"; a body-supplied source/classification is ignored', async () => {
+    // SEC: source/classification are never in ALLOWED_PATCH_FIELDS — a body value is stripped.
+    const benefit = await createBenefit(testUserCardId, {
+      source: "manual",
+      classification: "discretionary-credit",
+    });
+
+    const res = await PATCH(
+      new NextRequest(`http://localhost/api/benefits/${benefit.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: "Renamed", source: "scraped", classification: "auto-earn" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: benefit.id }) }
+    );
+
+    expect(res.status).toBe(200);
+    const persisted = await prisma.benefit.findUnique({ where: { id: benefit.id } });
+    expect(persisted!.name).toBe("Renamed"); // allowed field applied
+    expect(persisted!.source).toBe("manual"); // body "scraped" ignored, stays manual
+    expect(persisted!.classification).toBe("discretionary-credit"); // body classification stripped
+  });
+
+  it("a frequency change still closes the open period and pins source in the same transaction", async () => {
+    // Regression + atomicity: the resetPeriod-change period close AND the edit-pin flip are one transaction.
+    const benefit = await createBenefit(testUserCardId, {
+      source: "scraped",
+      resetPeriod: "monthly",
+      tracked: true,
+    });
+    const open = await prisma.benefitPeriod.create({
+      data: {
+        benefitId: benefit.id,
+        periodStart: new Date("2026-06-01"),
+        periodEnd: new Date("2026-06-30"),
+        usedAmount: 10,
+        status: "open",
+      },
+    });
+
+    const res = await PATCH(
+      new NextRequest(`http://localhost/api/benefits/${benefit.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ resetPeriod: "quarterly" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: benefit.id }) }
+    );
+
+    expect(res.status).toBe(200);
+
+    // Both effects of the single transaction:
+    const openAfter = await prisma.benefitPeriod.findUnique({ where: { id: open.id } });
+    expect(openAfter!.status).toBe("closed"); // period closed
+    const persisted = await prisma.benefit.findUnique({ where: { id: benefit.id } });
+    expect(persisted!.source).toBe("manual"); // source pinned in the same tx
+  });
+});
+
 describe("DELETE /api/benefits/[id]", () => {
   it("removes benefit and all its periods", async () => {
     const benefit = await createBenefit(testUserCardId);

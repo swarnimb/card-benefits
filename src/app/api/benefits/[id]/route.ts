@@ -60,21 +60,28 @@ function fetchBenefitWithOwnership(id: string) {
   return prisma.benefit.findUnique({ where: { id }, include: { userCard: true } });
 }
 
-type BenefitUpdateContext = { type: string; resetPeriod: string; setAndForget: boolean };
+type BenefitUpdateContext = { type: string; resetPeriod: string; setAndForget: boolean; source: string };
 
 function applyBenefitUpdate(id: string, patchData: BenefitPatchData, current: BenefitUpdateContext) {
   const typeChanged = patchData.type !== undefined && patchData.type !== current.type;
   const resetPeriodChanged =
     patchData.resetPeriod !== undefined && patchData.resetPeriod !== current.resetPeriod;
 
+  // Edit-pin (Task 81, decision b): editing a scraped benefit converts it to
+  // "manual" so a later re-scrape no longer replaces it (refines CONSTRAINT-06).
+  // SERVER-DERIVED from the current row — `source` is never in ALLOWED_PATCH_FIELDS,
+  // so it can't be set from the body. Already-manual rows are left unchanged.
+  const writeData: BenefitPatchData & { source?: string } =
+    current.source === "scraped" ? { ...patchData, source: "manual" } : patchData;
+
   // Set-and-forget benefits have no BenefitPeriod records (CONSTRAINT-17) — never touch periods.
   const touchesPeriods = !current.setAndForget && (typeChanged || resetPeriodChanged);
   if (!touchesPeriods) {
-    return prisma.benefit.update({ where: { id }, data: patchData });
+    return prisma.benefit.update({ where: { id }, data: writeData });
   }
 
   return prisma.$transaction(async (tx) => {
-    const result = await tx.benefit.update({ where: { id }, data: patchData });
+    const result = await tx.benefit.update({ where: { id }, data: writeData });
     if (typeChanged) {
       // Existing behavior: a type change resets the open period's usage.
       await tx.benefitPeriod.updateMany({
@@ -125,6 +132,7 @@ export async function PATCH(
       type: benefit.type,
       resetPeriod: benefit.resetPeriod,
       setAndForget: benefit.setAndForget,
+      source: benefit.source,
     });
     return NextResponse.json(updated);
   } catch (err) {

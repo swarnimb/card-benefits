@@ -1,30 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { calculatePeriodBoundary } from "@/lib/engine/periods";
-import { deriveSetAndForget, deriveTracked, isValidClassification, normalizeClassification } from "@/lib/parser/classification";
+import { createBenefitWithPeriod } from "@/lib/engine/benefit-create";
+import { isValidClassification } from "@/lib/parser/classification";
 import type { DraftBenefit } from "@/types/benefit";
 
 const VALID_TYPES = new Set(["credit", "subscription", "access", "perk"]);
 const VALID_VALUE_UNITS = new Set(["dollars", "points"]);
 const VALID_RESET_PERIODS = new Set(["monthly", "quarterly", "semiannual", "annual", "once"]);
 const VALID_RESET_ANCHORS = new Set(["calendar", "statement", "anniversary"]);
-const VALID_CATEGORIES = new Set(["dining", "travel", "streaming", "shopping", "lounge", "general", "wellness"]);
 
 const MAX_NAME_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 1000;
-
-/**
- * Coerce an out-of-enum category to a valid one. The parser already clamps
- * Haiku's category at the LLM boundary, so this is a defense-in-depth backstop
- * for drafts parsed before that fix shipped (and any future client bug). Logs
- * loudly with context — never silently drops the bad value (EH-01).
- */
-function coerceCategory(value: unknown): string {
-  if (typeof value === "string" && VALID_CATEGORIES.has(value)) return value;
-  console.warn(`[confirm] coerced out-of-enum category ${JSON.stringify(value)} -> "general"`);
-  return "general";
-}
 
 /**
  * Boundary validation for the optional card-level annual fee (CONSTRAINT-21).
@@ -64,80 +51,6 @@ function validateBenefits(items: unknown[]): string | null {
   return null;
 }
 
-// Prisma transaction client type, derived without importing the generated
-// client (Prisma 7 generates to a non-default path on this project).
-type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
-
-/**
- * Creates one benefit and, for tracked non-set-and-forget benefits, its initial
- * open BenefitPeriod. `tracked` and `setAndForget` are server-derived in code,
- * never trusted from the LLM/client:
- * - tracked: defaults to deriveTracked(classification); a client-supplied
- *   boolean WINS — the user's explicit review-gate override (Decision A,
- *   2026-05-26). classification itself stays server-only / non-editable.
- *   Excluded benefits are still persisted (tracked=false) — never dropped.
- * - setAndForget: a SUBSET of tracked (ANDed), so a benefit the user untracks
- *   also clears set-and-forget — we never persist the inconsistent
- *   (tracked=false, setAndForget=true) state. `activatedAt` is omitted; Prisma
- *   defaults it to null and CONSTRAINT-16 makes setBenefitActivation() its sole
- *   write path.
- */
-async function createBenefitWithPeriod(
-  tx: TransactionClient,
-  userCardId: string,
-  b: DraftBenefit,
-  userCard: { statementDay: number | null; anniversaryDate: Date | null },
-  now: Date,
-): Promise<void> {
-  const tracked = typeof b.tracked === "boolean" ? b.tracked : deriveTracked(b.classification);
-  const setAndForget =
-    tracked && deriveSetAndForget(b.name, b.description ?? null, normalizeClassification(b.classification));
-  // SECURITY / allowlist write (Task 60): every column persisted to `Benefit` is
-  // listed EXPLICITLY below — there is NO object spread of the client draft.
-  // `confidence` and `note` (DraftBenefit, review-only) are intentionally
-  // omitted from this allowlist, so they are impossible to write to the DB even
-  // if a client supplies them. `ignoreRestSiblings` lets us name them in the
-  // rest-destructure purely to document the exclusion without an unused-var
-  // lint error. Do NOT replace this explicit field list with a spread of `b`.
-  const { confidence, note, ...allowlistedDraft } = b;
-  void confidence; // review-only — never persisted (allowlist)
-  void note; // review-only — never persisted (allowlist)
-  const created = await tx.benefit.create({
-    data: {
-      userCardId,
-      name: allowlistedDraft.name,
-      description: allowlistedDraft.description ?? null,
-      type: allowlistedDraft.type,
-      value: allowlistedDraft.value ?? null,
-      valueUnit: allowlistedDraft.valueUnit ?? "dollars",
-      resetPeriod: allowlistedDraft.resetPeriod,
-      resetAnchor: allowlistedDraft.resetAnchor,
-      category: coerceCategory(allowlistedDraft.category),
-      classification: normalizeClassification(allowlistedDraft.classification),
-      tracked,
-      setAndForget,
-    },
-  });
-  // CONSTRAINT-17: set-and-forget (and untracked) benefits get NO initial
-  // BenefitPeriod. ensureCurrentPeriod short-circuits set-and-forget benefits,
-  // so a period born here would be orphaned — never closed/rolled.
-  if (!tracked || setAndForget) return;
-
-  // Fall back to calendar if the anchor requires data the card doesn't have.
-  let effectiveAnchor = b.resetAnchor;
-  if (effectiveAnchor === "anniversary" && !userCard.anniversaryDate) effectiveAnchor = "calendar";
-  if (effectiveAnchor === "statement" && !userCard.statementDay) effectiveAnchor = "calendar";
-
-  const { periodStart, periodEnd } = calculatePeriodBoundary(
-    b.resetPeriod, effectiveAnchor, now,
-    userCard.statementDay ?? undefined,
-    userCard.anniversaryDate ?? undefined,
-  );
-  await tx.benefitPeriod.create({
-    data: { benefitId: created.id, periodStart, periodEnd, usedAmount: 0, status: "open" },
-  });
-}
-
 async function runConfirmTransaction(
   userCardId: string,
   cardId: string,
@@ -147,9 +60,13 @@ async function runConfirmTransaction(
 ): Promise<void> {
   const now = new Date();
   await prisma.$transaction(async (tx) => {
-    await tx.benefit.deleteMany({ where: { userCardId } });
+    // Re-scrape replace-all is SCOPED to scraped rows (Task 80 / refines
+    // CONSTRAINT-06): a user's manual benefits (source="manual") are pinned and
+    // survive a re-scrape — only the previously-scraped set is replaced.
+    await tx.benefit.deleteMany({ where: { userCardId, source: "scraped" } });
     for (const b of benefits) {
-      await createBenefitWithPeriod(tx, userCardId, b, userCard, now);
+      // source="scraped" — these come from the scrape + LLM review gate (Task 80).
+      await createBenefitWithPeriod(tx, userCardId, b, userCard, now, "scraped");
     }
     await tx.userCard.update({ where: { id: userCardId }, data: { lastVerifiedAt: now } });
     // CONSTRAINT-21 (Task 60): persist the reviewed annual fee on the shared
