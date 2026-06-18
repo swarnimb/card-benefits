@@ -4,10 +4,7 @@ import { prisma } from "@/lib/db";
 import { createBenefitWithPeriod } from "@/lib/engine/benefit-create";
 import { toBenefitWithPeriod } from "@/lib/engine/mappers";
 import type { DraftBenefit } from "@/types/benefit";
-
-const VALID_TYPES = new Set(["credit", "subscription", "access", "perk"]);
-const VALID_RESET_PERIODS = new Set(["monthly", "quarterly", "semiannual", "annual", "once"]);
-const VALID_CATEGORIES = new Set(["dining", "travel", "streaming", "shopping", "lounge", "general", "wellness"]);
+import { VALID_TYPES, VALID_RESET_PERIODS, VALID_CATEGORIES } from "@/lib/validation/benefit-enums";
 
 const MAX_NAME_LENGTH = 200;
 

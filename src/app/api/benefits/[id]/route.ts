@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-
-const VALID_TYPES = new Set(["credit", "subscription", "access", "perk"]);
-const VALID_RESET_PERIODS = new Set(["monthly", "quarterly", "semiannual", "annual", "once"]);
-const VALID_RESET_ANCHORS = new Set(["calendar", "statement", "anniversary"]);
-const VALID_CATEGORIES = new Set(["dining", "travel", "streaming", "shopping", "lounge", "general", "wellness"]);
-
-const VALID_VALUE_UNITS = new Set(["dollars", "points"]);
+import {
+  VALID_TYPES,
+  VALID_RESET_PERIODS,
+  VALID_RESET_ANCHORS,
+  VALID_CATEGORIES,
+  VALID_VALUE_UNITS,
+} from "@/lib/validation/benefit-enums";
 
 // Decision A (updated 2026-05-26): `tracked` is now user-editable post-save —
 // it represents the user's override of the deterministic classification→tracked

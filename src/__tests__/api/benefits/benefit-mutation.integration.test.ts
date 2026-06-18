@@ -415,4 +415,28 @@ describe("DELETE /api/benefits/[id]", () => {
     const orphanedPeriods = await prisma.benefitPeriod.findMany({ where: { benefitId: benefit.id } });
     expect(orphanedPeriods).toHaveLength(0);
   });
+
+  it("returns 403 when deleting another user's benefit", async () => {
+    const otherBenefit = await createBenefit(otherUserCardId);
+
+    const res = await DELETE(
+      new NextRequest(`http://localhost/api/benefits/${otherBenefit.id}`, { method: "DELETE" }),
+      { params: Promise.resolve({ id: otherBenefit.id }) }
+    );
+
+    expect(res.status).toBe(403);
+
+    // The benefit must NOT have been deleted.
+    const stillThere = await prisma.benefit.findUnique({ where: { id: otherBenefit.id } });
+    expect(stillThere).not.toBeNull();
+  });
+
+  it("returns 404 when the benefit does not exist", async () => {
+    const res = await DELETE(
+      new NextRequest("http://localhost/api/benefits/nonexistent-id", { method: "DELETE" }),
+      { params: Promise.resolve({ id: "nonexistent-id" }) }
+    );
+
+    expect(res.status).toBe(404);
+  });
 });

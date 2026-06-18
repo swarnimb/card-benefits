@@ -7,6 +7,7 @@ import { MiniCard } from "./mini-card";
 import { DeleteConfirm } from "./delete-confirm";
 import { ManagedBenefitsPanel } from "./managed-benefits-panel";
 import { RescrapeIcon, TrashIcon, ChevronDown } from "./icons";
+import { IconButton } from "./icon-button";
 
 /** Shape of a card row in the management list. */
 export interface ManagedCard {
@@ -35,39 +36,6 @@ export function relativeDate(iso: string | null): string {
   if (days < 30) return `${days} days ago`;
   const months = Math.floor(days / 30);
   return months === 1 ? "1 month ago" : `${months} months ago`;
-}
-
-function IconBtn({
-  children,
-  onClick,
-  label,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      className="transition-colors hover:bg-white/[0.08]"
-      style={{
-        width: 34,
-        height: 34,
-        borderRadius: RADII.icon + 3,
-        flexShrink: 0,
-        background: "rgba(255,255,255,0.045)",
-        border: `1px solid ${COLORS.hairline2}`,
-        color: COLORS.text2,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      {children}
-    </button>
-  );
 }
 
 /**
@@ -129,7 +97,7 @@ export function ManagedRow({ card, onRescrape, onRemove, busy }: ManagedRowProps
         </div>
         {!busy ? (
           <div style={{ display: "flex", gap: 7 }}>
-            <IconBtn
+            <IconButton
               label={`${expanded ? "Collapse" : "Expand"} benefits for ${name}`}
               onClick={() => setExpanded((e) => !e)}
             >
@@ -140,13 +108,13 @@ export function ManagedRow({ card, onRescrape, onRemove, busy }: ManagedRowProps
               >
                 {ChevronDown}
               </motion.span>
-            </IconBtn>
-            <IconBtn label={`Refresh benefits for ${name}`} onClick={() => onRescrape(card.id)}>
+            </IconButton>
+            <IconButton label={`Refresh benefits for ${name}`} onClick={() => onRescrape(card.id)}>
               {RescrapeIcon}
-            </IconBtn>
-            <IconBtn label={`Remove ${name}`} onClick={() => setConfirming(true)}>
+            </IconButton>
+            <IconButton label={`Remove ${name}`} onClick={() => setConfirming(true)}>
               {TrashIcon}
-            </IconBtn>
+            </IconButton>
           </div>
         ) : (
           <div

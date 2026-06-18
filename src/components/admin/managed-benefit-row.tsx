@@ -7,6 +7,7 @@ import { BenefitAmount } from "./edit-fields";
 import { BenefitEditPanel } from "./benefit-edit-panel";
 import { BenefitDeleteConfirm } from "./benefit-delete-confirm";
 import { ChevronDown } from "./icons";
+import { TextButton } from "./text-button";
 import type { BenefitWithPeriod, DraftBenefit } from "@/types/benefit";
 import type { BenefitPatch } from "@/hooks/use-benefit-mutations";
 
@@ -36,35 +37,6 @@ function toDraft(b: BenefitWithPeriod): DraftBenefit {
     confidence: "high", // review-only field; not persisted — neutral default for editing
   };
 }
-
-const TextButton = ({
-  label,
-  onClick,
-  destructive,
-}: {
-  label: string;
-  onClick: () => void;
-  destructive?: boolean;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-label={label}
-    style={{
-      padding: "6px 10px",
-      borderRadius: RADII.chip,
-      cursor: "pointer",
-      background: "rgba(255,255,255,0.04)",
-      border: `1px solid ${COLORS.hairline2}`,
-      color: destructive ? COLORS.amber : COLORS.text2,
-      fontSize: 11.5,
-      fontWeight: 500,
-      fontFamily: "inherit",
-    }}
-  >
-    {label}
-  </button>
-);
 
 /**
  * One benefit line inside an expanded managed card (Task 83/85): name +

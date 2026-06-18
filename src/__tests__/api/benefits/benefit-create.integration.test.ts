@@ -157,4 +157,30 @@ describe("POST /api/benefits — manual create (Task 82)", () => {
     const rows = await prisma.benefit.findMany({ where: { userCardId: testUserCardId } });
     expect(rows).toHaveLength(0);
   });
+
+  it("returns 401 when unauthenticated", async () => {
+    mockRequireAuth.mockRejectedValueOnce(new Error("no session"));
+
+    const res = await createRequest({
+      userCardId: testUserCardId,
+      name: "Should Not Create",
+      value: 50,
+      resetPeriod: "monthly",
+      type: "credit",
+      category: "dining",
+    });
+
+    expect(res.status).toBe(401);
+    const rows = await prisma.benefit.findMany({ where: { userCardId: testUserCardId } });
+    expect(rows).toHaveLength(0);
+  });
+
+  it("returns 400 when the body is not an object", async () => {
+    const res = await createRequest([]);
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Invalid request body");
+    const rows = await prisma.benefit.findMany({ where: { userCardId: testUserCardId } });
+    expect(rows).toHaveLength(0);
+  });
 });

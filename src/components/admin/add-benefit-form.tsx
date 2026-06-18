@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { COLORS, RADII } from "@/lib/ui/tokens";
+import { COLORS } from "@/lib/ui/tokens";
 import { EditField, ChipPicker, fieldInputStyle, resetWindowLabel } from "./edit-fields";
+import { AddBenefitActions } from "./add-benefit-actions";
 import type {
   BenefitWithPeriod,
   BenefitType,
@@ -176,46 +177,12 @@ export function AddBenefitForm({ userCardId, onCreated, onCancel }: AddBenefitFo
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8 }}>
-        <button
-          type="button"
-          onClick={onCancel}
-          style={{
-            flex: 1,
-            padding: "10px",
-            borderRadius: RADII.input + 1,
-            cursor: "pointer",
-            background: "rgba(255,255,255,0.05)",
-            border: `1px solid ${COLORS.hairline2}`,
-            color: COLORS.text2,
-            fontSize: 13,
-            fontWeight: 500,
-            fontFamily: "inherit",
-          }}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={save}
-          disabled={!nameValid || pending}
-          style={{
-            flex: 1,
-            padding: "10px",
-            borderRadius: RADII.input + 1,
-            cursor: !nameValid || pending ? "default" : "pointer",
-            background: COLORS.amber,
-            border: "1px solid transparent",
-            color: COLORS.onAmber,
-            fontSize: 13,
-            fontWeight: 600,
-            fontFamily: "inherit",
-            opacity: !nameValid || pending ? 0.5 : 1,
-          }}
-        >
-          {pending ? "Saving…" : "Save benefit"}
-        </button>
-      </div>
+      <AddBenefitActions
+        disabled={!nameValid || pending}
+        pending={pending}
+        onCancel={onCancel}
+        onSave={save}
+      />
     </div>
   );
 }

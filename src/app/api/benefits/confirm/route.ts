@@ -4,11 +4,12 @@ import { prisma } from "@/lib/db";
 import { createBenefitWithPeriod } from "@/lib/engine/benefit-create";
 import { isValidClassification } from "@/lib/parser/classification";
 import type { DraftBenefit } from "@/types/benefit";
-
-const VALID_TYPES = new Set(["credit", "subscription", "access", "perk"]);
-const VALID_VALUE_UNITS = new Set(["dollars", "points"]);
-const VALID_RESET_PERIODS = new Set(["monthly", "quarterly", "semiannual", "annual", "once"]);
-const VALID_RESET_ANCHORS = new Set(["calendar", "statement", "anniversary"]);
+import {
+  VALID_TYPES,
+  VALID_VALUE_UNITS,
+  VALID_RESET_PERIODS,
+  VALID_RESET_ANCHORS,
+} from "@/lib/validation/benefit-enums";
 
 const MAX_NAME_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 1000;
