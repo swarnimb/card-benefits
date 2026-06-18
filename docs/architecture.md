@@ -185,6 +185,7 @@ model Benefit {
   tracked     Boolean         @default(false) // derived deterministically from classification by src/lib/parser/classification.ts — never set by the LLM
   setAndForget Boolean        @default(false) // Feature 8: derived deterministically (like `tracked`) by classification.ts — true = one setup action, value auto-recurs. Never set by the LLM
   activatedAt DateTime?       // Feature 8: set-and-forget activation — null = not set up, timestamp = active. Written only via setBenefitActivation() (CONSTRAINT-16)
+  source      String          @default("scraped") // Feature 11: "scraped" | "manual" — app-validated string, NOT a Prisma enum (CONSTRAINT-01). Server-set only, never from request body. Re-scrape replace-all is scoped to source:"scraped"; PATCH of a scraped benefit flips it to "manual" (CONSTRAINT-27)
   userCard    UserCard        @relation(fields: [userCardId], references: [id], onDelete: Cascade)
   periods     BenefitPeriod[]
   createdAt   DateTime        @default(now())
@@ -282,6 +283,16 @@ Added 2026-05-21 via `@cto`. Some benefits (Walmart+, Uber One, CLEAR, Oura, dig
 **Migration.** One additive Prisma migration adds both fields with safe defaults (`false` / `null`); existing benefits are unaffected until a re-scrape re-classifies them. No backfill. Per CONSTRAINT-06, activation does not survive a re-scrape (re-scrape deletes and replaces all benefits) — the user re-activates afterward; an accepted trade-off (see `docs/founder-brief.md` FB15).
 
 **Scope.** "Fix only" per `docs/prd.md` Feature 8 — the activation nudge, a `dismissed` state, and annual re-confirmation are explicitly out of scope.
+
+### Manual Benefit Management (Feature 11)
+
+Added Feature 11 (`docs/prd.md` Feature 11, CONSTRAINT-27). A benefit can now originate two ways, tracked by the new **`source`** field on `Benefit` (`"scraped" | "manual"`, app-validated string — not a Prisma enum, default `"scraped"`, server-set only). Manual benefits are user-typed, so they bypass the scrape → Haiku → review-gate pipeline entirely.
+
+- **New endpoint `POST /api/benefits`** — manual create. No scrape, no LLM, no review gate (manual data is hand-entered, so the review gate that guards LLM output does not apply). Validates body fields against the same allowlists as the confirm path.
+- **`createBenefitWithPeriod` extracted to `src/lib/engine/benefit-create.ts`** — the benefit-plus-initial-period write, previously inline in the confirm route, is now a shared helper used by both the confirm route and the manual create. It sets `source`, `classification`, `tracked`, and `setAndForget` via explicit allowlists — no body spread — so the client can never inject a field it shouldn't.
+- **Re-scrape replace-all is scoped to `source:"scraped"` only** (CONSTRAINT-06 narrowed). Manual benefits are pinned — a re-scrape deletes and replaces scraped benefits but leaves manual ones untouched.
+- **PATCH of a scraped benefit flips its `source` to `"manual"`** — once you hand-edit a scraped benefit, it is treated as manual data and survives subsequent re-scrapes.
+- **Scope:** v1 is usage-tracked benefits only. Manual set-and-forget benefits are out of scope (CONSTRAINT-27).
 
 ---
 
@@ -408,7 +419,8 @@ See `docs/api-spec.md` for full request/response contracts.
 | DELETE | `/api/user-cards/[id]` | Remove card (cascades) |
 | POST | `/api/user-cards/[id]/scrape` | Scrape + parse → return draft (no DB write) |
 | GET | `/api/user-cards/[id]/benefits` | Benefits with current period data |
-| POST | `/api/benefits/confirm` | Bulk-save confirmed benefits (replaces all) |
+| POST | `/api/benefits` | Manual benefit create (Feature 11 — no scrape, no LLM, no review gate) |
+| POST | `/api/benefits/confirm` | Bulk-save confirmed benefits (replaces `source:"scraped"` only) |
 | PATCH | `/api/benefits/[id]` | Edit a benefit |
 | DELETE | `/api/benefits/[id]` | Remove a benefit |
 | POST | `/api/benefits/[id]/usage` | Update usedAmount |
@@ -433,6 +445,17 @@ next build && next start -p 3002
 - Playwright Chromium: `npx playwright install chromium` on first setup
 - No CI/CD, no cloud hosting, no serverless — MVP is local only
 - Vercel migration is Phase 2 (see assumptions A9 — requires Postgres + external scraping)
+
+### Demo Mode (Feature 12)
+
+Added Feature 12 (`docs/prd.md` Feature 12, CONSTRAINT-28). A public, read-only, no-login build of the app published as a Next.js static export — so the product can be shared on a URL without a server, a database, or real data. A single build-time gate, **`isDemoMode`** (`NEXT_PUBLIC_DEMO_MODE === "true"`, in `src/lib/demo/demo-mode.ts`), drives every demo-only behavior. Flag off = byte-identical passthrough to the normal app.
+
+- **Build:** Next `output:"export"` + `basePath:"/card-benefits"`. There is no server and no SQLite at runtime — pages read pre-generated JSON fixtures instead of hitting API routes.
+- **Fixtures:** Real engine output, generated through the actual period/triage engine with the generation clock pinned to `2026-06-27` (deterministic, fictional data only). Every page fetches them through one `apiFetch` wrapper (`src/lib/demo/demo-api.ts`).
+- **Reads:** All GETs resolve from fixtures.
+- **Writes:** All non-GET mutations are blocked. Interactive writes (e.g. usage sliders) are session-only local no-ops; everything else returns 403 + a "Read-only demo" toast.
+- **Auth:** Bypassed — a client redirect lands the visitor on `/overview` with no login.
+- **Deploy:** `.github/workflows/deploy-demo.yml` (GitHub Pages). The workflow stashes `src/app/api` before the export build, because `output:"export"` aborts if route handlers are present.
 
 ### Required .env
 

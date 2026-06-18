@@ -326,6 +326,30 @@
 
 ---
 
+### [CONSTRAINT-27] Manual benefits are pinned against re-scrape
+
+**Decision:** Every Benefit carries a `source` field (`"scraped" | "manual"`). A re-scrape's replace-all deletes ONLY `source:"scraped"` benefits; `source:"manual"` benefits and their periods survive untouched. Editing a `scraped` benefit (PATCH) flips its `source` to `"manual"`, pinning the correction against future re-scrapes.
+
+**What it means in practice:** This refines CONSTRAINT-06 (re-scrape no longer replaces *all* benefits — only scraped ones). `source` is server-set only (app-validated String, not an enum, per CONSTRAINT-01; never client-settable — `createBenefitWithPeriod` and the PATCH handler set it via allowlists, no body spread). Manual create (`POST /api/benefits`) and manual edits bypass the LLM review gate by design (manual data is user-typed, so CONSTRAINT-10 does not apply). Tradeoff of edit-pinning: an edited (now `manual`) benefit stops receiving scrape updates — delete + re-add to un-pin. v1 covers usage-tracked benefits only (manual set-and-forget out of scope).
+
+**Who decided and when:** Builder (Feature 11), 2026-06-12
+
+**What this closes off:** A re-scrape silently overwriting a user's manual correction. Un-pinning a benefit without deleting it. Client injection of `source`/`tracked`/`classification`/`setAndForget`.
+
+---
+
+### [CONSTRAINT-28] Demo mode is a read-only static-export build
+
+**Decision:** A single build-time gate `isDemoMode` (`NEXT_PUBLIC_DEMO_MODE === "true"`) drives all demo behavior. Demo builds use Next `output:"export"` + `basePath:"/card-benefits"`; pages fetch pre-generated JSON fixtures (real engine output, generation clock pinned) through one `apiFetch` wrapper. In demo mode all GETs resolve from fixtures and ALL non-GET mutations are blocked — interactive writes (usage slider, tracked, activation) stick as session-only local no-ops; every other non-GET returns 403 + a "Read-only demo" toast. Auth is bypassed (client redirect to `/overview`; no `/api/auth/*` traffic).
+
+**What it means in practice:** Flag off → byte-identical to the real app (transparent passthrough; full suite unchanged). Demo data is fictional only (SEC-01); no secrets/LLM/scrape in CI. The static export aborts on API route handlers, so the deploy workflow stashes `src/app/api` out of the tree before `build:demo`. Any new mutation endpoint is automatically blocked by the generic wrapper, but new raw `fetch("/api/…")` callers must route through `apiFetch` or they 404 in the export.
+
+**Who decided and when:** Builder (Feature 12), 2026-06-12
+
+**What this closes off:** Server-side rendering / API routes in the public demo. Real user data in the demo. Per-endpoint allow/block lists (the wrapper is generic).
+
+---
+
 ## Summary Table
 
 | # | Decision | Practical impact | Decided by | Date |
@@ -356,3 +380,5 @@
 | 24 | Benefit value = per-reset-window amount, not annualized | $300/6mo stores 300 not 600; semantics in Haiku schema; Overview sums per-window caps; annual figures derived at presentation only | Builder (Feature 10) | 2026-06-09 |
 | 25 | Framer Motion `ease` uses array-form constants (EASING_ARRAY/EASING_MODAL_ARRAY) | CSS-bezier string easings crash framer-motion v11 at runtime; string constants are for CSS transitions only | @qa/@dev (Feature 10) | 2026-06-09 |
 | 26 | Uneven per-window credits approximated to a constant per-window amount | Uber Cash stores monthly $15; December $35 not modeled; variable schedules need a schema change, not a value tweak | Builder (Feature 10.1) | 2026-06-11 |
+| 27 | Manual benefits pinned (`source` field) | Re-scrape replaces only `source:"scraped"`; editing scraped flips to manual; `source` server-set, never client-injected | Builder (Feature 11) | 2026-06-12 |
+| 28 | Demo mode = read-only static export | Single `isDemoMode` gate; fixtures for GETs; all non-GET blocked; fictional data only | Builder (Feature 12) | 2026-06-12 |
