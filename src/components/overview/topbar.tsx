@@ -18,6 +18,10 @@ export function TopBar() {
   // Default to a stable value for SSR/first paint; resolve real greeting on mount.
   const [greeting, setGreeting] = useState("Good evening");
   useEffect(() => {
+    // Local clock is client-only; resolving the real greeting at render would
+    // diverge from the SSR snapshot and trip hydration. Mount-time set is the
+    // hydration-safe path here — the one render the rule's perf concern allows.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGreeting(greetingFor(new Date().getHours()));
   }, []);
 

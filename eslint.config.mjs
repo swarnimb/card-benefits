@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Non-shipped Feature-9 design-reference prototypes: browser-global
+    // `<script>` artifacts (React/BottomNav are runtime globals, not imports),
+    // not ES modules — intentionally outside the module-based lint scope.
+    "docs/design-source/**",
   ]),
 ]);
 

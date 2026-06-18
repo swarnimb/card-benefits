@@ -146,10 +146,10 @@ export function useCardsData(): CardsDataResult {
   const [error, setError] = useState<string | null>(null);
   const [fetchTick, setFetchTick] = useState(0);
 
+  // Loading starts true (initial state) for the first fetch; `retry` resets it
+  // for subsequent fetches, so the effect body holds no synchronous setState.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
 
     fetchCardsWithBenefits()
       .then((result) => {
@@ -172,7 +172,11 @@ export function useCardsData(): CardsDataResult {
     };
   }, [fetchTick]);
 
-  const retry = useCallback(() => setFetchTick((n) => n + 1), []);
+  const retry = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    setFetchTick((n) => n + 1);
+  }, []);
 
   const updateBenefitUsage = useCallback(
     async (cardId: string, benefitId: string, newAmount: number): Promise<void> => {

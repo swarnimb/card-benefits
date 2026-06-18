@@ -33,18 +33,18 @@ export function MoneyAtRiskHero({
   const total = moneyAtRisk.totalUnredeemed;
   const atRisk = needsAttention.length > 0;
 
+  // Animated count-up drives `display`; in reduce-motion we skip the effect and
+  // render `total` straight through (no synchronous setState in the effect body).
   const [display, setDisplay] = useState(0);
   useEffect(() => {
-    if (reduceMotion) {
-      setDisplay(total);
-      return;
-    }
+    if (reduceMotion) return;
     const controls = animate(0, total, {
       ...OV_COUNT_UP,
       onUpdate: (v) => setDisplay(v),
     });
     return () => controls.stop();
   }, [total, reduceMotion]);
+  const shown = reduceMotion ? total : display;
 
   return (
     <section className="relative px-5 pt-[22px] pb-6" style={{ background: OV.bg }}>
@@ -62,7 +62,7 @@ export function MoneyAtRiskHero({
         className="mb-3 font-semibold leading-none tabular-nums"
         style={{ fontSize: 56, letterSpacing: "-2.2px", color: OV.text }}
       >
-        ${Math.round(display).toLocaleString("en-US")}
+        ${Math.round(shown).toLocaleString("en-US")}
       </div>
 
       {atRisk ? (

@@ -2879,7 +2879,7 @@
 - [x] Benefits lazy-load on first expand (no fetch for collapsed rows); loading + empty ("No benefits yet") states shown; fetch error surfaces inline (amber, `role="alert"`) — never silently empty (EH-01).
 - [x] Only this card's benefits load; ownership enforced server-side by the existing GET route.
 - [x] Expand/collapse uses the existing Framer Motion + `useReducedMotion` pattern; existing re-scrape + delete-card actions and last-checked footer preserved.
-- [x] Uses `tokens.ts` only (no hardcoded hex/px); renders correctly at 375px in the centered `max-w-[420px]` column (CONSTRAINT-23). — jsdom-verified; live-375px pending Task 86.
+- [x] Uses `tokens.ts` only (no hardcoded hex/px); renders correctly at 375px in the centered `max-w-[420px]` column (CONSTRAINT-23). — jsdom-verified; live-375px confirmed via Task 86 (2026-06-17).
 - [x] [CQ] each component < 200 lines.
 
 **Tests required:**
@@ -2910,7 +2910,7 @@
 - [x] Reuses `ChipPicker` for type/resetPeriod/category and the existing `$`-prefixed numeric input — no new form system.
 - [x] On valid Save, POSTs; the new benefit appears immediately in the inline list (refetch or optimistic) and the form closes; empty name blocks Save; Save disabled while pending.
 - [x] No LLM/review-gate path invoked.
-- [x] Uses `tokens.ts` only; 375px-correct in the centered column (CONSTRAINT-23); < 200 lines. — jsdom-verified; live-375px pending Task 86.
+- [x] Uses `tokens.ts` only; 375px-correct in the centered column (CONSTRAINT-23); < 200 lines. — jsdom-verified; live-375px confirmed via Task 86 (2026-06-17).
 - [x] [EH-01] a failed POST surfaces an inline error and does not close the form or claim success.
 
 **Tests required:**
@@ -2943,7 +2943,7 @@
 - [x] Delete requires an inline confirm before any write; on confirm the benefit + its `BenefitPeriod` records cascade-delete (existing DELETE route) and the row disappears.
 - [x] Deleting a benefit with logged usage is allowed behind only the inline confirm (no extra warning in v1); copy makes the destructive nature clear.
 - [x] The `BenefitEditPanel` "Discard" button is hidden/repurposed or routed to the same delete-confirm flow (no unconfirmed delete path).
-- [x] Uses `tokens.ts` only; 375px-correct (CONSTRAINT-23); components < 200 lines. — jsdom-verified; live-375px pending Task 86.
+- [x] Uses `tokens.ts` only; 375px-correct (CONSTRAINT-23); components < 200 lines. — jsdom-verified; live-375px confirmed via Task 86 (2026-06-17).
 - [x] [EH-01] failed PATCH/DELETE surfaces an inline error and does not falsely update the list.
 
 **Tests required:**
@@ -2966,18 +2966,20 @@
 **Functions to implement:** None.
 
 **Acceptance criteria:**
-- [ ] **Live at 375px (mandatory, FI-10 — real flow, not static screens):** expand a card → Add a benefit (per-window amount, frequency, type, category) → appears immediately in Admin, and in Cards/Overview where `tracked:true`, with a current open window (unless `once`).
-- [ ] **Live:** Edit a scraped benefit's amount → save → reflects everywhere; confirm (API/DB) its `source` is now `"manual"`.
-- [ ] **Live:** Delete a benefit behind the inline confirm → disappears from Admin/Cards/Overview and its periods are gone.
-- [ ] **Live re-scrape pinning (headline AC):** on a card with both a manual and a scraped benefit, re-scrape + confirm → only `source:"scraped"` benefits replaced; manual (and scraped-then-edited) benefits + periods survive untouched.
-- [ ] **Duplicate edge:** a re-scrape re-finding a manually-added benefit shows both (no auto-dedup, v1); the user can delete the dupe.
-- [ ] Per-window cap holds (CONSTRAINT-24): the Cards usage control caps at the manually-entered per-window `value`; a `semiannual $300` entry resets to a fresh $300 next window.
-- [ ] All renders verified at 375px in the centered `max-w-[420px]` column (CONSTRAINT-23); `npx tsc --noEmit`, full unit + integration suites, and lint green.
+- [x] **Live at 375px (mandatory, FI-10 — real flow, not static screens):** expand a card → Add a benefit (per-window amount, frequency, type, category) → appears immediately in Admin, and in Cards/Overview where `tracked:true`, with a current open window (unless `once`). — VERIFIED: `QA Manual Credit` $40/monthly → `source:manual`, open period Jun1→Jul1, shown in Admin + Cards ($0/$40) + `/api/overview` (total 23→25).
+- [x] **Live:** Edit a scraped benefit's amount → save → reflects everywhere; confirm (API/DB) its `source` is now `"manual"`. — VERIFIED: `$120 Uber One Credit` flipped `scraped→manual` in DB.
+- [x] **Live:** Delete a benefit behind the inline confirm → disappears from Admin/Cards/Overview and its periods are gone. — VERIFIED: throwaway deleted, 0 orphan periods.
+- [x] **Live re-scrape pinning (headline AC):** on a card with both a manual and a scraped benefit, re-scrape + confirm → only `source:"scraped"` benefits replaced; manual (and scraped-then-edited) benefits + periods survive untouched. — VERIFIED: Platinum 20 scraped + 2 manual → re-scrape + "Save 17 benefits" → 19 = 2 manual (by exact id, incl. scraped-then-edited Uber One) + 17 fresh scraped.
+- [x] **Duplicate edge:** a re-scrape re-finding a manually-added benefit shows both (no auto-dedup, v1); the user can delete the dupe. — VERIFIED: 2 Uber One rows post-confirm (manual + fresh scraped).
+- [x] Per-window cap holds (CONSTRAINT-24): the Cards usage control caps at the manually-entered per-window `value`; a `semiannual $300` entry resets to a fresh $300 next window. — VERIFIED: Cards usage-input `max` = per-window value ($600 Hotel→300, $200 Uber Cash→15, QA Manual→40).
+- [x] All renders verified at 375px in the centered `max-w-[420px]` column (CONSTRAINT-23); `npx tsc --noEmit`, full unit + integration suites, and lint green. — VERIFIED: tsc clean; 322 unit + 86 integration green; lint 0 errors (fixed 9 pre-existing).
 
 **Tests required:** None new required if Tasks 80/82 cover the pinning path; otherwise add one end-to-end pinning integration test. Manual live 375px verification required (FI-10).
 
 **Depends on:** Tasks 80, 81, 82, 84, 85
 **Specialist:** @ui-cardmaxxer (with @data for pinning/data assertions)
+
+**Status:** [x] — DONE 2026-06-17. Live-verified at 375px on real Amex Platinum (all 6 ACs above). No new integration test (Tasks 80/81 already cover pinning + edit-pin). Pre-existing lint debt (9 errors, none in Feature-11 code) fixed under this task. **Feature 11 BUILD complete (Tasks 79–86) — owes `@code-review` + `@security` + `@qa`.**
 
 ---
 

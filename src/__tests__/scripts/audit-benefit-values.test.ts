@@ -171,7 +171,9 @@ describe('runApply (via main --apply)', () => {
     mockPrisma.$transaction.mockReset()
     mockPrisma.$disconnect.mockReset()
     // Run the inner callback against the fake prisma client.
-    mockPrisma.$transaction.mockImplementation((cb: any) => cb(mockPrisma))
+    mockPrisma.$transaction.mockImplementation((cb: (tx: typeof mockPrisma) => unknown) =>
+      cb(mockPrisma)
+    )
     mockPrisma.$disconnect.mockResolvedValue(undefined)
     process.argv = ['node', 'audit-benefit-values.ts', '--apply', 'corrections.json']
   })
