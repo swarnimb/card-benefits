@@ -31,7 +31,10 @@ export function relativeDate(iso: string | null): string {
   if (!iso) return "Never";
   const diff = Date.now() - new Date(iso).getTime();
   const days = Math.floor(diff / 86_400_000);
-  if (days === 0) return "Today";
+  // Clamp future timestamps to "Today" — never render "-N days ago". A future
+  // lastVerifiedAt can't occur in the real app, but the demo fixtures pin their
+  // clock ahead of real "now", which would otherwise surface as negative days.
+  if (days <= 0) return "Today";
   if (days === 1) return "Yesterday";
   if (days < 30) return `${days} days ago`;
   const months = Math.floor(days / 30);

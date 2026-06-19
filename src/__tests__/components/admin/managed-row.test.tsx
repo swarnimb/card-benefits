@@ -3,7 +3,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/re
 
 vi.mock("framer-motion", () => import("../overview/_mock-framer-motion"));
 
-import { ManagedRow, type ManagedCard } from "@/components/admin/managed-row";
+import { ManagedRow, relativeDate, type ManagedCard } from "@/components/admin/managed-row";
 import type { BenefitWithPeriod } from "@/types/benefit";
 
 const CARD: ManagedCard = {
@@ -107,5 +107,35 @@ describe("ManagedRow expand", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh benefits for Sapphire Reserve" }));
     expect(onRescrape).toHaveBeenCalledWith("uc-1");
+  });
+});
+
+describe("relativeDate", () => {
+  const NOW = new Date(2026, 5, 19, 12, 0, 0);
+  const daysFromNow = (n: number) => new Date(NOW.getTime() + n * 86_400_000).toISOString();
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  it("returns 'Never' for a null timestamp", () => {
+    expect(relativeDate(null)).toBe("Never");
+  });
+
+  it("renders the recent-past buckets", () => {
+    expect(relativeDate(daysFromNow(0))).toBe("Today");
+    expect(relativeDate(daysFromNow(-1))).toBe("Yesterday");
+    expect(relativeDate(daysFromNow(-5))).toBe("5 days ago");
+    expect(relativeDate(daysFromNow(-45))).toBe("1 month ago");
+    expect(relativeDate(daysFromNow(-75))).toBe("2 months ago");
+  });
+
+  it("clamps a future timestamp to 'Today' — never '-N days ago'", () => {
+    // Demo fixtures pin their clock ahead of real "now"; without the clamp this
+    // would render "-8 days ago" in the public demo.
+    expect(relativeDate(daysFromNow(8))).toBe("Today");
   });
 });

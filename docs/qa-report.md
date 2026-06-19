@@ -54,14 +54,12 @@ None material. Soft note: `DemoBanner`'s mount in `(app)/layout.tsx` is covered 
 
 ## Findings
 
-### NON-BLOCKING — "-9 days ago" fixture date artifact
+### ✅ RESOLVED (2026-06-19) — "-9 days ago" fixture date artifact
 **Founder Brief**
-**Decided:** Admin rows show "Benefits last checked · -9 days ago" — a negative relative date from the fixture generator.
+**Was:** Admin rows showed "Benefits last checked · -9 days ago" — a negative relative date from the fixture generator.
 **Means for your product:** Minor cosmetic oddity a sharp-eyed visitor might notice; nothing breaks.
-**Check before approving:** Confirm you're OK shipping this cosmetic artifact (already a parked follow-up).
-**What this closes off:** Nothing.
-**What is wrong:** Fixture `lastCheckedAt` dates can land slightly in the future relative to render, yielding a negative "days ago".
-**What must be done:** Clamp the fixture date (or the relative-time formatter) to ≥0. Parked, non-blocking.
+**What was wrong:** Fixture `lastCheckedAt` dates can land slightly in the future relative to render, yielding a negative "days ago".
+**Fix:** Clamped the relative-time formatter — `relativeDate()` now returns "Today" for `days <= 0` (`src/components/admin/managed-row.tsx`). Chose the formatter over the fixture date because the fixture's 2026-06-27 pin is deliberately tuned to populate the Overview "expiring soon" triage bucket. Regression test added (`managed-row.test.tsx`). Same code path in prod + demo → CONSTRAINT-28 (byte-identical) holds.
 
 ### NON-BLOCKING — `testing-setup.md` has no demo section
 **What is wrong:** The QA setup doc targets the local app (localhost, creds) only; the public demo needs no tester setup.
