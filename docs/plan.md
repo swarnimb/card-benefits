@@ -3172,4 +3172,4 @@ _(none yet)_
 - [ ] Results logged; feature marked done.
 
 **Depends on:** Task 93
-**Status:** [ ]
+**Status:** [x] — DONE 2026-06-18. Live-verified at https://swarnimb.github.io/card-benefits/ via DevTools Puppeteer. 375px: all 3 spaces render (Overview triage/roll-ups/expiring, Cards wallet stack + per-card detail, Admin manage rows); add/scrape/remove all show the "Read-only demo" toast (the Feature 11 raw-fetch→apiFetch fix — Add benefit shows toast + form stays intact with NO error, Delete blocked gracefully w/ benefit retained, re-scrape toasts); zero console errors; no basePath 404s. 1280px = centered ~420px phone column (CONSTRAINT-23). Caveat: custom Framer slider drag couldn't be driven via synthetic events (harness limitation, not a regression; usage code untouched today + prior-QA live-verified). Non-blocking rough edges: re-scrape navigates into a "Failed to scrape" review screen rather than toasting in place; "-9 days ago" negative relative-time fixture artifact. FEATURE 12 COMPLETE.
