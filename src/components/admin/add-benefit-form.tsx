@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { apiFetch } from "@/lib/demo/demo-api";
+import { isDemoMode } from "@/lib/demo/demo-mode";
 import { COLORS } from "@/lib/ui/tokens";
 import { EditField, ChipPicker, fieldInputStyle, resetWindowLabel } from "./edit-fields";
 import { AddBenefitActions } from "./add-benefit-actions";
@@ -71,7 +73,7 @@ export function AddBenefitForm({ userCardId, onCreated, onCancel }: AddBenefitFo
     setPending(true);
     setError(null);
     try {
-      const res = await fetch("/api/benefits", {
+      const res = await apiFetch("/api/benefits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -83,7 +85,16 @@ export function AddBenefitForm({ userCardId, onCreated, onCancel }: AddBenefitFo
           category: draft.category,
         }),
       });
-      if (!res.ok) throw new Error(`POST /api/benefits returned ${res.status}`);
+      if (!res.ok) {
+        // Demo: POST /api/benefits is blocked read-only — apiFetch already fired
+        // the "Read-only demo" toast. Reset pending and keep the form open
+        // without a failure message. In prod isDemoMode is false → throws below.
+        if (isDemoMode) {
+          setPending(false);
+          return;
+        }
+        throw new Error(`POST /api/benefits returned ${res.status}`);
+      }
       const created = (await res.json()) as BenefitWithPeriod;
       onCreated(created);
     } catch (err) {

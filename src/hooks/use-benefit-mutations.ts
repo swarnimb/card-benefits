@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback } from "react";
+import { apiFetch } from "@/lib/demo/demo-api";
+import { isDemoMode } from "@/lib/demo/demo-mode";
 import type { BenefitWithPeriod } from "@/types/benefit";
 
 /** The allowlisted patch shape for an inline benefit edit (mirrors the PATCH route). */
@@ -34,7 +36,7 @@ export interface BenefitMutations {
 export function useBenefitMutations(onChanged: () => void): BenefitMutations {
   const editBenefit = useCallback(
     async (id: string, patch: BenefitPatch): Promise<void> => {
-      const res = await fetch(`/api/benefits/${id}`, {
+      const res = await apiFetch(`/api/benefits/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
@@ -50,8 +52,12 @@ export function useBenefitMutations(onChanged: () => void): BenefitMutations {
 
   const deleteBenefit = useCallback(
     async (id: string): Promise<void> => {
-      const res = await fetch(`/api/benefits/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/benefits/${id}`, { method: "DELETE" });
       if (!res.ok) {
+        // Demo: DELETE is blocked read-only — apiFetch already surfaced the
+        // "Read-only demo" toast, so return gracefully (nothing was deleted, so
+        // skip onChanged). In prod isDemoMode is false → fail loud as before.
+        if (isDemoMode) return;
         console.error(`DELETE /api/benefits/${id} failed (status=${res.status})`);
         throw new Error(`Delete failed (${res.status})`);
       }

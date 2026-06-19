@@ -3157,7 +3157,7 @@ _(none yet)_
 **Tests required:** None — workflow verified by a green run + live URL.
 
 **Depends on:** Tasks 87–92 (92 is a hard gate)
-**Status:** [ ] — IN PROGRESS 2026-06-12. deploy-demo.yml + README done; export build validated locally in a clean worktree (out/ correct, basePath OK). REMAINING (builder): make repo public, enable Pages (Settings → Pages → Source: GitHub Actions), first green run.
+**Status:** [x] — DONE 2026-06-18. Builder made repo public + enabled Pages (Source: GitHub Actions); workflow green. Live at https://swarnimb.github.io/card-benefits/ — verified HTTP 200, all `_next` assets correctly prefixed with `/card-benefits/` basePath (no asset 404s), title "CardMaxxer". README demo link done previously. → Task 94 (live 375px render verification via DevTools Puppeteer).
 
 ---
 

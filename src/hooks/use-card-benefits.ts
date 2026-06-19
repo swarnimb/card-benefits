@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { apiFetch } from "@/lib/demo/demo-api";
 import type { BenefitWithPeriod } from "@/types/benefit";
 
 /** Result of the lazy per-card benefits hook (Task 83). */
@@ -40,7 +41,7 @@ export function useCardBenefits(userCardId: string, enabled: boolean): CardBenef
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/user-cards/${userCardId}/benefits`);
+        const res = await apiFetch(`/api/user-cards/${userCardId}/benefits`);
         if (!res.ok) throw new Error(`GET benefits returned ${res.status}`);
         const data = (await res.json()) as BenefitWithPeriod[];
         if (cancelled) return;

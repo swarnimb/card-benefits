@@ -80,7 +80,8 @@ describe("ManagedRow expand", () => {
     expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(2);
     expect(screen.getByRole("button", { name: /Add benefit/ })).toBeDefined();
-    expect(fetchMock).toHaveBeenCalledWith("/api/user-cards/uc-1/benefits");
+    // apiFetch forwards (input, init) to fetch; init is undefined for this GET.
+    expect(fetchMock).toHaveBeenCalledWith("/api/user-cards/uc-1/benefits", undefined);
   });
 
   it("shows an inline error (not an empty list) when the benefits fetch fails", async () => {
