@@ -1,85 +1,77 @@
 # QA Report
 
-**Date:** 2026-06-17
-**Feature:** 11 — Manual Benefit Management (Phase K, Tasks 79–86) + the post-code-review fixes (commit `3aae27d`)
+**Date:** 2026-06-19
+**Feature:** 12 — Shareable Static Demo (Phase L, Tasks 87–94) + the read-only-modal change (commits `d229199`, `1753720`)
 **Status:** APPROVED
 
-> Supersedes the 2026-06-12 Feature 10.1 QA report (retained in git history). Scopes the Feature 11 delta. Builds on: `@code-review` PASS + `@security` CLEAR (2026-06-17, commit `3aae27d`).
+> Supersedes the 2026-06-17 Feature 11 QA report (retained in git history). Closes the Feature 12 milestone gate trio: `@code-review` PASS → `@security` CLEAR (2026-06-18) → `@qa` APPROVED. Verified against the **live deployed demo** at https://swarnimb.github.io/card-benefits/ (the shippable artifact).
 
 ---
 
 ## Coverage Assessment
 
-### Critical Paths
-- [x] Auth flows tested: **PASS** — POST /api/benefits 401-unauthenticated asserted (no row written). PATCH/DELETE auth is the shared `[id]` handler (pre-existing, covered).
-- [x] Payment flows tested: **N/A** — no payment surface.
-- [x] Data write operations tested: **PASS** — Create / Edit / Delete each have happy + error integration tests (`benefit-create.integration.test.ts`, `benefit-mutation.integration.test.ts`). 90 integration + 322 unit green.
-- [x] Access control tested: **PASS** — 401 / 403 (IDOR, asserts the row is NOT mutated) / 404 covered on the write verbs.
+### Critical Paths (demo-specific — CONSTRAINT-28 read-only)
+- [x] Read-only enforcement (writes blocked / session-only no-ops / no persistence): **PASS** — 15 `demo-api` unit tests cover block-403 + emit, interactive no-ops, scrape no-op, debounce, unsubscribe.
+- [x] 3-space fixture load (Overview / Cards / Admin): **PASS** — all fixtures asserted (overview, user-cards, per-card benefits, catalog, portfolio-stats), loud throw on missing fixture (no silent empty UI).
+- [x] Demo redirect / auth bypass / gating: **PASS** — `DemoRedirect` + login→/overview bypass tested.
+- [x] Read-only modal + banner (new change): **PASS** — 6 component tests (render, Got it/Esc/backdrop dismiss, GitHub link, banner-opens-modal-on-blocked-write).
+- N/A — Auth login, payments, persisted data writes: none exist in the demo by design (CONSTRAINT-28).
 
-### Coverage Gaps (non-blocking)
-- Task-82 "value stored verbatim" has no dedicated automated assertion (create tests assert the POST body + that an open period is created, but don't re-read `persisted.value`). **Mitigated:** live-verified this session — `value:40` (create) and `value:215` (edit) both confirmed stored verbatim via the API.
-- PATCH 401 and PATCH 404 not independently asserted (shared `[id]` handler; DELETE covers the 403/404 branches). Low risk.
+**Test run:** 35/35 demo tests green; full suite 329/329 green (51 files). `npm run build` clean.
+
+### Coverage Gaps
+None material. Soft note: `DemoBanner`'s mount in `(app)/layout.tsx` is covered at component level, not in a full layout integration render — acceptable (the contract is exercised).
 
 ---
 
-## Browser Workflow Verification
+## Browser Workflow Verification (live deployed site, 375px)
 
-Driven live via DevTools Puppeteer at **375px** against **real Amex Platinum data** (builder-authorized; data restored to clean state afterward). This is the most thorough Phase-2 mode (full mutation re-run), re-proving Task 86's verification *after* the code-review fixes.
+### Overview space
+**Result:** PASS — renders "$211 money at risk", expiring-soon list, banner + GitHub link. No error boundary. (`live-overview`)
 
-### Add a manual benefit
+### Cards space
+**Result:** PASS — Apple Wallet stack, 5 cards, stats ($2,060 fees / $447 redeemed / $541 available). (`live-cards`)
+
+### Admin space + write flows
 **Result:** PASS
-**Steps:** Admin → expand Amex Platinum → "+ Add benefit" → name `QA Verify Credit`, $40, credit/monthly/general → Save.
-**Verified (API):** persisted `source:"manual"` (server-forced), `value:40` verbatim, `currentPeriod {status:"open", usedAmount:0}` created, `tracked:true`, `classification:"discretionary-credit"` derived server-side. Save button correctly disabled until name+amount valid; AMOUNT label dynamically read "PER MONTH" (CONSTRAINT-24).
+- **Delete card → friendly modal:** clicking Remove → confirm → centered "Read-only demo" modal with GitHub link; **no** "Failed to remove" error. (`live-delete-modal`)
+- **Re-scrape → scan-then-modal:** timed DOM poll showed `scanning:true` ~0.4–2.1s, then `modal:true` at ~2.45s; **"Failed to scrape" never appeared**.
+- **Read-only invariant:** after delete + re-scrape attempts, all 5 cards still present (nothing persisted).
+- **Dismiss:** Got it / Esc / backdrop all close the modal.
 
-### Edit a scraped benefit → source pin
-**Result:** PASS
-**Steps:** Inline Edit on `$209 CLEAR+ Credit` (pre-state `source:scraped`, value 209) → value → 215 → Save changes.
-**Verified (API):** same benefit id, `value 209→215`, **`source` flipped `scraped→manual`** (CONSTRAINT-27 edit-pin), edited in place (not recreated).
-
-### Delete a benefit
-**Result:** PASS
-**Steps:** Inline Delete on `QA Verify Credit` → inline confirm ("usage history will be permanently removed", Keep / Delete benefit) → Delete benefit.
-**Verified (API):** benefit gone, count 18→17, period cascade-removed (no orphan).
-
-### Re-scrape pinning (headline)
-**Result:** PASS
-**Steps:** Re-scrape Amex Platinum (live HTTP + Haiku) → review gate (11 tracked + 6 auto-excluded = 17 fresh) → "Save 17 benefits".
-**Verified (API):** 18 total = **17 fresh scraped + 1 pinned manual**; the edited CLEAR+ (exact id, `$215`, manual) **survived the replace-all** while scraped rows were replaced; the expected duplicate (manual `$215` + fresh scraped `$209`) appeared. Annual-headline detector + parser hardening confirmed live (Walmart+ re-parsed `$155`→`$12.95/mo`).
-
-### Fix-regression check (component splits + enum extraction)
-**Result:** PASS — the 3 extracted subcomponents render and function in the live UI: `AddBenefitActions` (Cancel/Save), `TextButton` (inline Edit/Delete), `IconButton` (card-header expand/re-scrape/delete). The consolidated `benefit-enums` validation rejected nothing valid and the flows behaved identically to Task 86.
-
-**Screenshots:** qa-01 login → qa-02 overview → qa-03/04 admin+Platinum → qa-05 managed panel → qa-07/08/09 Add form → qa-10 added → qa-11/12 Edit → qa-13 delete-confirm → qa-15 review gate → qa-16 restored overview.
+### Banner / GitHub link
+**Result:** PASS — live banner reads "Demo: fictional data, read-only · View on GitHub" (em-dash removed), link → `github.com/swarnimb/card-benefits`, `target=_blank` + `rel=noopener noreferrer`.
 
 ---
 
 ## Edge Case Assessment
 
-- Empty-name guard: Save disabled until valid (observed the amber Save brighten on valid input).
-- Per-window semantics: AMOUNT label switches PER MONTH/YEAR by reset; roll-up renders for manual benefits too (`$40/mo → $480/yr`).
-- Duplicate after edit+re-scrape: handled as designed (no silent auto-dedup) — known/accepted behavior.
+- Write attempts (delete/add/re-scrape) are the demo's primary "failure" paths — all handled gracefully via the friendly modal instead of error screens. Verified live.
+- No console errors or error boundaries observed across all three spaces and all flows.
+- Deploy pipeline verified: live site reflects the latest commit (`1753720`), confirming the GitHub Pages deploy succeeded.
 
 ---
 
 ## Findings
 
-### NON-BLOCKING — Task-82 verbatim-`value` lacks an automated assertion
+### NON-BLOCKING — "-9 days ago" fixture date artifact
 **Founder Brief**
-**Decided:** The "manual value is stored exactly as typed (per-window, not annualized)" guarantee is proven live but not pinned by an automated test.
-**Means for your product:** No user impact today — it works. Risk is only future regression slipping past CI.
-**Check before approving:** Confirm the live result (value 40 and 215 stored verbatim) is acceptable evidence for now. (It is.)
+**Decided:** Admin rows show "Benefits last checked · -9 days ago" — a negative relative date from the fixture generator.
+**Means for your product:** Minor cosmetic oddity a sharp-eyed visitor might notice; nothing breaks.
+**Check before approving:** Confirm you're OK shipping this cosmetic artifact (already a parked follow-up).
 **What this closes off:** Nothing.
-**What is wrong:** No integration test re-reads `Benefit.value` after create to assert it equals the submitted per-window figure.
-**What must be done:** Add a one-line assertion in `benefit-create.integration.test.ts` in a future cleanup. Not a release blocker.
+**What is wrong:** Fixture `lastCheckedAt` dates can land slightly in the future relative to render, yielding a negative "days ago".
+**What must be done:** Clamp the fixture date (or the relative-time formatter) to ≥0. Parked, non-blocking.
 
-### NON-BLOCKING — Desktop 1280px not re-verified this session
-CONSTRAINT-23 (centered `max-w-[420px]` column at 1280px) was not re-checked — a viewport change forces a Puppeteer re-login. Unchanged by Feature 11 (an Admin inline feature with no layout change) and verified in prior Feature 9/10 QA. Carried forward.
+### NON-BLOCKING — `testing-setup.md` has no demo section
+**What is wrong:** The QA setup doc targets the local app (localhost, creds) only; the public demo needs no tester setup.
+**What must be done:** Optionally add a one-line "demo = live URL, no creds, read-only" note. Documentation-only.
 
 ---
 
 ## Summary
 
 **Blocking issues:** 0
-**Non-blocking issues:** 2
+**Non-blocking issues:** 2 (both cosmetic/doc-only, parked)
 
-**Verdict:** **APPROVED** — Feature 11 (Manual Benefit Management) is shippable. All four core flows (Add / Edit-pin / Delete / re-scrape pinning) verified live at 375px on real data, post-fixes; critical-path test coverage (data writes + access control) is in place; the code-review fixes introduced no regression. The two non-blocking items are documentation/coverage hygiene, not functional defects.
+**Verdict:** APPROVED — Feature 12 (the public demo) and the read-only-modal change are shippable and verified live. No blocking issues. The Feature 12 milestone gate trio is closed: code-review PASS, security CLEAR, QA APPROVED.
