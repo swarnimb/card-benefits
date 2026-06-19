@@ -40,7 +40,13 @@ export function subscribeDemoBlocked(cb: () => void): () => void {
   };
 }
 
-function emitDemoBlocked(): void {
+/**
+ * Signal "a write was blocked in demo mode" → the demo banner renders the
+ * read-only modal. Debounced so rapid clicks don't stack. Exported because the
+ * Admin re-scrape flow defers this until AFTER its scan animation finishes
+ * (the scrape call itself is a silent no-op so the animation plays honestly).
+ */
+export function emitDemoBlocked(): void {
   const now = Date.now();
   if (now - lastBlockedEmitMs < BLOCKED_DEBOUNCE_MS) return;
   lastBlockedEmitMs = now;
@@ -111,8 +117,21 @@ function isInteractiveWrite(path: string, method: string): boolean {
   return false;
 }
 
+/**
+ * Demo re-scrape: a silent no-op success (empty result, NO blocked-emit) so the
+ * Admin scan animation plays through honestly. The admin flow shows the
+ * read-only modal itself once the animation settles (scan-then-modal), instead
+ * of the negative "Failed to scrape" screen a 403 would trigger.
+ */
+function isScrape(path: string, method: string): boolean {
+  return method === "POST" && /^\/api\/user-cards\/[^/]+\/scrape$/.test(path);
+}
+
 /** Demo non-GET: interactive writes succeed as no-ops; everything else blocks. */
 function demoWrite(path: string, method: string, init?: RequestInit): Response {
+  if (isScrape(path, method)) {
+    return jsonResponse({ benefits: [], annualFee: null });
+  }
   if (!isInteractiveWrite(path, method)) {
     emitDemoBlocked();
     return jsonResponse({ error: "Read-only demo" }, 403);

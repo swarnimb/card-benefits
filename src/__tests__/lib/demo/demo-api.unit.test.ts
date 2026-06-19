@@ -176,14 +176,13 @@ describe("apiFetch — demo blocks every other write", () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  it("covers scrape, delete, confirm, and unknown future endpoints generically", async () => {
+  it("covers delete, confirm, and unknown future endpoints generically", async () => {
     vi.useFakeTimers();
     const { apiFetch, subscribeDemoBlocked } = await importDemoApi(true);
     const listener = vi.fn();
     subscribeDemoBlocked(listener);
 
     const paths: Array<[string, string]> = [
-      ["/api/user-cards/uc1/scrape", "POST"],
       ["/api/user-cards/uc1", "DELETE"],
       ["/api/benefits/confirm", "POST"],
       ["/api/some-future-endpoint", "PUT"],
@@ -193,6 +192,20 @@ describe("apiFetch — demo blocks every other write", () => {
       expect((await apiFetch(path, { method })).ok).toBe(false);
     }
     expect(listener).toHaveBeenCalledTimes(paths.length);
+  });
+
+  it("re-scrape is a silent no-op success (empty result, NO emit) so the scan animation plays", async () => {
+    // The admin flow shows the read-only modal itself once the scan settles
+    // (scan-then-modal) — the scrape call must NOT block or emit.
+    const { apiFetch, subscribeDemoBlocked } = await importDemoApi(true);
+    const listener = vi.fn();
+    subscribeDemoBlocked(listener);
+
+    const res = await apiFetch("/api/user-cards/uc1/scrape", { method: "POST" });
+
+    expect(res.ok).toBe(true);
+    expect(await res.json()).toEqual({ benefits: [], annualFee: null });
+    expect(listener).not.toHaveBeenCalled();
   });
 
   it("debounces rapid blocked clicks into a single emit", async () => {

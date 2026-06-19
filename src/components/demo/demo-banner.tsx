@@ -1,34 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { subscribeDemoBlocked } from "@/lib/demo/demo-api";
-import { Toast } from "@/components/ui/toast";
+import { demoRepoUrl } from "@/lib/demo/demo-mode";
+import { DemoReadonlyModal } from "./demo-readonly-modal";
 import { COLORS, TYPE } from "@/lib/ui/tokens";
-
-/** Matches the Admin flow's toast auto-dismiss (~2.6s). */
-const TOAST_DISMISS_MS = 2600;
 
 /**
  * Task 90 — slim persistent demo strip, mounted in the (app) layout on all
- * three spaces when `isDemoMode` is true. Also owns the "Read-only demo"
- * toast: it subscribes to the demo-api blocked-write emitter (already
- * debounced at the source) and renders the shared Toast component.
+ * three spaces when `isDemoMode` is true. Carries the GitHub source link inline
+ * and owns the "Read-only demo" modal: it subscribes to the demo-api
+ * blocked-write emitter (already debounced at the source) and renders the
+ * centered, dismissible DemoReadonlyModal — the friendly replacement for the old
+ * bottom toast and the negative scrape/inline error states.
  */
 export function DemoBanner() {
-  const [toast, setToast] = useState<string | null>(null);
-  const timerRef = useRef<number | undefined>(undefined);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = subscribeDemoBlocked(() => {
-      setToast("Read-only demo");
-      window.clearTimeout(timerRef.current);
-      timerRef.current = window.setTimeout(() => setToast(null), TOAST_DISMISS_MS);
-    });
-    return () => {
-      unsubscribe();
-      window.clearTimeout(timerRef.current);
-    };
+    return subscribeDemoBlocked(() => setModalOpen(true));
   }, []);
 
   return (
@@ -49,9 +40,22 @@ export function DemoBanner() {
           className="inline-block size-1.5 rounded-full"
           style={{ background: COLORS.amber }}
         />
-        Demo — fictional data, read-only
+        Demo: fictional data, read-only
+        <span aria-hidden="true" style={{ color: COLORS.text4 }}>
+          ·
+        </span>
+        <a
+          href={demoRepoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: COLORS.text, textDecoration: "underline", textUnderlineOffset: 2 }}
+        >
+          View on GitHub
+        </a>
       </div>
-      <AnimatePresence>{toast && <Toast key={toast} text={toast} />}</AnimatePresence>
+      <AnimatePresence>
+        {modalOpen && <DemoReadonlyModal onClose={() => setModalOpen(false)} />}
+      </AnimatePresence>
     </>
   );
 }

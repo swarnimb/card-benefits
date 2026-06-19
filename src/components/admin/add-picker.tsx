@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/demo/demo-api";
+import { isDemoMode } from "@/lib/demo/demo-mode";
 import { COLORS } from "@/lib/ui/tokens";
 import type { CatalogCard } from "@/types/card";
 import { FlowShell } from "./flow-shell";
@@ -71,7 +72,12 @@ export function AddPicker({ onClose, onAdded }: AddPickerProps) {
           setDuplicateId(catalogCardId);
           return;
         }
-        if (!res.ok) throw new Error("Failed to add card");
+        if (!res.ok) {
+          // Demo: POST is blocked read-only — apiFetch already fired the modal.
+          // Return gracefully instead of a "Failed to add card" error.
+          if (isDemoMode) return;
+          throw new Error("Failed to add card");
+        }
         const data = await res.json();
         onAdded(data.id);
       } catch (err) {
@@ -93,7 +99,11 @@ export function AddPicker({ onClose, onAdded }: AddPickerProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customIssuer: customIssuer.trim(), customName: customName.trim() }),
       });
-      if (!res.ok) throw new Error("Failed to add card");
+      if (!res.ok) {
+        // Demo: POST is blocked read-only — apiFetch already fired the modal.
+        if (isDemoMode) return;
+        throw new Error("Failed to add card");
+      }
       const data = await res.json();
       onAdded(data.id);
     } catch (err) {

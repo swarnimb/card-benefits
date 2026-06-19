@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { apiFetch } from "@/lib/demo/demo-api";
+import { apiFetch, emitDemoBlocked } from "@/lib/demo/demo-api";
+import { isDemoMode } from "@/lib/demo/demo-mode";
 import type { ManagedCard } from "@/components/admin/admin-home";
 import { CardDeleteFailedError } from "@/lib/errors/card-delete-failed";
 import type { DraftBenefit } from "@/types/benefit";
@@ -106,6 +107,10 @@ export function useAdminFlow(): AdminFlow {
       const res = await apiFetch(`/api/user-cards/${userCardId}/scrape`, { method: "POST" });
       if (!res.ok) throw new Error("Scrape failed");
       const data = await res.json();
+      // Demo: the scrape is an instant no-op, so hold pending long enough for the
+      // scan animation to play its stepped sequence before handleScanDone shows
+      // the read-only modal (scan-then-modal, not an instant pop).
+      if (isDemoMode) await new Promise((resolve) => setTimeout(resolve, 1900));
       setScrapeResult({
         userCardId,
         benefits: data.benefits ?? [],
@@ -154,8 +159,18 @@ export function useAdminFlow(): AdminFlow {
   );
 
   // Scan animation has settled (or surfaced an error) → open the review gate.
+  // Demo: the scrape was a no-op (no card was ever scanned), so instead of an
+  // empty review gate, return home and show the read-only modal (scan-then-modal).
   const handleScanDone = useCallback(() => {
     setBusyId(null);
+    if (isDemoMode) {
+      emitDemoBlocked();
+      setScrapeResult(null);
+      setFreshAddCardId(null);
+      setFlowCard(null);
+      setView("home");
+      return;
+    }
     setView("review");
   }, []);
 
@@ -164,7 +179,12 @@ export function useAdminFlow(): AdminFlow {
       const removed = cards.find((c) => c.id === userCardId);
       try {
         const res = await apiFetch(`/api/user-cards/${userCardId}`, { method: "DELETE" });
-        if (!res.ok) throw new Error("Delete failed");
+        if (!res.ok) {
+          // Demo: DELETE is blocked read-only — apiFetch already fired the modal.
+          // Return gracefully (nothing removed) instead of a "Failed to remove" error.
+          if (isDemoMode) return;
+          throw new Error("Delete failed");
+        }
         await fetchCards();
         if (removed) showToast(`Removed ${removed.card.name}`);
       } catch (err) {

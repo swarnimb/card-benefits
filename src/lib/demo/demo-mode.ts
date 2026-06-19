@@ -15,3 +15,9 @@ export const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
  * relative URLs break under nested routes.
  */
 export const demoBasePath = "/card-benefits";
+
+/**
+ * Public source repository for the demo. Surfaced from the demo banner and the
+ * read-only modal so a visitor can jump straight from the live demo to the code.
+ */
+export const demoRepoUrl = "https://github.com/swarnimb/card-benefits";
