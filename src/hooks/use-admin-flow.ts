@@ -9,6 +9,13 @@ import type { DraftBenefit } from "@/types/benefit";
 
 export type AdminView = "home" | "add" | "scan" | "review";
 
+/**
+ * Demo-only: how long to hold the scan as "pending" after the instant no-op
+ * scrape resolves, so the Scanning view plays its stepped sequence before the
+ * read-only modal appears. Tuned to outlast the ~1.8s step timers in Scanning.
+ */
+const DEMO_SCAN_HOLD_MS = 1900;
+
 export interface ScrapeResult {
   userCardId: string;
   benefits: DraftBenefit[];
@@ -110,7 +117,7 @@ export function useAdminFlow(): AdminFlow {
       // Demo: the scrape is an instant no-op, so hold pending long enough for the
       // scan animation to play its stepped sequence before handleScanDone shows
       // the read-only modal (scan-then-modal, not an instant pop).
-      if (isDemoMode) await new Promise((resolve) => setTimeout(resolve, 1900));
+      if (isDemoMode) await new Promise((resolve) => setTimeout(resolve, DEMO_SCAN_HOLD_MS));
       setScrapeResult({
         userCardId,
         benefits: data.benefits ?? [],
