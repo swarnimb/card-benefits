@@ -83,9 +83,11 @@ describe("OverviewPage", () => {
 
     await waitFor(() => expect(screen.getByText("Money at risk")).toBeDefined());
 
-    // hero total (count-up resolves to final value via the framer mock)
-    expect(screen.getByText("$200")).toBeDefined();
-    // expiring row
+    // expiring section is collapsed by default — its summary shows count + total
+    // at risk (same $ figure the hero sums), and the row is hidden until expand.
+    expect(screen.getByText(/· 1 · \$200 at risk/)).toBeDefined();
+    expect(screen.queryByText("Urgent Dining")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Expiring soon/i }));
     expect(screen.getByText("Urgent Dining")).toBeDefined();
     // category group headers
     expect(screen.getByText("Active credits")).toBeDefined();

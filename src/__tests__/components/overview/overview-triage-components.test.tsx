@@ -92,7 +92,7 @@ describe("MoneyAtRiskHero", () => {
 });
 
 describe("ExpiringSection", () => {
-  it("renders rows from needsAttention with remaining + days", () => {
+  it("is collapsed by default: header + summary shown, rows hidden until expand", () => {
     render(
       <ExpiringSection
         items={[
@@ -100,7 +100,15 @@ describe("ExpiringSection", () => {
         ]}
       />,
     );
+    // Header + collapsed summary (count + total at risk) are always visible.
     expect(screen.getByText("Expiring soon")).toBeDefined();
+    expect(screen.getByText(/· 1 · \$200 at risk/)).toBeDefined();
+    // Row detail is hidden while collapsed.
+    expect(screen.queryByText("Travel Credit")).toBeNull();
+    expect(screen.queryByText("3d left")).toBeNull();
+
+    // Expanding reveals the rows.
+    fireEvent.click(screen.getByRole("button", { name: /Expiring soon/i }));
     expect(screen.getByText("Travel Credit")).toBeDefined();
     expect(screen.getByText("$200")).toBeDefined();
     expect(screen.getByText("3d left")).toBeDefined();
