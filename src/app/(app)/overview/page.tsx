@@ -66,7 +66,7 @@ export default function OverviewPage() {
           sparkbar={sparkbar}
         />
         <div style={{ height: 1, background: OV.hairline, margin: "4px 0" }} />
-        <ExpiringSection items={needsAttention} />
+        <ExpiringSection items={needsAttention} onUsageUpdate={handleUsageUpdate} />
         <CategorySection groups={activeByCategory} onUsageUpdate={handleUsageUpdate} />
         <SettledSection done={done} />
       </div>

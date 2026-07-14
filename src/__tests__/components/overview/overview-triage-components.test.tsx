@@ -98,6 +98,7 @@ describe("ExpiringSection", () => {
         items={[
           makeBenefit({ benefitId: "e1", benefitName: "Travel Credit", unusedAmount: 200, daysUntilReset: 3 }),
         ]}
+        onUsageUpdate={vi.fn()}
       />,
     );
     // Header + collapsed summary (count + total at risk) are always visible.
@@ -115,13 +116,27 @@ describe("ExpiringSection", () => {
   });
 
   it("renders nothing when empty", () => {
-    const { container } = render(<ExpiringSection items={[]} />);
+    const { container } = render(<ExpiringSection items={[]} onUsageUpdate={vi.fn()} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it("reveals an inline usage control when an expanded row is tapped", () => {
+    render(
+      <ExpiringSection
+        items={[makeBenefit({ benefitId: "e9", benefitName: "Dining Credit", type: "credit" })]}
+        onUsageUpdate={vi.fn()}
+      />,
+    );
+    // Expand the section, then the row — the control only mounts once the row opens.
+    fireEvent.click(screen.getByRole("button", { name: /Expiring soon/i }));
+    expect(screen.queryByTestId("usage-slider-e9")).toBeNull();
+    fireEvent.click(screen.getByText("Dining Credit").closest("button") as HTMLElement);
+    expect(screen.getByTestId("usage-slider-e9")).toBeDefined();
   });
 });
 
 describe("CategorySection", () => {
-  it("renders category headers; first group open by default", () => {
+  it("renders category headers; all groups collapsed by default, expand on tap", () => {
     render(
       <CategorySection
         groups={[
@@ -140,7 +155,9 @@ describe("CategorySection", () => {
     expect(screen.getByText("Active credits")).toBeDefined();
     expect(screen.getByText("Travel")).toBeDefined();
     expect(screen.getByText("Dining")).toBeDefined();
-    // first group open -> its detail row name is visible
+    // collapsed by default -> no detail row visible until a group is tapped
+    expect(screen.queryByText("Airline Fee Credit")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Travel/i }));
     expect(screen.getByText("Airline Fee Credit")).toBeDefined();
   });
 

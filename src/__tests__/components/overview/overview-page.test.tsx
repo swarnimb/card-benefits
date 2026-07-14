@@ -146,9 +146,10 @@ describe("OverviewPage", () => {
 
     render(<OverviewPage />);
 
-    await waitFor(() =>
-      expect(screen.getByText("Visible Tracked Credit")).toBeDefined()
-    );
+    // Categories are collapsed by default — expand the group to reveal its rows.
+    await waitFor(() => expect(screen.getByText("Dining")).toBeDefined());
+    fireEvent.click(screen.getByRole("button", { name: /Dining/i }));
+    expect(screen.getByText("Visible Tracked Credit")).toBeDefined();
     expect(screen.queryByText("Excluded Auto-Earn Perk")).toBeNull();
   });
 });

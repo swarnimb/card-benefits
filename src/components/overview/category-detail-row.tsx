@@ -121,7 +121,7 @@ export function CategoryDetailRow({
 }
 
 /** Dispatches the matching usage control by benefit type — reused from the Cards space. */
-function UsageControl({
+export function UsageControl({
   c,
   onUpdate,
 }: {

@@ -18,14 +18,14 @@ interface CategorySectionProps {
 }
 
 /**
- * "Active credits" by category — collapsible category cards. First group open by
- * default. Renders nothing when empty. Ports the design source
+ * "Active credits" by category — collapsible category cards. All groups start
+ * collapsed for a calmer, glanceable home (matches Expiring/Settled) — the
+ * category headers already carry the per-category total, so the detail is
+ * drill-down. Renders nothing when empty. Ports the design source
  * `CategoriesSection` / `CategoryRow` / `CategoryDetailRow`.
  */
 export function CategorySection({ groups, onUsageUpdate }: CategorySectionProps) {
-  const [open, setOpen] = useState<Set<string>>(
-    () => new Set(groups[0] ? [groups[0].group] : []),
-  );
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
   // One detail row expanded at a time across the whole section (Task 71).
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
 

@@ -7,10 +7,13 @@ import { OV, OV_SPRING } from "./tokens";
 import { usd, humanizeIssuer } from "./format";
 import { IssuerDot } from "./issuer-dot";
 import { Progress } from "./progress";
+import { UsageControl } from "./category-detail-row";
 
 interface ExpiringSectionProps {
   /** needsAttention[] — already sorted soonest-first by the engine. */
   items: OverviewBenefit[];
+  /** Logs usage for a benefit (optimistic) — same write path as the category rows. */
+  onUsageUpdate: (benefitId: string, newAmount: number) => void;
 }
 
 /**
@@ -21,13 +24,18 @@ interface ExpiringSectionProps {
  * unusedAmount (see `buildOverviewTriage`). Renders nothing when empty (the page
  * also guards this). Rows port the design source `ExpiringRow`.
  */
-export function ExpiringSection({ items }: ExpiringSectionProps) {
+export function ExpiringSection({ items, onUsageUpdate }: ExpiringSectionProps) {
   const reduceMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
+  // One row expanded at a time (mirrors CategorySection) so editing an expiring
+  // benefit happens right here — no hunting for it in Cards or Admin.
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
 
   if (items.length === 0) return null;
 
   const totalAtRisk = items.reduce((sum, c) => sum + c.unusedAmount, 0);
+  const toggleRow = (benefitId: string) =>
+    setExpandedRowId((prev) => (prev === benefitId ? null : benefitId));
 
   return (
     <section className="px-4 pt-2 pb-1.5">
@@ -78,7 +86,14 @@ export function ExpiringSection({ items }: ExpiringSectionProps) {
           >
             <div className="flex flex-col gap-2.5" style={{ paddingTop: 10 }}>
               {items.map((c, i) => (
-                <ExpiringRow key={c.benefitId} c={c} i={i} />
+                <ExpiringRow
+                  key={c.benefitId}
+                  c={c}
+                  i={i}
+                  expanded={expandedRowId === c.benefitId}
+                  onToggle={() => toggleRow(c.benefitId)}
+                  onUsageUpdate={onUsageUpdate}
+                />
               ))}
             </div>
           </motion.div>
@@ -120,9 +135,23 @@ function Chevron() {
   );
 }
 
-function ExpiringRow({ c, i }: { c: OverviewBenefit; i: number }) {
+function ExpiringRow({
+  c,
+  i,
+  expanded,
+  onToggle,
+  onUsageUpdate,
+}: {
+  c: OverviewBenefit;
+  i: number;
+  expanded: boolean;
+  onToggle: () => void;
+  onUsageUpdate: (benefitId: string, newAmount: number) => void;
+}) {
   const reduceMotion = useReducedMotion();
   const remaining = c.unusedAmount;
+  // Set-and-forget benefits are info-only (no period to log against, CONSTRAINT-17).
+  const loggable = !c.setAndForget;
 
   return (
     <motion.div
@@ -143,61 +172,109 @@ function ExpiringRow({ c, i }: { c: OverviewBenefit; i: number }) {
         style={{ left: 0, top: 14, bottom: 14, width: 2.5, background: c.cardColor, opacity: 0.85 }}
       />
 
-      <div className="mb-2.5 flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div
-            className="mb-1 truncate text-[14.5px] font-medium"
-            style={{ color: OV.text, letterSpacing: "-0.15px" }}
-          >
-            {c.benefitName}
-          </div>
-          <div
-            className="flex items-center gap-1.5 text-[11px]"
-            style={{ color: OV.text3, letterSpacing: "0.1px" }}
-          >
-            <IssuerDot color={c.cardColor} size={5} />
-            <span className="truncate">
-              {humanizeIssuer(c.issuer)} {c.cardName}
-            </span>
-            <span style={{ color: OV.text4 }}>·</span>
-            <span>{c.resetPeriod}</span>
-          </div>
-        </div>
-        <div className="shrink-0 text-right">
-          <div
-            className="text-lg font-semibold leading-none tabular-nums"
-            style={{ color: OV.text, letterSpacing: "-0.5px" }}
-          >
-            {usd(remaining)}
-          </div>
-          {c.daysUntilReset !== null && (
-            <div
-              className="mt-1 text-[10.5px] font-medium"
-              style={{ color: OV.amber, letterSpacing: "0.2px" }}
-            >
-              {c.daysUntilReset}d left
-            </div>
-          )}
-        </div>
-      </div>
-
-      <Progress
-        used={c.usedAmount}
-        amt={c.value}
-        color={OV.amber}
-        track={OV.amberTrack}
-        height={2.5}
-      />
-
-      <div
-        className="mt-2 flex justify-between text-[10.5px] tabular-nums"
-        style={{ color: OV.text3 }}
+      <button
+        type="button"
+        onClick={loggable ? onToggle : undefined}
+        aria-expanded={loggable ? expanded : undefined}
+        disabled={!loggable}
+        className="block w-full text-left"
+        style={{
+          background: "transparent",
+          border: 0,
+          color: "inherit",
+          font: "inherit",
+          padding: 0,
+          cursor: loggable ? "pointer" : "default",
+        }}
       >
-        <span>{usd(c.usedAmount)} used</span>
-        <span style={{ color: OV.text4 }}>
-          {c.value === null ? "unlimited" : `of ${usd(c.value)}`}
-        </span>
-      </div>
+        <div className="mb-2.5 flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div
+              className="mb-1 truncate text-[14.5px] font-medium"
+              style={{ color: OV.text, letterSpacing: "-0.15px" }}
+            >
+              {c.benefitName}
+            </div>
+            <div
+              className="flex items-center gap-1.5 text-[11px]"
+              style={{ color: OV.text3, letterSpacing: "0.1px" }}
+            >
+              <IssuerDot color={c.cardColor} size={5} />
+              <span className="truncate">
+                {humanizeIssuer(c.issuer)} {c.cardName}
+              </span>
+              <span style={{ color: OV.text4 }}>·</span>
+              <span>{c.resetPeriod}</span>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-start gap-2">
+            <div className="text-right">
+              <div
+                className="text-lg font-semibold leading-none tabular-nums"
+                style={{ color: OV.text, letterSpacing: "-0.5px" }}
+              >
+                {usd(remaining)}
+              </div>
+              {c.daysUntilReset !== null && (
+                <div
+                  className="mt-1 text-[10.5px] font-medium"
+                  style={{ color: OV.amber, letterSpacing: "0.2px" }}
+                >
+                  {c.daysUntilReset}d left
+                </div>
+              )}
+            </div>
+            {loggable && (
+              <motion.span
+                aria-hidden
+                className="mt-0.5 inline-flex"
+                style={{ color: OV.text4 }}
+                animate={reduceMotion ? undefined : { rotate: expanded ? 180 : 0 }}
+                transition={OV_SPRING}
+              >
+                <Chevron />
+              </motion.span>
+            )}
+          </div>
+        </div>
+
+        <Progress
+          used={c.usedAmount}
+          amt={c.value}
+          color={OV.amber}
+          track={OV.amberTrack}
+          height={2.5}
+        />
+
+        <div
+          className="mt-2 flex justify-between text-[10.5px] tabular-nums"
+          style={{ color: OV.text3 }}
+        >
+          <span>{usd(c.usedAmount)} used</span>
+          <span style={{ color: OV.text4 }}>
+            {c.value === null ? "unlimited" : `of ${usd(c.value)}`}
+          </span>
+        </div>
+      </button>
+
+      {loggable && (
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              key="control"
+              className="overflow-hidden"
+              initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+              animate={reduceMotion ? {} : { height: "auto", opacity: 1 }}
+              exit={reduceMotion ? {} : { height: 0, opacity: 0 }}
+              transition={reduceMotion ? { duration: 0 } : OV_SPRING}
+            >
+              <div style={{ paddingTop: 12 }}>
+                <UsageControl c={c} onUpdate={(n) => onUsageUpdate(c.benefitId, n)} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
     </motion.div>
   );
 }
