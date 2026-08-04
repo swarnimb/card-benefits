@@ -350,6 +350,18 @@
 
 ---
 
+### [CONSTRAINT-29] Overview at-risk figures filter through `stillAtRisk()`, row visibility does not
+
+**Decision:** Every "at risk" count and dollar figure on the Overview (hero count, hero footnote, calm-state guard, Expiring-soon header) derives from `stillAtRisk(items)` in `src/lib/engine/expiring.ts` — `unusedAmount > 0`. Which rows are *rendered* is deliberately NOT filtered by it.
+
+**What it means in practice:** A credit completed via the slider stays in the `needsAttention` array until the visibility refetch re-buckets it (`use-overview-data.ts`). The figures drop to reflect it immediately; the row stays on screen showing `Done`. Rejected alternative: re-bucket on update — the row would disappear from under the user's finger mid-drag. Any new Overview figure that sums or counts at-risk benefits must route through `stillAtRisk`, not the raw array.
+
+**Who decided and when:** Builder, 2026-07-26
+
+**What this closes off:** Counting straight off `needsAttention.length`. Making row visibility and the headline number share one filter.
+
+---
+
 ## Summary Table
 
 | # | Decision | Practical impact | Decided by | Date |
@@ -382,3 +394,4 @@
 | 26 | Uneven per-window credits approximated to a constant per-window amount | Uber Cash stores monthly $15; December $35 not modeled; variable schedules need a schema change, not a value tweak | Builder (Feature 10.1) | 2026-06-11 |
 | 27 | Manual benefits pinned (`source` field) | Re-scrape replaces only `source:"scraped"`; editing scraped flips to manual; `source` server-set, never client-injected | Builder (Feature 11) | 2026-06-12 |
 | 28 | Demo mode = read-only static export | Single `isDemoMode` gate; fixtures for GETs; all non-GET blocked; fictional data only | Builder (Feature 12) | 2026-06-12 |
+| 29 | Overview at-risk figures filter through `stillAtRisk()` | Counts/dollars use `unusedAmount > 0`; row visibility deliberately unfiltered (row stays showing `Done`) | Builder | 2026-07-26 |
