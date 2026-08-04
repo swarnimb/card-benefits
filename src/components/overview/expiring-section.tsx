@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { OverviewBenefit } from "@/types/api";
+import { stillAtRisk } from "@/lib/engine/expiring";
 import { OV, OV_SPRING } from "./tokens";
 import { usd, humanizeIssuer } from "./format";
 import { IssuerDot } from "./issuer-dot";
@@ -33,6 +34,9 @@ export function ExpiringSection({ items, onUsageUpdate }: ExpiringSectionProps) 
 
   if (items.length === 0) return null;
 
+  // Completed rows stay in the list (they read `Done`) but drop out of the count
+  // the moment usage is logged — see `stillAtRisk`.
+  const atRiskCount = stillAtRisk(items).length;
   const totalAtRisk = items.reduce((sum, c) => sum + c.unusedAmount, 0);
   const toggleRow = (benefitId: string) =>
     setExpandedRowId((prev) => (prev === benefitId ? null : benefitId));
@@ -60,7 +64,7 @@ export function ExpiringSection({ items, onUsageUpdate }: ExpiringSectionProps) 
             Expiring soon
           </span>
           <span className="text-[11px]" style={{ color: OV.text3 }}>
-            · {items.length} · {usd(totalAtRisk)} at risk
+            · {atRiskCount} · {usd(totalAtRisk)} at risk
           </span>
         </div>
         <motion.span

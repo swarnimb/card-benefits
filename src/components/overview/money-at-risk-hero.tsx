@@ -8,6 +8,7 @@ import type {
   SparkbarSegment,
 } from "@/types/api";
 import type { Issuer } from "@/types/card";
+import { stillAtRisk } from "@/lib/engine/expiring";
 import { OV, OV_COUNT_UP, OV_OVERSHOOT } from "./tokens";
 import { usd, humanizeIssuer } from "./format";
 
@@ -31,7 +32,11 @@ export function MoneyAtRiskHero({
 }: MoneyAtRiskHeroProps) {
   const reduceMotion = useReducedMotion();
   const total = moneyAtRisk.totalUnredeemed;
-  const atRisk = needsAttention.length > 0;
+  // Every count the user reads comes off the still-actionable rows, so logging
+  // usage drops the count immediately instead of waiting for the refetch to
+  // re-bucket (see `stillAtRisk`). The dollar figure already recomputes.
+  const active = stillAtRisk(needsAttention);
+  const atRisk = active.length > 0;
 
   // Animated count-up drives `display`; in reduce-motion we skip the effect and
   // render `total` straight through (no synchronous setState in the effect body).
@@ -77,7 +82,7 @@ export function MoneyAtRiskHero({
             </span>
             .{" "}
             <span style={{ color: OV.text3 }}>
-              {needsAttention.length} credits across {countCards(needsAttention)} cards.
+              {active.length} credits across {countCards(active)} cards.
             </span>
           </p>
 
@@ -87,8 +92,8 @@ export function MoneyAtRiskHero({
             className="mt-2.5 flex justify-between text-[10.5px] tabular-nums"
             style={{ letterSpacing: "0.3px", color: OV.text3 }}
           >
-            <span>{topIssuerLabel(needsAttention)}</span>
-            <span>{needsAttention.length} actions needed</span>
+            <span>{topIssuerLabel(active)}</span>
+            <span>{active.length} actions needed</span>
           </div>
         </>
       ) : (

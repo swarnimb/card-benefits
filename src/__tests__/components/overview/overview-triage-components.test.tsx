@@ -76,6 +76,40 @@ describe("MoneyAtRiskHero", () => {
     expect(screen.getByText("2 actions needed")).toBeDefined();
   });
 
+  it("counts only rows that still have unredeemed value", () => {
+    // Pre-refetch optimistic state: n1 was just dragged to full, so it stays in
+    // needsAttention with unusedAmount 0. The counts must already read 1, not 2 —
+    // otherwise the hero claims more credits at risk than there are.
+    const needsAttention = [
+      makeBenefit({ benefitId: "n1", issuer: "Amex", unusedAmount: 0, cardId: "c1" }),
+      makeBenefit({ benefitId: "n2", issuer: "Chase", unusedAmount: 52, cardId: "c2" }),
+    ];
+    render(
+      <MoneyAtRiskHero
+        moneyAtRisk={{ totalUnredeemed: 52, soonestDaysUntilReset: 4 }}
+        needsAttention={needsAttention}
+        sparkbar={[]}
+      />,
+    );
+    expect(screen.getByText("1 actions needed")).toBeDefined();
+    expect(screen.getByText(/1 credits across 1 cards/)).toBeDefined();
+    expect(screen.getByText("$52 Chase")).toBeDefined();
+  });
+
+  it("falls back to the calm state once every at-risk row is settled", () => {
+    // Every row completed but not yet re-bucketed — the hero must go calm rather
+    // than render "0 credits across 0 cards".
+    render(
+      <MoneyAtRiskHero
+        moneyAtRisk={{ totalUnredeemed: 0, soonestDaysUntilReset: 4 }}
+        needsAttention={[makeBenefit({ benefitId: "n1", unusedAmount: 0 })]}
+        sparkbar={[]}
+      />,
+    );
+    expect(screen.getByText(/Nothing at risk/i)).toBeDefined();
+    expect(screen.queryByText(/actions needed/i)).toBeNull();
+  });
+
   it("renders calm state with no sparkbar/footnote when nothing at risk", () => {
     render(
       <MoneyAtRiskHero
@@ -118,6 +152,24 @@ describe("ExpiringSection", () => {
   it("renders nothing when empty", () => {
     const { container } = render(<ExpiringSection items={[]} onUsageUpdate={vi.fn()} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it("drops a just-completed row from the count but keeps it in the list", () => {
+    // The optimistic update recomputes amounts without re-bucketing, so a fully
+    // used credit is still in needsAttention until the next refetch. It must not
+    // be counted as at risk — but it stays visible so the user sees it settle.
+    render(
+      <ExpiringSection
+        items={[
+          makeBenefit({ benefitId: "e1", benefitName: "Uber Cash", unusedAmount: 0, usedAmount: 15, value: 15 }),
+          makeBenefit({ benefitId: "e2", benefitName: "Equinox Credit", unusedAmount: 25, value: 25 }),
+        ]}
+        onUsageUpdate={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/· 1 · \$25 at risk/)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: /Expiring soon/i }));
+    expect(screen.getByText("Uber Cash")).toBeDefined();
   });
 
   it("reveals an inline usage control when an expanded row is tapped", () => {

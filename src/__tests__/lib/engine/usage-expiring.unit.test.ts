@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { isExpiringSoon, buildOverviewTriage } from "@/lib/engine/expiring";
+import { isExpiringSoon, buildOverviewTriage, stillAtRisk } from "@/lib/engine/expiring";
 import type { BenefitWithPeriod } from "@/types/benefit";
+import type { OverviewBenefit } from "@/types/api";
 import type { UserCardWithBenefits } from "@/types/card";
 
 function makeBenefit(overrides: Partial<BenefitWithPeriod> = {}): BenefitWithPeriod {
@@ -252,5 +253,36 @@ describe("buildOverviewTriage", () => {
     expect(result.onTrack).toEqual([]);
     expect(result.done).toEqual([]);
     expect(result.moneyAtRisk).toEqual({ totalUnredeemed: 0, soonestDaysUntilReset: null });
+  });
+});
+
+describe("stillAtRisk", () => {
+  function row(benefitId: string, unusedAmount: number): OverviewBenefit {
+    return {
+      benefitId,
+      benefitName: "Uber Cash",
+      cardName: "Platinum Card",
+      issuer: "Amex",
+      cardColor: "#C9A961",
+      type: "credit",
+      category: "travel",
+      unusedAmount,
+      daysUntilReset: 4,
+      cardId: "uc1",
+      value: 15,
+      usedAmount: 15 - unusedAmount,
+      resetPeriod: "monthly",
+      setAndForget: false,
+    };
+  }
+
+  it("keeps only rows with unredeemed value left", () => {
+    const result = stillAtRisk([row("a", 10.5), row("b", 0), row("c", 25)]);
+    expect(result.map((r) => r.benefitId)).toEqual(["a", "c"]);
+  });
+
+  it("returns an empty array when every row is settled", () => {
+    expect(stillAtRisk([row("a", 0), row("b", 0)])).toEqual([]);
+    expect(stillAtRisk([])).toEqual([]);
   });
 });

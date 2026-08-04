@@ -57,3 +57,7 @@ docs/claudeDesignUI_extracted/
 
 # Feature 9 design source — decompressed JSX from the standalone HTML export (SEC-07 hygiene; reproducible, not committed)
 docs/design-source/
+
+# /brag output — plan, composition, rendered mp4 + poster (large binaries, regenerable)
+brag-output/
+brag-output-*/

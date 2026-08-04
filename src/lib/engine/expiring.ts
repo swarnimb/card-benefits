@@ -154,6 +154,18 @@ export function buildActiveCreditsByCategory(credits: OverviewBenefit[]): Catego
 }
 
 /**
+ * The needsAttention rows still worth acting on — unredeemed value remains this
+ * period. The optimistic client update (`use-overview-data.ts`) deliberately does
+ * not re-bucket, so a just-completed credit stays in needsAttention until the next
+ * refetch. Counting it would have the Overview claim "7 credits at risk" when one
+ * of them is already done, so every count the user reads filters through here.
+ * The row itself stays on screen (it shows `Done`) — only the counts change.
+ */
+export function stillAtRisk(rows: OverviewBenefit[]): OverviewBenefit[] {
+  return rows.filter((r) => r.unusedAmount > 0);
+}
+
+/**
  * Builds the hero sparkbar from the at-risk (needsAttention) set. Each segment's
  * weight is its share of the total unredeemed value; input order is preserved
  * (needsAttention is already sorted soonest-first). Returns [] when nothing is at risk.
