@@ -61,3 +61,8 @@ docs/design-source/
 # /brag output — plan, composition, rendered mp4 + poster (large binaries, regenerable)
 brag-output/
 brag-output-*/
+
+# Site card images — composed from the live demo for the swarnimbagre.com project
+# carousel, then uploaded to Supabase Storage. Large binaries, regenerable, and
+# they belong to the site rather than to this app.
+docs/screenshots/
